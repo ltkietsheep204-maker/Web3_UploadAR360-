@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEBAR - 3D Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0f;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    
+    #container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    #canvas3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+    
+    #cameraVideo {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+    }
+    
+    /* Compact Side Panel */
+    #sidePanel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 160px;
+      background: rgba(0, 0, 0, 0.85);
+      border-radius: 12px;
+      padding: 10px;
+      z-index: 100;
+      font-size: 11px;
+      color: #fff;
+      max-height: 90vh;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    #sidePanel::-webkit-scrollbar {
+      width: 4px;
+    }
+    #sidePanel::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 2px;
+    }
+    
+    .section-title {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      margin: 8px 0 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #333;
+    }
+    
+    .section-title:first-child {
+      margin-top: 0;
+    }
+    
+    #sidePanel button {
+      width: 100%;
+      padding: 6px 8px;
+      margin: 3px 0;
+      border: none;
+      border-radius: 6px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #fff;
+      background: linear-gradient(135deg, #333 0%, #555 100%);
+    }
+    
+    #sidePanel button:hover {
+      transform: scale(1.02);
+      filter: brightness(1.2);
+    }
+    
+    #sidePanel button.active {
+      box-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+    
+    .btn-walk { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important; }
+    .btn-idle { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
+    .btn-stop { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important; }
+    .btn-tunnel { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important; }
+    
+    .tunnel-speeds {
+      display: flex;
+      gap: 3px;
+    }
+    .tunnel-speeds button {
+      flex: 1;
+      font-size: 9px;
+      padding: 4px 2px;
+    }
+    
+    #info {
+      font-size: 9px;
+      color: #aaa;
+      line-height: 1.4;
+    }
+    
+    /* Status Toast */
+    #status {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 200;
+    }
+    #status.show { opacity: 1; }
+    #status.success { background: rgba(39, 174, 96, 0.9); }
+    #status.error { background: rgba(231, 76, 60, 0.9); }
+    
+    /* Toggle Panel Button */
+    #togglePanel {
+      position: fixed;
+      top: 10px;
+      right: 180px;
+      width: 30px;
+      height: 30px;
+      background: rgba(0,0,0,0.8);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 101;
+    }
+    #togglePanel:hover { background: rgba(50,50,50,0.9); }
+    
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <canvas id="canvas3d"></canvas>
+  </div>
+  
+  <button id="togglePanel">☰</button>
+  
+  <div id="sidePanel">
+    <div class="section-title">📊 Model Info</div>
+    <div id="info">Loading...</div>
+
+    <div class="section-title">🎬 Animations</div>
+    <div id="animButtons"></div>
+    
+    <div class="section-title">⚙️ Controls</div>
+    <button id="btnSkeleton">🦴 Skeleton</button>
+    <button id="btn360AR" style="background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);">🌍 360° AR</button>
+    <button id="btnARCamera" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);">📷 Camera AR</button>
+  </div>
+  
+  <div id="status"></div>
+
+  <!-- Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js"></script>
+
+  <script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // GLOBAL VARIABLES
+    // ══════════════════════════════════════════════════════════════════════════
+    let scene, camera, renderer, controls, clock;
+    let model, mixer, skeletonHelper;
+    let proceduralAnimator = null;
+    let environmentDome = null; // 3D environment sphere
+    let assetData = null; // Asset data from API
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // PROCEDURAL ANIMATOR CLASS
+    // ══════════════════════════════════════════════════════════════════════════
+    class ProceduralAnimator {
+      constructor(model) {
+        this.model = model;
+        this.bones = {};
+        this.isPlaying = false;
+        this.animType = null;
+        this.time = 0;
+        this.animId = null;
+        this.originalRotations = {};
+        
+        // Tunnel Walk settings - Character walks towards camera from center
+        this.tunnelWalk = {
+          enabled: false,
+          // Z axis (depth - towards camera)
+          startZ: -6,
+          endZ: 2,
+          // X axis (stays centered)
+          startX: 0,
+          endX: 0,
+          // Movement
+          speed: 0.25,
+          progress: 0,
+          looping: true
+        };
+        this.originalPosition = { x: 0, y: 0, z: 0 };
+        
+        // Bone mappings for Warrior model
+        this.boneNameMap = {
+          hips: ['Hip', 'hips', 'pelvis', 'Hips', 'Pelvis'],
+          spine: ['Waist', 'waist', 'spine', 'Spine'],
+          spine1: ['Spine01', 'spine01', 'spine1'],
+          spine2: ['Spine02', 'spine02', 'spine2', 'chest'],
+          neck: ['NeckTwist01', 'neck', 'Neck'],
+          head: ['Head', 'head'],
+          
+          leftUpLeg: ['L_Thigh', 'LeftUpLeg', 'leftThigh'],
+          leftLeg: ['L_Calf', 'LeftLeg', 'leftShin'],
+          leftFoot: ['L_Foot', 'LeftFoot', 'leftFoot'],
+          
+          rightUpLeg: ['R_Thigh', 'RightUpLeg', 'rightThigh'],
+          rightLeg: ['R_Calf', 'RightLeg', 'rightShin'],
+          rightFoot: ['R_Foot', 'RightFoot', 'rightFoot'],
+          
+          leftShoulder: ['L_Clavicle', 'LeftShoulder'],
+          leftArm: ['L_Upperarm', 'LeftArm', 'leftArm'],
+          leftForeArm: ['L_Forearm', 'LeftForeArm', 'leftForeArm'],
+          leftHand: ['L_Hand', 'LeftHand', 'leftHand'],
+          
+          rightShoulder: ['R_Clavicle', 'RightShoulder'],
+          rightArm: ['R_Upperarm', 'RightArm', 'rightArm'],
+          rightForeArm: ['R_Forearm', 'RightForeArm', 'rightForeArm'],
+          rightHand: ['R_Hand', 'RightHand', 'rightHand']
+        };
+        
+        this.detectBones();
+      }
+      
+      detectBones() {
+        console.log('🔍 Detecting bones...');
+        
+        this.model.traverse(child => {
+          if (child.isBone || child.type === 'Bone') {
+            const name = child.name;
+            
+            for (const [standardName, aliases] of Object.entries(this.boneNameMap)) {
+              if (this.bones[standardName]) continue;
+              
+              for (const alias of aliases) {
+                if (name === alias || name.toLowerCase().includes(alias.toLowerCase())) {
+                  this.bones[standardName] = child;
+                  console.log(`  ✓ ${standardName}: ${name}`);
+                  break;
+                }
+              }
+            }
+          }
+        });
+        
+        console.log(`📊 Mapped ${Object.keys(this.bones).length} bones`);
+        this.storeOriginalRotations();
+        
+        this.originalPosition = {
+          x: this.model.position.x,
+          y: this.model.position.y,
+          z: this.model.position.z
+        };
+      }
+      
+      storeOriginalRotations() {
+        Object.keys(this.bones).forEach(name => {
+          const bone = this.bones[name];
+          if (bone) {
+            this.originalRotations[name] = {
+              x: bone.rotation.x,
+              y: bone.rotation.y,
+              z: bone.rotation.z
+            };
+          }
+        });
+      }
+      
+      getBoneCount() {
+        return Object.keys(this.bones).length;
+      }
+      
+      play(type = 'walk') {
+        if (this.isPlaying && this.animType === type) return;
+        this.stop();
+        this.isPlaying = true;
+        this.animType = type;
+        this.time = 0;
+        this.animate();
+      }
+      
+      stop() {
+        this.isPlaying = false;
+        this.animType = null;
+        if (this.animId) {
+          cancelAnimationFrame(this.animId);
+          this.animId = null;
+        }
+        this.resetPose();
+      }
+      
+      resetPose() {
+        Object.keys(this.bones).forEach(name => {
+          const bone = this.bones[name];
+          const orig = this.originalRotations[name];
+          if (bone && orig) {
+            bone.rotation.x = orig.x;
+            bone.rotation.y = orig.y;
+            bone.rotation.z = orig.z;
+          }
+        });
+      }
+      
+      resetPosition() {
+        this.model.position.x = this.originalPosition.x;
+        this.model.position.y = this.originalPosition.y;
+        this.model.position.z = this.originalPosition.z;
+        this.tunnelWalk.progress = 0;
+      }
+      
+      setTunnelWalk(enabled, options = {}) {
+        this.tunnelWalk.enabled = enabled;
+        if (options.speed !== undefined) this.tunnelWalk.speed = options.speed;
+        
+        if (enabled) {
+          this.tunnelWalk.progress = 0;
+          // Start from center, walk towards camera
+          this.tunnelWalk.startX = 0;
+          this.tunnelWalk.endX = 0;
+          this.tunnelWalk.startZ = -6;
+          this.tunnelWalk.endZ = 2;
+          
+          this.model.position.z = this.tunnelWalk.startZ;
+          this.model.position.x = this.tunnelWalk.startX;
+          
+          // Face camera (forward)
+          this.model.rotation.y = 0;
+        }
+      }
+      
+      updateTunnelPosition(dt) {
+        if (!this.tunnelWalk.enabled) return;
+        
+        const tw = this.tunnelWalk;
+        tw.progress += dt * tw.speed * 0.06;
+        
+        if (tw.progress >= 1) {
+          if (tw.looping) {
+            tw.progress = 0;
+            // Reset to start position (center, far back)
+            tw.startX = 0;
+            tw.endX = 0;
+            tw.startZ = -6;
+            tw.endZ = 2;
+            
+            this.model.position.x = tw.startX;
+            this.model.position.z = tw.startZ;
+            this.model.rotation.y = 0;
+          } else {
+            tw.progress = 1;
+          }
+        }
+        
+        // Smooth easing
+        const t = tw.progress;
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        
+        // Move along both X and Z axes
+        this.model.position.z = tw.startZ + (tw.endZ - tw.startZ) * eased;
+        this.model.position.x = tw.startX + (tw.endX - tw.startX) * eased;
+      }
+      
+      animate() {
+        if (!this.isPlaying) return;
+        
+        const dt = 0.016;
+        this.time += dt;
+        
+        this.updateTunnelPosition(dt);
+        
+        if (this.animType === 'walk') {
+          this.animateWalk();
+        } else if (this.animType === 'idle') {
+          this.animateIdle();
+        } else if (this.animType === 'look_around') {
+          this.animateLookAround();
+        }
+        
+        this.animId = requestAnimationFrame(() => this.animate());
+      }
+      
+      // ════════════════════════════════════════════════════════════════════════
+      // WALK ANIMATION - Professional quality walk cycle
+      // ════════════════════════════════════════════════════════════════════════
+      animateWalk() {
+        const speed = 1.0; // Slightly slower for more natural feel
+        const t = this.time * speed;
+        const phase = (t % 1) * Math.PI * 2;
+        const b = this.bones;
+        
+        const orig = (name, axis) => this.originalRotations[name]?.[axis] || 0;
+        
+        // Smooth sine functions for more natural motion
+        const smoothSin = (p) => Math.sin(p);
+        const smoothCos = (p) => Math.cos(p);
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // HIPS/PELVIS - Center of mass, figure-8 motion
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.hips) {
+          // Lateral tilt - weight shift side to side
+          b.hips.rotation.z = orig('hips', 'z') + smoothSin(phase) * 0.035;
+          // Rotation - pelvis turns with leg swing
+          b.hips.rotation.y = orig('hips', 'y') + smoothSin(phase) * 0.06;
+          // Vertical tilt - slight forward/back
+          b.hips.rotation.x = orig('hips', 'x') + smoothSin(phase * 2) * 0.015;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SPINE CHAIN - Counter-rotation for balance, S-curve
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.spine) {
+          // Counter-rotate against hips
+          b.spine.rotation.y = orig('spine', 'y') - smoothSin(phase) * 0.045;
+          b.spine.rotation.z = orig('spine', 'z') - smoothSin(phase) * 0.015;
+          // Slight forward lean when walking
+          b.spine.rotation.x = orig('spine', 'x') + 0.02;
+        }
+        if (b.spine1) {
+          b.spine1.rotation.y = orig('spine1', 'y') - smoothSin(phase) * 0.03;
+          b.spine1.rotation.z = orig('spine1', 'z') - smoothSin(phase) * 0.01;
+        }
+        if (b.spine2) {
+          // Chest counter-rotation
+          b.spine2.rotation.y = orig('spine2', 'y') - smoothSin(phase) * 0.02;
+          // Breathing overlay
+          b.spine2.rotation.x = orig('spine2', 'x') + smoothSin(t * 3) * 0.008;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // RIGHT LEG - Contact, Passing, Swing phases
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.rightUpLeg) {
+          // Thigh swing: forward (-) to back (+)
+          const thighSwing = smoothSin(phase) * 0.38;
+          // Add slight outward rotation during swing
+          b.rightUpLeg.rotation.x = orig('rightUpLeg', 'x') + thighSwing;
+          b.rightUpLeg.rotation.z = orig('rightUpLeg', 'z') + smoothSin(phase) * 0.02;
+        }
+        
+        if (b.rightLeg) {
+          // Knee bend peaks when thigh is forward
+          // Use smoothstep for more natural bend
+          const bendAmount = Math.max(0, smoothSin(phase + 0.4));
+          const kneeBend = bendAmount * bendAmount * 0.55; // Squared for snap
+          b.rightLeg.rotation.x = orig('rightLeg', 'x') + kneeBend;
+        }
+        
+        if (b.rightFoot) {
+          // Foot roll: heel strike → toe off
+          const heelStrike = smoothSin(phase - 0.6) * 0.2; // Heel down at contact
+          const toeOff = Math.max(0, smoothSin(phase + 0.5)) * 0.25; // Toe push
+          b.rightFoot.rotation.x = orig('rightFoot', 'x') + heelStrike - toeOff;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // LEFT LEG - 180° out of phase
+        // ═══════════════════════════════════════════════════════════════════
+        const leftPhase = phase + Math.PI;
+        
+        if (b.leftUpLeg) {
+          const thighSwing = smoothSin(leftPhase) * 0.38;
+          b.leftUpLeg.rotation.x = orig('leftUpLeg', 'x') + thighSwing;
+          b.leftUpLeg.rotation.z = orig('leftUpLeg', 'z') - smoothSin(leftPhase) * 0.02;
+        }
+        
+        if (b.leftLeg) {
+          const bendAmount = Math.max(0, smoothSin(leftPhase + 0.4));
+          const kneeBend = bendAmount * bendAmount * 0.55;
+          b.leftLeg.rotation.x = orig('leftLeg', 'x') + kneeBend;
+        }
+        
+        if (b.leftFoot) {
+          const heelStrike = smoothSin(leftPhase - 0.6) * 0.2;
+          const toeOff = Math.max(0, smoothSin(leftPhase + 0.5)) * 0.25;
+          b.leftFoot.rotation.x = orig('leftFoot', 'x') + heelStrike - toeOff;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SHOULDERS - Lead the arm swing slightly
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.rightShoulder) {
+          b.rightShoulder.rotation.z = orig('rightShoulder', 'z') - smoothSin(leftPhase) * 0.025;
+          b.rightShoulder.rotation.y = orig('rightShoulder', 'y') - smoothSin(leftPhase) * 0.015;
+        }
+        if (b.leftShoulder) {
+          b.leftShoulder.rotation.z = orig('leftShoulder', 'z') + smoothSin(phase) * 0.025;
+          b.leftShoulder.rotation.y = orig('leftShoulder', 'y') + smoothSin(phase) * 0.015;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // RIGHT ARM - Opposite to right leg (follows left leg phase)
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.rightArm) {
+          // Arm swings back when right leg forward
+          const armSwing = smoothSin(leftPhase) * 0.4;
+          b.rightArm.rotation.x = orig('rightArm', 'x') + armSwing;
+          // Slight inward rotation
+          b.rightArm.rotation.z = orig('rightArm', 'z') + smoothSin(leftPhase) * 0.03;
+        }
+        
+        if (b.rightForeArm) {
+          // Elbow bends when arm swings back
+          const backSwing = Math.max(0, smoothSin(leftPhase));
+          const elbowBend = backSwing * 0.35 + 0.05; // Always slightly bent
+          b.rightForeArm.rotation.x = orig('rightForeArm', 'x') - elbowBend;
+        }
+        
+        if (b.rightHand) {
+          // Hand follows forearm with slight delay
+          b.rightHand.rotation.x = orig('rightHand', 'x') - smoothSin(leftPhase + 0.2) * 0.1;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // LEFT ARM - Opposite to left leg (follows right leg phase)
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.leftArm) {
+          const armSwing = smoothSin(phase) * 0.4;
+          b.leftArm.rotation.x = orig('leftArm', 'x') + armSwing;
+          b.leftArm.rotation.z = orig('leftArm', 'z') - smoothSin(phase) * 0.03;
+        }
+        
+        if (b.leftForeArm) {
+          const backSwing = Math.max(0, smoothSin(phase));
+          const elbowBend = backSwing * 0.35 + 0.05;
+          b.leftForeArm.rotation.x = orig('leftForeArm', 'x') - elbowBend;
+        }
+        
+        if (b.leftHand) {
+          b.leftHand.rotation.x = orig('leftHand', 'x') - smoothSin(phase + 0.2) * 0.1;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // HEAD & NECK - Stabilization (keeps looking forward)
+        // ═══════════════════════════════════════════════════════════════════
+        if (b.neck) {
+          // Counter-rotate against spine to keep head stable
+          b.neck.rotation.y = orig('neck', 'y') + smoothSin(phase) * 0.025;
+          b.neck.rotation.z = orig('neck', 'z') + smoothSin(phase) * 0.01;
+        }
+        if (b.head) {
+          // Minimal head bob - humans stabilize head when walking
+          b.head.rotation.x = orig('head', 'x') + smoothSin(phase * 2) * 0.01;
+          // Slight look in direction of movement
+          b.head.rotation.z = orig('head', 'z') + smoothSin(phase) * 0.008;
+        }
+      }
+      
+      // ════════════════════════════════════════════════════════════════════════
+      // IDLE ANIMATION - Natural breathing and weight shift
+      // ════════════════════════════════════════════════════════════════════════
+      animateIdle() {
+        const t = this.time;
+        const b = this.bones;
+        
+        const orig = (name, axis) => this.originalRotations[name]?.[axis] || 0;
+        
+        // Breathing cycle (slower, more natural)
+        const breathCycle = Math.sin(t * 1.2) * 0.5 + 0.5; // 0 to 1
+        const breathAmount = breathCycle * 0.018;
+        
+        // Spine breathing
+        if (b.spine) {
+          b.spine.rotation.x = orig('spine', 'x') + breathAmount;
+        }
+        if (b.spine1) {
+          b.spine1.rotation.x = orig('spine1', 'x') + breathAmount * 0.7;
+        }
+        if (b.spine2) {
+          b.spine2.rotation.x = orig('spine2', 'x') + breathAmount * 0.5;
+          // Shoulders rise slightly with breath
+          b.spine2.rotation.z = orig('spine2', 'z') + Math.sin(t * 1.2 + 0.2) * 0.005;
+        }
+        
+        // Subtle weight shift (very slow)
+        if (b.hips) {
+          b.hips.rotation.z = orig('hips', 'z') + Math.sin(t * 0.3) * 0.012;
+          b.hips.rotation.y = orig('hips', 'y') + Math.sin(t * 0.2) * 0.008;
+        }
+        
+        // Arms hang naturally with slight sway
+        if (b.rightArm) {
+          b.rightArm.rotation.z = orig('rightArm', 'z') + Math.sin(t * 0.4) * 0.015;
+        }
+        if (b.leftArm) {
+          b.leftArm.rotation.z = orig('leftArm', 'z') - Math.sin(t * 0.4 + 0.5) * 0.015;
+        }
+        
+        // Head micro-movements (looking around slightly)
+        if (b.head) {
+          b.head.rotation.y = orig('head', 'y') + Math.sin(t * 0.25) * 0.025;
+          b.head.rotation.x = orig('head', 'x') + Math.sin(t * 0.35) * 0.012;
+        }
+        if (b.neck) {
+          b.neck.rotation.y = orig('neck', 'y') + Math.sin(t * 0.2 + 1) * 0.015;
+        }
+      }
+      
+      // ════════════════════════════════════════════════════════════════════════
+      // LOOK AROUND - Stand still, fidget legs, look around
+      // ════════════════════════════════════════════════════════════════════════
+      animateLookAround() {
+        const t = this.time;
+        const b = this.bones;
+        
+        const orig = (name, axis) => this.originalRotations[name]?.[axis] || 0;
+        
+        // Breathing cycle
+        const breathCycle = Math.sin(t * 1.0) * 0.5 + 0.5;
+        const breathAmount = breathCycle * 0.05;
+        
+        // ══ SPINE - Breathing motion ══
+        if (b.spine) {
+          b.spine.rotation.x = orig('spine', 'x') + breathAmount;
+          b.spine.rotation.z = orig('spine', 'z') + Math.sin(t * 0.4) * 0.03;
+        }
+        if (b.spine1) {
+          b.spine1.rotation.x = orig('spine1', 'x') + breathAmount * 0.7;
+        }
+        if (b.spine2) {
+          b.spine2.rotation.x = orig('spine2', 'x') + breathAmount * 0.5;
+        }
+        
+        // ══ HIPS - Weight shift side to side ══
+        if (b.hips) {
+          // Side-to-side weight shift - MORE VISIBLE
+          b.hips.rotation.z = orig('hips', 'z') + Math.sin(t * 0.5) * 0.08;
+          // Forward/back sway
+          b.hips.rotation.x = orig('hips', 'x') + Math.sin(t * 0.6) * 0.04;
+          // Turn body slightly
+          b.hips.rotation.y = orig('hips', 'y') + Math.sin(t * 0.3) * 0.06;
+        }
+        
+        // ══ LEGS - Fidgeting / shifting weight ══
+        // Right leg
+        if (b.rightUpLeg) {
+          b.rightUpLeg.rotation.x = orig('rightUpLeg', 'x') + Math.sin(t * 0.7) * 0.1;
+          b.rightUpLeg.rotation.z = orig('rightUpLeg', 'z') + Math.sin(t * 0.5) * 0.04;
+        }
+        if (b.rightLeg) {
+          // Knee bends when weight shifts
+          b.rightLeg.rotation.x = orig('rightLeg', 'x') + Math.max(0, Math.sin(t * 0.7)) * 0.15;
+        }
+        if (b.rightFoot) {
+          b.rightFoot.rotation.x = orig('rightFoot', 'x') + Math.sin(t * 0.8) * 0.08;
+          b.rightFoot.rotation.z = orig('rightFoot', 'z') + Math.sin(t * 0.6) * 0.03;
+        }
+        
+        // Left leg - offset timing
+        if (b.leftUpLeg) {
+          b.leftUpLeg.rotation.x = orig('leftUpLeg', 'x') + Math.sin(t * 0.65 + 2) * 0.1;
+          b.leftUpLeg.rotation.z = orig('leftUpLeg', 'z') + Math.sin(t * 0.45 + 1.5) * 0.04;
+        }
+        if (b.leftLeg) {
+          b.leftLeg.rotation.x = orig('leftLeg', 'x') + Math.max(0, Math.sin(t * 0.65 + 2)) * 0.15;
+        }
+        if (b.leftFoot) {
+          b.leftFoot.rotation.x = orig('leftFoot', 'x') + Math.sin(t * 0.75 + 1.5) * 0.08;
+          b.leftFoot.rotation.z = orig('leftFoot', 'z') + Math.sin(t * 0.55 + 1) * 0.03;
+        }
+        
+        // ══ ARMS - Swing and fidget ══
+        if (b.rightShoulder) {
+          b.rightShoulder.rotation.z = orig('rightShoulder', 'z') + Math.sin(t * 0.5) * 0.04;
+        }
+        if (b.rightArm) {
+          b.rightArm.rotation.z = orig('rightArm', 'z') + Math.sin(t * 0.6) * 0.1;
+          b.rightArm.rotation.x = orig('rightArm', 'x') + Math.sin(t * 0.45) * 0.08;
+        }
+        if (b.rightForeArm) {
+          b.rightForeArm.rotation.x = orig('rightForeArm', 'x') + Math.sin(t * 0.7) * 0.08;
+        }
+        
+        if (b.leftShoulder) {
+          b.leftShoulder.rotation.z = orig('leftShoulder', 'z') - Math.sin(t * 0.55 + 1) * 0.04;
+        }
+        if (b.leftArm) {
+          b.leftArm.rotation.z = orig('leftArm', 'z') - Math.sin(t * 0.65 + 0.8) * 0.1;
+          b.leftArm.rotation.x = orig('leftArm', 'x') + Math.sin(t * 0.5 + 1.2) * 0.08;
+        }
+        if (b.leftForeArm) {
+          b.leftForeArm.rotation.x = orig('leftForeArm', 'x') + Math.sin(t * 0.75 + 1) * 0.08;
+        }
+        
+        // ══ HEAD & NECK - Looking around MORE ══
+        if (b.neck) {
+          // Turn left/right
+          b.neck.rotation.y = orig('neck', 'y') + Math.sin(t * 0.35) * 0.15;
+          // Tilt
+          b.neck.rotation.z = orig('neck', 'z') + Math.sin(t * 0.4 + 0.5) * 0.06;
+        }
+        if (b.head) {
+          // Look around - BIGGER movement
+          b.head.rotation.y = orig('head', 'y') + Math.sin(t * 0.3) * 0.25;
+          // Look up/down
+          b.head.rotation.x = orig('head', 'x') + Math.sin(t * 0.4) * 0.12;
+          // Head tilt
+          b.head.rotation.z = orig('head', 'z') + Math.sin(t * 0.45 + 1) * 0.08;
+        }
+      }
+    }
+    
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ══════════════════════════════════════════════════════════════════════════
+    let arMode = false;
+    let ground, grid;
+    
+    async function init() {
+      const container = document.getElementById('container');
+      const canvas = document.getElementById('canvas3d');
+      
+      // Scene - transparent for AR camera
+      scene = new THREE.Scene();
+      scene.background = null; // Transparent for camera AR
+      
+      // Camera - closer for better view
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 1.5, 6);
+      
+      // Renderer - alpha for AR transparency
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      
+      // Controls
+      controls = new THREE.OrbitControls(camera, canvas);
+      controls.enableDamping = true;
+      controls.target.set(0, 1, 0);
+      
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+      
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      directionalLight.position.set(5, 10, 7);
+      directionalLight.castShadow = true;
+      scene.add(directionalLight);
+      
+      const backLight = new THREE.DirectionalLight(0x4488ff, 0.3);
+      backLight.position.set(-5, 5, -5);
+      scene.add(backLight);
+      
+      // Ground plane (semi-transparent for AR)
+      const groundGeometry = new THREE.PlaneGeometry(20, 20);
+      const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x222233,
+        roughness: 0.8,
+        transparent: true,
+        opacity: 0.5
+      });
+      ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+      
+      // Grid (can be hidden in AR)
+      grid = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
+      scene.add(grid);
+      
+      // Environment Dome (for 360 backgrounds)
+      const domeGeometry = new THREE.SphereGeometry(50, 64, 32);
+      const domeMaterial = new THREE.MeshBasicMaterial({
+        color: 0x1a1a2e,
+        side: THREE.BackSide, // Render inside
+        transparent: true,
+        opacity: 0
+      });
+      environmentDome = new THREE.Mesh(domeGeometry, domeMaterial);
+      scene.add(environmentDome);
+      
+      // Clock
+      clock = new THREE.Clock();
+      
+      // Try to init AR camera
+      await initARCamera();
+      
+      // Get asset ID from URL
+      const pathParts = window.location.pathname.split('/');
+      const assetId = pathParts[pathParts.length - 1];
+      
+      // Load asset data from API
+      if (assetId && assetId !== 'viewer.html') {
+        try {
+          const response = await fetch(`/api/asset/${assetId}`);
+          if (response.ok) {
+            assetData = await response.json();
+            console.log('📦 Asset data:', assetData);
+            
+            // Apply ground image if exists
+            if (assetData.groundImage) {
+              const textureLoader = new THREE.TextureLoader();
+              textureLoader.load(assetData.groundImage, (texture) => {
+                ground.material.map = texture;
+                ground.material.color.set(0xffffff);
+                ground.material.opacity = 1;
+                ground.material.needsUpdate = true;
+                console.log('🎨 Ground image applied:', assetData.groundImage);
+              });
+            }
+            
+            // Apply environment image if exists - but DON'T show by default
+            // Will be shown when user clicks 360° AR button
+            if (assetData.envImage) {
+              const textureLoader = new THREE.TextureLoader();
+              textureLoader.load(assetData.envImage, (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                // Store texture but don't apply yet
+                environmentDome.material.map = texture;
+                environmentDome.material.color.set(0xffffff);
+                // Keep opacity 0 - will show on 360 AR click
+                environmentDome.material.opacity = 0;
+                environmentDome.material.needsUpdate = true;
+                // DON'T set scene.background - keep transparent for camera
+                console.log('🌳 Environment image loaded (click 360° AR to show):', assetData.envImage);
+              });
+            }
+            
+            // Load props (3D objects) if exists
+            if (assetData.props && assetData.props.length > 0) {
+              loadProps(assetData.props);
+            }
+          }
+        } catch (e) {
+          console.log('Could not load asset data, using defaults');
+        }
+      }
+      
+      // Load model
+      loadModel();
+      
+      // Animation loop
+      animate();
+      
+      // Resize handler
+      window.addEventListener('resize', onResize);
+    }
+    
+    function loadModel() {
+      showStatus('📦 Đang tải model...', 'info');
+      
+      // Use model from asset data if available, otherwise use default
+      const modelPath = assetData?.model || '/uploads/warrior 3d model rigged.glb';
+      console.log('📦 Loading model:', modelPath);
+      
+      // Detect file type and use appropriate loader
+      const isFBX = modelPath.toLowerCase().endsWith('.fbx');
+      
+      if (isFBX) {
+        // FBX Loader
+        const fbxLoader = new THREE.FBXLoader();
+        fbxLoader.load(
+          modelPath,
+          (fbx) => {
+            model = fbx;
+            // FBX animations are in fbx.animations
+            const animations = fbx.animations || [];
+            console.log(`🎬 FBX has ${animations.length} animation(s)`);
+            processLoadedModel(model, animations);
+          },
+          (progress) => {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            showStatus(`📦 Loading FBX: ${percent}%`, 'info');
+          },
+          (error) => {
+            console.error('Error loading FBX model:', error);
+            showStatus('❌ Lỗi tải model FBX', 'error');
+          }
+        );
+      } else {
+        // GLTF/GLB Loader
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          modelPath,
+          (gltf) => {
+            model = gltf.scene;
+            // GLTF animations are in gltf.animations
+            const animations = gltf.animations || [];
+            console.log(`🎬 GLTF has ${animations.length} animation(s)`);
+            processLoadedModel(model, animations);
+          },
+          (progress) => {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            showStatus(`📦 Loading: ${percent}%`, 'info');
+          },
+          (error) => {
+            console.error('Error loading model:', error);
+            showStatus('❌ Lỗi tải model', 'error');
+          }
+        );
+      }
+    }
+    
+    // Process loaded model (works for both GLTF and FBX)
+    function processLoadedModel(loadedModel, animations = []) {
+      // Add model to scene first
+      scene.add(loadedModel);
+      
+      // Reset transforms completely
+      loadedModel.position.set(0, 0, 0);
+      loadedModel.rotation.set(0, 0, 0);
+      loadedModel.scale.set(1, 1, 1);
+      loadedModel.updateMatrixWorld(true);
+      
+      // Calculate initial bounding box
+      const box = new THREE.Box3().setFromObject(loadedModel);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      
+      console.log(`📦 Original: min.y=${box.min.y.toFixed(2)}, max.y=${box.max.y.toFixed(2)}, height=${size.y.toFixed(2)}`);
+      
+      // Scale model to target height (~2.5 units)
+      const targetHeight = 2.5;
+      const scaleFactor = targetHeight / size.y;
+      loadedModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      loadedModel.updateMatrixWorld(true);
+      
+      // Recalculate bounding box after scaling
+      const scaledBox = new THREE.Box3().setFromObject(loadedModel);
+      const scaledSize = scaledBox.getSize(new THREE.Vector3());
+      const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+      
+      console.log(`📦 After scale: min.y=${scaledBox.min.y.toFixed(2)}, max.y=${scaledBox.max.y.toFixed(2)}, height=${scaledSize.y.toFixed(2)}`);
+      
+      // KEY FIX: Calculate exact offset to place model feet at Y=0
+      // The model's lowest point (min.y) needs to be at ground level (Y=0)
+      // So we need to move the model UP by the negative of min.y
+      // KEY FIX: Calculate exact offset to place model feet at Y=0
+      // The model's lowest point (min.y) needs to be at ground level (Y=0)
+      // So we need to move the model UP by the negative of min.y
+      const yOffset = -scaledBox.min.y;
+      
+      // Get admin-configured Y offset (if any)
+      const adminYOffset = assetData?.modelY || 0;
+      
+      // Position model:
+      // - Center horizontally (X, Z) 
+      // - Move Y so that feet touch ground (min.y becomes 0) + admin offset
+      loadedModel.position.set(
+        -scaledCenter.x,
+        yOffset + adminYOffset,
+        -scaledCenter.z
+      );
+      
+      loadedModel.updateMatrixWorld(true);
+      
+      // Verify the fix worked
+      const finalBox = new THREE.Box3().setFromObject(loadedModel);
+      console.log(`✅ Final: min.y=${finalBox.min.y.toFixed(2)}, max.y=${finalBox.max.y.toFixed(2)}`);
+      console.log(`📍 Model position: Y=${loadedModel.position.y.toFixed(2)} (auto: ${yOffset.toFixed(2)}, admin: ${adminYOffset})`);
+      
+      // Keep ground at Y=0
+      ground.position.y = 0;
+      grid.position.y = 0;
+      
+      // Enable shadows
+      loadedModel.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      model = loadedModel; // Update global reference
+      
+      // Count bones
+      let boneCount = 0;
+      loadedModel.traverse(child => {
+        if (child.isBone) boneCount++;
+      });
+      
+      // Create skeleton helper
+      loadedModel.traverse(child => {
+        if (child.isSkinnedMesh) {
+          skeletonHelper = new THREE.SkeletonHelper(loadedModel);
+          skeletonHelper.visible = false;
+          scene.add(skeletonHelper);
+        }
+      });
+      
+      // Biến lưu action để có thể dừng
+      let currentAction = null;
+
+      // If model has embedded animations - auto play and show stop button
+      if (animations.length > 0) {
+        mixer = new THREE.AnimationMixer(loadedModel);
+        currentAction = mixer.clipAction(animations[0]);
+        currentAction.play();
+        
+        // Add stop button
+        const animButtonsDiv = document.getElementById('animButtons');
+        animButtonsDiv.innerHTML = '';
+        const stopBtn = document.createElement('button');
+        stopBtn.textContent = '⏹️ Dừng animation';
+        stopBtn.className = 'btn-stop';
+        stopBtn.onclick = () => {
+          if (currentAction) {
+            currentAction.stop();
+            showStatus('⏹️ Đã dừng animation');
+          }
+        };
+        animButtonsDiv.appendChild(stopBtn);
+        
+        // Play button to resume
+        const playBtn = document.createElement('button');
+        playBtn.textContent = '▶️ Phát animation';
+        playBtn.className = 'btn-walk';
+        playBtn.onclick = () => {
+          if (currentAction) {
+            currentAction.reset();
+            currentAction.play();
+            showStatus('▶️ Đang phát animation');
+          }
+        };
+        animButtonsDiv.appendChild(playBtn);
+        
+        document.getElementById('info').innerHTML = `Bones: ${boneCount}<br>Animations: ${animations.length}<br>▶️ ${animations[0].name || 'Animation'}`;
+        showStatus(`✅ Model loaded - Animation đang phát!`, 'success');
+      } else {
+        // No embedded animations - use procedural animation
+        proceduralAnimator = new ProceduralAnimator(loadedModel);
+        proceduralAnimator.play('look_around');
+        document.getElementById('info').innerHTML = `Bones: ${boneCount}<br>✅ Procedural Anim`;
+        showStatus('✅ Model loaded with procedural animation!', 'success');
+      }
+    }
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // PROPS LOADER - Load additional 3D objects onto the ground
+    // ══════════════════════════════════════════════════════════════════════════
+    let loadedProps = [];
+    
+    function loadProps(propPaths) {
+      const loader = new THREE.GLTFLoader();
+      const numProps = propPaths.length;
+      
+      // Calculate positions in a circle around the main character
+      const radius = 3; // Distance from center
+      const angleStep = (2 * Math.PI) / Math.max(numProps, 4);
+      
+      propPaths.forEach((propPath, index) => {
+        loader.load(
+          propPath,
+          (gltf) => {
+            const prop = gltf.scene;
+            
+            // Calculate position
+            const angle = angleStep * index;
+            const x = Math.cos(angle) * radius * (0.5 + Math.random() * 0.5);
+            const z = Math.sin(angle) * radius * (0.5 + Math.random() * 0.5);
+            
+            // Scale prop to reasonable size
+            const box = new THREE.Box3().setFromObject(prop);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const targetSize = 0.5 + Math.random() * 1; // Random size 0.5-1.5
+            const scale = targetSize / maxDim;
+            prop.scale.set(scale, scale, scale);
+            
+            // Position on ground
+            const newBox = new THREE.Box3().setFromObject(prop);
+            prop.position.set(x, -newBox.min.y * scale, z);
+            
+            // Random rotation
+            prop.rotation.y = Math.random() * Math.PI * 2;
+            
+            // Enable shadows
+            prop.traverse(child => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
+            
+            scene.add(prop);
+            loadedProps.push(prop);
+            
+            console.log(`🎄 Prop ${index + 1}/${numProps} loaded:`, propPath);
+          },
+          undefined,
+          (error) => {
+            console.error('Error loading prop:', propPath, error);
+          }
+        );
+      });
+    }
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // AR CAMERA
+    // ══════════════════════════════════════════════════════════════════════════
+    async function initARCamera() {
+      const video = document.getElementById('cameraVideo');
+      
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        });
+        
+        video.srcObject = stream;
+        video.style.display = 'block';
+        await video.play();
+        
+        // Enable AR mode - make canvas transparent
+        arMode = true;
+        scene.background = null; // Transparent
+        renderer.setClearColor(0x000000, 0); // Transparent background
+        ground.material.opacity = 0.15;
+        grid.visible = false;
+        
+        showStatus('📷 AR Camera enabled!', 'success');
+        console.log('📷 AR Camera initialized');
+        
+      } catch (error) {
+        console.log('📷 Camera not available:', error.message);
+        video.style.display = 'none';
+        arMode = false;
+        // Show default background if no camera
+        scene.background = new THREE.Color(0x1a1a2e);
+        renderer.setClearColor(0x1a1a2e, 1);
+        showStatus('📷 Camera không khả dụng - Chế độ 3D', 'info');
+      }
+    }
+    
+    function toggleAR() {
+      const video = document.getElementById('cameraVideo');
+      
+      if (arMode) {
+        // Turn off AR
+        video.style.display = 'none';
+        scene.background = new THREE.Color(0x1a1a2e);
+        ground.material.opacity = 0.3;
+        grid.visible = true;
+        arMode = false;
+        showStatus('🖥️ Chế độ 3D', 'info');
+      } else {
+        // Turn on AR
+        initARCamera();
+      }
+      
+      updateInfoPanel();
+    }
+    
+    function updateInfoPanel() {
+      if (!proceduralAnimator) return;
+      document.getElementById('info').innerHTML = `
+        Mapped: ${proceduralAnimator.getBoneCount()} bones<br>
+        AR: ${arMode ? '✅ ON' : '❌ OFF'}<br>
+        ✅ Ready
+      `;
+    }
+    
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const delta = clock.getDelta();
+      
+      controls.update();
+      
+      if (mixer) {
+        mixer.update(delta);
+      }
+      
+      renderer.render(scene, camera);
+    }
+    
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    function showStatus(msg, type = 'info') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'show ' + type;
+      setTimeout(() => el.className = '', 2000);
+    }
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // EVENT HANDLERS
+    // ══════════════════════════════════════════════════════════════════════════
+    document.getElementById('togglePanel').onclick = () => {
+      document.getElementById('sidePanel').classList.toggle('hidden');
+    };
+    
+    document.getElementById('btnSkeleton').onclick = () => {
+      if (skeletonHelper) {
+        skeletonHelper.visible = !skeletonHelper.visible;
+        showStatus(skeletonHelper.visible ? '🦴 Skeleton ON' : '🦴 Skeleton OFF', 'info');
+      }
+    };
+    
+    // 360 AR Mode - Show environment image uploaded by admin
+    let is360Mode = false;
+    let savedBackground = null;
+    
+    document.getElementById('btn360AR').onclick = () => {
+      is360Mode = !is360Mode;
+      const video = document.getElementById('cameraVideo');
+      
+      if (is360Mode) {
+        // Switch to 360 environment mode
+        if (assetData?.envImage) {
+          // Hide camera video
+          video.style.display = 'none';
+          
+          // Show environment dome and background
+          if (environmentDome.material.map) {
+            environmentDome.material.opacity = 1;
+            environmentDome.material.needsUpdate = true;
+          }
+          
+          // Make canvas background opaque
+          renderer.setClearColor(0x1a1a2e, 1);
+          
+          // Hide ground in 360 mode
+          ground.visible = false;
+          grid.visible = false;
+          
+          document.getElementById('btn360AR').style.background = 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)';
+          document.getElementById('btn360AR').textContent = '🌍 360° ON';
+          showStatus('🌍 360° AR Mode - Môi trường admin', 'success');
+        } else {
+          showStatus('⚠️ Chưa có ảnh 360° được upload!', 'error');
+          is360Mode = false;
+        }
+      } else {
+        // Back to normal mode (camera or default background)
+        video.style.display = 'block';
+        
+        // Hide environment dome
+        environmentDome.material.opacity = 0;
+        environmentDome.material.needsUpdate = true;
+        scene.background = new THREE.Color(0x1a1a2e);
+        
+        // Show ground again
+        ground.visible = true;
+        grid.visible = true;
+        
+        // Make canvas transparent for camera
+        renderer.setClearColor(0x000000, 0);
+        
+        document.getElementById('btn360AR').style.background = 'linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%)';
+        document.getElementById('btn360AR').textContent = '🌍 360° AR';
+        showStatus('📷 Camera Mode', 'info');
+      }
+    };
+    
+    // Camera AR Mode - Toggle camera on/off
+    document.getElementById('btnARCamera').onclick = async () => {
+      const video = document.getElementById('cameraVideo');
+      
+      if (video.srcObject) {
+        // Stop camera
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+        video.style.display = 'none';
+        scene.background = new THREE.Color(0x1a1a2e);
+        document.getElementById('btnARCamera').textContent = '📷 Camera OFF';
+        showStatus('📷 Camera OFF', 'info');
+      } else {
+        // Start camera
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false
+          });
+          video.srcObject = stream;
+          await video.play();
+          video.style.display = 'block';
+          scene.background = null;
+          renderer.setClearColor(0x000000, 0);
+          document.getElementById('btnARCamera').textContent = '📷 Camera ON';
+          showStatus('📷 Camera AR đang hoạt động!', 'success');
+        } catch (e) {
+          console.error('Camera error:', e);
+          showStatus('❌ Không thể truy cập camera', 'error');
+        }
+      }
+    };
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // START
+    // ══════════════════════════════════════════════════════════════════════════
+    init();
+  </script>
+</body>
+</html>

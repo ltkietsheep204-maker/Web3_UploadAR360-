@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WEBAR - Upload 3D Model</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Cinzel', Georgia, serif;
+      min-height: 100vh;
+      background: #8B0000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .main-container {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      min-height: 500px;
+      background: url('bg-dragon.jpg') center/cover no-repeat;
+      border-radius: 12px;
+      padding: 40px 30px;
+      box-shadow: 
+        0 10px 40px rgba(0,0,0,0.5),
+        inset 0 0 100px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    /* Glossy overlay */
+    .main-container::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 40%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+      pointer-events: none;
+      border-radius: 12px 12px 0 0;
+    }
+
+    /* Hide emoji dragons since we have real image */
+    .dragon-left, .dragon-right, .clouds {
+      display: none;
+    }
+
+    /* Dragon decorations - Left side */
+    .dragon-left {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 180px;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 600"><defs><linearGradient id="gold1" x1="0%25" y1="0%25" x2="100%25" y2="100%25"><stop offset="0%25" style="stop-color:%23FFD700"/><stop offset="50%25" style="stop-color:%23B8860B"/><stop offset="100%25" style="stop-color:%23FFD700"/></linearGradient></defs><text x="100" y="200" font-size="120" text-anchor="middle" fill="url(%23gold1)" transform="rotate(-15 100 200)">🐉</text><text x="100" y="400" font-size="100" text-anchor="middle" fill="url(%23gold1)" transform="rotate(10 100 400)">🐉</text></svg>') center/contain no-repeat;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    /* Dragon decorations - Right side */
+    .dragon-right {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 180px;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 600"><defs><linearGradient id="gold2" x1="0%25" y1="0%25" x2="100%25" y2="100%25"><stop offset="0%25" style="stop-color:%23FFD700"/><stop offset="50%25" style="stop-color:%23B8860B"/><stop offset="100%25" style="stop-color:%23FFD700"/></linearGradient></defs><text x="100" y="200" font-size="120" text-anchor="middle" fill="url(%23gold2)" transform="scale(-1,1) translate(-200,0) rotate(-15 100 200)">🐉</text><text x="100" y="400" font-size="100" text-anchor="middle" fill="url(%23gold2)" transform="scale(-1,1) translate(-200,0) rotate(10 100 400)">🐉</text></svg>') center/contain no-repeat;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    /* Cloud decorations */
+    .clouds {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+    .cloud {
+      position: absolute;
+      font-size: 30px;
+      color: #FFD700;
+    }
+    .cloud:nth-child(1) { top: 20%; left: 5%; }
+    .cloud:nth-child(2) { top: 60%; left: 8%; }
+    .cloud:nth-child(3) { top: 80%; left: 3%; }
+    .cloud:nth-child(4) { top: 20%; right: 5%; }
+    .cloud:nth-child(5) { top: 60%; right: 8%; }
+    .cloud:nth-child(6) { top: 80%; right: 3%; }
+
+    /* Title */
+    h1 {
+      text-align: center;
+      color: #FFD700;
+      font-size: 22px;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      letter-spacing: 3px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Form container */
+    .form-wrapper {
+      position: relative;
+      z-index: 10;
+      max-width: 550px;
+      margin: 0 auto;
+    }
+
+    /* Upload areas - Black lacquer style */
+    .upload-area {
+      background: linear-gradient(180deg, #1a1a1a 0%, #000000 50%, #0d0d0d 100%);
+      border: 2px solid;
+      border-image: linear-gradient(135deg, #C0C0C0, #E8E8E8, #A9A9A9, #C0C0C0) 1;
+      padding: 20px;
+      margin: 12px 0;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.3s;
+      box-shadow: 
+        inset 0 2px 10px rgba(0,0,0,0.8),
+        0 2px 5px rgba(0,0,0,0.3);
+    }
+    .upload-area:hover {
+      border-image: linear-gradient(135deg, #FFD700, #FFA500, #FFD700) 1;
+      box-shadow: 
+        inset 0 2px 10px rgba(0,0,0,0.8),
+        0 0 15px rgba(255,215,0,0.3);
+    }
+    .upload-area input { display: none; }
+    .upload-area .text {
+      color: #C0C0C0;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+    }
+    .upload-area .file-info {
+      color: #90EE90;
+      font-size: 12px;
+      margin-top: 8px;
+      font-family: system-ui, sans-serif;
+    }
+
+    /* Input fields - Pearl/Mother of pearl style */
+    .input-field {
+      width: 100%;
+      padding: 14px 18px;
+      margin: 10px 0;
+      border: 2px solid #B8860B;
+      background: linear-gradient(135deg, 
+        #F5F5DC 0%, 
+        #FFFACD 25%, 
+        #F0E68C 50%, 
+        #EEE8AA 75%, 
+        #F5F5DC 100%
+      );
+      background-size: 200% 200%;
+      animation: pearl-shimmer 3s ease infinite;
+      color: #4a3728;
+      font-size: 14px;
+      font-family: system-ui, sans-serif;
+      box-shadow: 
+        inset 0 2px 4px rgba(255,255,255,0.5),
+        0 2px 4px rgba(0,0,0,0.2);
+    }
+    @keyframes pearl-shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .input-field::placeholder {
+      color: #8B7355;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #FFD700;
+      box-shadow: 
+        inset 0 2px 4px rgba(255,255,255,0.5),
+        0 0 10px rgba(255,215,0,0.4);
+    }
+
+    /* Submit button - Green with gold dragon */
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      margin-top: 15px;
+      border: none;
+      background: linear-gradient(180deg, #228B22 0%, #006400 40%, #004d00 100%);
+      color: #FFD700;
+      font-size: 16px;
+      font-family: 'Cinzel', serif;
+      font-weight: bold;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 
+        0 4px 15px rgba(0,100,0,0.5),
+        inset 0 2px 4px rgba(255,255,255,0.2);
+      transition: all 0.3s;
+    }
+    .submit-btn::before {
+      content: '🐲';
+      position: absolute;
+      left: 20px;
+      font-size: 20px;
+    }
+    .submit-btn::after {
+      content: '🐲';
+      position: absolute;
+      right: 20px;
+      font-size: 20px;
+      transform: scaleX(-1);
+    }
+    .submit-btn:hover {
+      background: linear-gradient(180deg, #32CD32 0%, #228B22 40%, #006400 100%);
+      transform: translateY(-2px);
+      box-shadow: 
+        0 6px 20px rgba(0,100,0,0.6),
+        inset 0 2px 4px rgba(255,255,255,0.3);
+    }
+
+    /* Labels */
+    .label {
+      color: #FFD700;
+      font-size: 12px;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      display: block;
+      font-family: system-ui, sans-serif;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+
+    /* Progress bar */
+    #progress {
+      width: 100%;
+      height: 6px;
+      background: rgba(0,0,0,0.5);
+      margin-top: 15px;
+      display: none;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #FFD700, #FFA500, #FFD700);
+      background-size: 200% 100%;
+      animation: progress-shimmer 1s infinite;
+      width: 0%;
+    }
+    @keyframes progress-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* Result area */
+    #result {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      background: linear-gradient(180deg, #1a1a1a 0%, #000000 100%);
+      border: 2px solid #FFD700;
+      text-align: center;
+    }
+    #result.show { display: block; }
+    #result h2 {
+      color: #90EE90;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    #result .url-box {
+      background: rgba(255,215,0,0.1);
+      border: 1px solid #B8860B;
+      padding: 12px;
+      margin: 12px 0;
+      word-break: break-all;
+    }
+    #result .url-box a {
+      color: #FFD700;
+      font-size: 12px;
+      text-decoration: none;
+      font-family: system-ui, sans-serif;
+    }
+    #qrcode {
+      display: inline-block;
+      padding: 12px;
+      background: white;
+      margin: 15px 0;
+    }
+    .copy-btn {
+      background: linear-gradient(180deg, #4169E1, #0000CD);
+      border: none;
+      color: white;
+      padding: 10px 25px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .instructions {
+      background: rgba(139,0,0,0.3);
+      border: 1px solid #B8860B;
+      padding: 15px;
+      margin-top: 15px;
+      text-align: left;
+      font-size: 12px;
+      color: #DEB887;
+      font-family: system-ui, sans-serif;
+    }
+    .instructions h3 {
+      color: #FFD700;
+      margin-bottom: 10px;
+    }
+    .instructions ol {
+      margin-left: 20px;
+    }
+    .instructions li {
+      margin: 6px 0;
+    }
+
+    /* Star decoration */
+    .star {
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      color: #FFD700;
+      font-size: 24px;
+      opacity: 0.8;
+    }
+
+    /* Effect selector */
+    .effect-selector {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .effect-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, #1a1a1a 0%, #000000 100%);
+      border: 1px solid #B8860B;
+      border-radius: 6px;
+      color: #DEB887;
+      font-size: 12px;
+      font-family: system-ui, sans-serif;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .effect-option:hover {
+      border-color: #FFD700;
+      background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    }
+    .effect-option input[type="checkbox"] {
+      accent-color: #FFD700;
+      width: 16px;
+      height: 16px;
+    }
+    .effect-option input[type="checkbox"]:checked + span,
+    .effect-option:has(input:checked) {
+      color: #FFD700;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div class="dragon-left"></div>
+    <div class="dragon-right"></div>
+    <div class="clouds">
+      <span class="cloud">☁</span>
+      <span class="cloud">☁</span>
+      <span class="cloud">☁</span>
+      <span class="cloud">☁</span>
+      <span class="cloud">☁</span>
+      <span class="cloud">☁</span>
+    </div>
+    <span class="star">✦</span>
+
+    <h1>Upload 3D Model + Audio (WEB AR Demo)</h1>
+    
+    <div class="form-wrapper">
+      <form id="uploadForm">
+        <div class="upload-area" id="modelUpload">
+          <div class="text">📁 Kéo thả hoặc nhấp để chọn 3D Model (GLB, GLTF hoặc FBX)</div>
+          <input type="file" name="model" accept=".glb,.gltf,.fbx" required />
+          <div class="file-info" id="modelInfo"></div>
+        </div>
+
+        <div class="upload-area" id="audioUpload">
+          <div class="text">🎵 Kéo thả hoặc nhấp để chọn Audio (tùy chọn)</div>
+          <input type="file" name="audio" accept="audio/*" />
+          <div class="file-info" id="audioInfo"></div>
+        </div>
+
+        <label class="label">Optional caption / TTS text</label>
+        <input type="text" name="caption" class="input-field" placeholder="Văn bản để phát khi xem" />
+
+        <label class="label">🖼️ Hình nền sàn (nơi nhân vật đứng)</label>
+        <div class="upload-area" id="groundUpload" style="min-height: 60px;">
+          <div class="text">🎨 Kéo thả hoặc nhấp để chọn hình nền sàn</div>
+          <input type="file" name="groundImage" accept="image/*" />
+          <div class="file-info" id="groundInfo"></div>
+        </div>
+
+        <label class="label">🌳 Môi trường 3D (bao quanh nhân vật - VD: rừng, thành phố...)</label>
+        <div class="upload-area" id="envUpload" style="min-height: 60px;">
+          <div class="text">🌄 Kéo thả hoặc nhấp để chọn ảnh môi trường 360°</div>
+          <input type="file" name="envImage" accept="image/*" />
+          <div class="file-info" id="envInfo"></div>
+        </div>
+
+        <label class="label">🏠 Vật thể 3D phụ trên sàn (cây, đá, nhà, xe...)</label>
+        <div class="upload-area" id="propsUpload" style="min-height: 80px;">
+          <div class="text">🎄 Kéo thả hoặc nhấp để chọn nhiều file GLB/GLTF</div>
+          <input type="file" name="props" accept=".glb,.gltf" multiple />
+          <div class="file-info" id="propsInfo"></div>
+        </div>
+        <div id="propsList" style="margin-top: 5px;"></div>
+
+        <label class="label">📍 Vị trí Model (Y - độ cao)</label>
+        <div style="display: flex; gap: 5px; align-items: center; margin-bottom: 10px;">
+          <button type="button" id="btnYDown" style="padding: 10px 15px; border-radius: 8px; border: none; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; font-size: 16px; cursor: pointer;">⬇️</button>
+          <input type="number" name="modelY" id="modelYInput" value="0" step="0.5" style="width: 80px; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); background: rgba(0,0,0,0.5); color: #FFD700; font-size: 14px; text-align: center;" />
+          <button type="button" id="btnYUp" style="padding: 10px 15px; border-radius: 8px; border: none; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; font-size: 16px; cursor: pointer;">⬆️</button>
+          <span style="color: #aaa; font-size: 11px; margin-left: 5px;">Điều chỉnh độ cao model</span>
+        </div>
+
+        <div style="background: rgba(0,255,100,0.1); padding: 10px; border-radius: 8px; margin: 10px 0; border: 1px solid rgba(0,255,100,0.3);">
+          <p style="color: #90EE90; font-size: 12px; margin: 0;">
+            ✨ <strong>Animation tự động:</strong> Hệ thống sẽ tự động phát hiện rigging và áp dụng animation đi bộ chuyên nghiệp cho mọi nhân vật 3D!
+          </p>
+        </div>
+
+        <button type="submit" class="submit-btn">Upload & Tạo Link</button>
+      </form>
+
+      <div id="progress">
+        <div id="progress-bar"></div>
+      </div>
+
+      <div id="result"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    const form = document.getElementById('uploadForm');
+    const result = document.getElementById('result');
+    const progress = document.getElementById('progress');
+    const progressBar = document.getElementById('progress-bar');
+
+    // Model Y position controls
+    const modelYInput = document.getElementById('modelYInput');
+    document.getElementById('btnYUp').onclick = () => {
+      modelYInput.value = (parseFloat(modelYInput.value) + 0.5).toFixed(1);
+    };
+    document.getElementById('btnYDown').onclick = () => {
+      modelYInput.value = (parseFloat(modelYInput.value) - 0.5).toFixed(1);
+    };
+
+    // Model upload
+    const modelUpload = document.getElementById('modelUpload');
+    const modelInput = modelUpload.querySelector('input');
+    const modelInfo = document.getElementById('modelInfo');
+
+    modelUpload.addEventListener('click', () => modelInput.click());
+    modelUpload.addEventListener('dragover', (e) => { e.preventDefault(); });
+    modelUpload.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && (files[0].name.endsWith('.glb') || files[0].name.endsWith('.gltf') || files[0].name.endsWith('.fbx'))) {
+        modelInput.files = files;
+        modelInfo.textContent = `Đã chọn: ${files[0].name}`;
+      }
+    });
+    modelInput.addEventListener('change', () => {
+      if (modelInput.files[0]) modelInfo.textContent = `Đã chọn: ${modelInput.files[0].name}`;
+    });
+
+
+    // Audio upload
+    const audioUpload = document.getElementById('audioUpload');
+    const audioInput = audioUpload.querySelector('input');
+    const audioInfo = document.getElementById('audioInfo');
+
+    audioUpload.addEventListener('click', () => audioInput.click());
+    audioUpload.addEventListener('dragover', (e) => { e.preventDefault(); });
+    audioUpload.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && files[0].type.startsWith('audio/')) {
+        audioInput.files = files;
+        audioInfo.textContent = `Đã chọn: ${files[0].name}`;
+      }
+    });
+    audioInput.addEventListener('change', () => {
+      if (audioInput.files[0]) audioInfo.textContent = `Đã chọn: ${audioInput.files[0].name}`;
+    });
+
+    // Ground image upload
+    const groundUpload = document.getElementById('groundUpload');
+    const groundInput = groundUpload.querySelector('input');
+    const groundInfo = document.getElementById('groundInfo');
+
+    groundUpload.addEventListener('click', () => groundInput.click());
+    groundUpload.addEventListener('dragover', (e) => { e.preventDefault(); groundUpload.style.borderColor = '#FFD700'; });
+    groundUpload.addEventListener('dragleave', () => { groundUpload.style.borderColor = 'rgba(255,215,0,0.3)'; });
+    groundUpload.addEventListener('drop', (e) => {
+      e.preventDefault();
+      groundUpload.style.borderColor = 'rgba(255,215,0,0.3)';
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && files[0].type.startsWith('image/')) {
+        groundInput.files = files;
+        groundInfo.textContent = `Đã chọn: ${files[0].name}`;
+        groundInfo.style.color = '#90EE90';
+      }
+    });
+    groundInput.addEventListener('change', () => {
+      if (groundInput.files[0]) {
+        groundInfo.textContent = `Đã chọn: ${groundInput.files[0].name}`;
+        groundInfo.style.color = '#90EE90';
+      }
+    });
+
+    // Environment image upload
+    const envUpload = document.getElementById('envUpload');
+    const envInput = envUpload.querySelector('input');
+    const envInfo = document.getElementById('envInfo');
+
+    envUpload.addEventListener('click', () => envInput.click());
+    envUpload.addEventListener('dragover', (e) => { e.preventDefault(); envUpload.style.borderColor = '#FFD700'; });
+    envUpload.addEventListener('dragleave', () => { envUpload.style.borderColor = 'rgba(255,215,0,0.3)'; });
+    envUpload.addEventListener('drop', (e) => {
+      e.preventDefault();
+      envUpload.style.borderColor = 'rgba(255,215,0,0.3)';
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && files[0].type.startsWith('image/')) {
+        envInput.files = files;
+        envInfo.textContent = `Đã chọn: ${files[0].name}`;
+        envInfo.style.color = '#90EE90';
+      }
+    });
+    envInput.addEventListener('change', () => {
+      if (envInput.files[0]) {
+        envInfo.textContent = `Đã chọn: ${envInput.files[0].name}`;
+        envInfo.style.color = '#90EE90';
+      }
+    });
+
+    // Props (3D objects) upload - multiple files
+    const propsUpload = document.getElementById('propsUpload');
+    const propsInput = propsUpload.querySelector('input');
+    const propsInfo = document.getElementById('propsInfo');
+    const propsList = document.getElementById('propsList');
+
+    propsUpload.addEventListener('click', () => propsInput.click());
+    propsUpload.addEventListener('dragover', (e) => { e.preventDefault(); propsUpload.style.borderColor = '#FFD700'; });
+    propsUpload.addEventListener('dragleave', () => { propsUpload.style.borderColor = 'rgba(255,215,0,0.3)'; });
+    propsUpload.addEventListener('drop', (e) => {
+      e.preventDefault();
+      propsUpload.style.borderColor = 'rgba(255,215,0,0.3)';
+      const files = e.dataTransfer.files;
+      const validFiles = Array.from(files).filter(f => f.name.endsWith('.glb') || f.name.endsWith('.gltf'));
+      if (validFiles.length > 0) {
+        // Create a new DataTransfer to set files
+        const dt = new DataTransfer();
+        validFiles.forEach(f => dt.items.add(f));
+        propsInput.files = dt.files;
+        updatePropsList();
+      }
+    });
+    propsInput.addEventListener('change', updatePropsList);
+
+    function updatePropsList() {
+      const files = Array.from(propsInput.files);
+      if (files.length === 0) {
+        propsInfo.textContent = '';
+        propsList.innerHTML = '';
+        return;
+      }
+      propsInfo.textContent = `Đã chọn ${files.length} vật thể 3D`;
+      propsInfo.style.color = '#90EE90';
+      propsList.innerHTML = files.map((f, i) => `
+        <div style="background: rgba(255,215,0,0.1); padding: 5px 10px; margin: 3px 0; border-radius: 5px; font-size: 12px; color: #FFD700;">
+          🎄 ${f.name}
+        </div>
+      `).join('');
+    }
+
+    // Form submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      result.innerHTML = '<p style="color:#FFD700;">⏳ Đang upload...</p>';
+      result.classList.add('show');
+      progress.style.display = 'block';
+      
+      const fd = new FormData(form);
+      
+      // Get selected effects
+      const effectCheckboxes = document.querySelectorAll('input[name="effects"]:checked');
+      const effects = Array.from(effectCheckboxes).map(cb => cb.value);
+      fd.append('effects', JSON.stringify(effects));
+      
+      // Parse animations
+      const animationsText = fd.get('animations') || '';
+      fd.delete('animations');
+      const animations = animationsText.split(',').map(a => {
+        const [name, speed] = a.trim().split(':');
+        return name ? { name: name.trim(), speed: parseFloat(speed) || 1.0 } : null;
+      }).filter(a => a);
+      fd.append('animations', JSON.stringify(animations));
+      
+      // Remove effect checkboxes from FormData
+      fd.delete('effects');
+      fd.append('effects', JSON.stringify(effects));
+      
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/upload');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          progressBar.style.width = (e.loaded / e.total * 100) + '%';
+        }
+      };
+      xhr.onload = () => {
+        progress.style.display = 'none';
+        if (xhr.status === 200) {
+          const j = JSON.parse(xhr.responseText);
+          result.innerHTML = `
+            <h2>✅ Upload thành công!</h2>
+            <div class="url-box">
+              <strong style="color:#FFD700;">🔗 Link AR:</strong><br>
+              <a href="${j.url}" target="_blank" id="arUrl">${j.url}</a>
+            </div>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText('${j.url}').then(()=>alert('Đã sao chép!'))">📋 Sao chép</button>
+            <div id="qrcode"></div>
+            <p style="color:#FFD700;margin-top:10px;">📱 Quét mã QR để xem AR</p>
+            <div class="instructions">
+              <h3>📖 Hướng dẫn:</h3>
+              <ol>
+                <li>Quét mã QR hoặc mở link trên điện thoại</li>
+                <li>Cho phép truy cập camera</li>
+                <li>Mô hình 3D sẽ hiển thị trên camera</li>
+                <li>Sử dụng các nút để điều khiển animation, audio</li>
+              </ol>
+            </div>
+          `;
+          new QRCode(document.getElementById('qrcode'), { 
+            text: j.url, width: 150, height: 150,
+            colorDark: "#8B0000", colorLight: "#ffffff"
+          });
+        } else {
+          result.innerHTML = '<p style="color:#ff6b6b;">❌ Upload thất bại</p>';
+        }
+      };
+      xhr.send(fd);
+    });
+  </script>
+</body>
+</html>
