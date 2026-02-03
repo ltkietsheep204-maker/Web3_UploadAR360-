@@ -4,11 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WEBAR - 3D Viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --primary: #8B0000;
+      --accent: #FFD700;
+      --bg-panel: rgba(20, 20, 20, 0.85);
+      --text: #e0e0e0;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0a0a0f;
+      font-family: 'Inter', sans-serif;
+      background: #000;
       overflow: hidden;
       height: 100vh;
       width: 100vw;
@@ -45,17 +53,19 @@
       position: fixed;
       top: 10px;
       right: 10px;
-      width: 160px;
-      background: rgba(0, 0, 0, 0.85);
+      width: 180px;
+      background: var(--bg-panel);
       border-radius: 12px;
-      padding: 10px;
+      padding: 15px;
       z-index: 100;
       font-size: 11px;
-      color: #fff;
+      color: var(--text);
       max-height: 90vh;
       overflow-y: auto;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     
     #sidePanel::-webkit-scrollbar {
@@ -67,12 +77,14 @@
     }
     
     .section-title {
-      font-size: 10px;
-      color: #888;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--accent);
       text-transform: uppercase;
-      margin: 8px 0 5px;
-      padding-bottom: 3px;
-      border-bottom: 1px solid #333;
+      margin: 12px 0 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      letter-spacing: 1px;
     }
     
     .section-title:first-child {
@@ -81,34 +93,40 @@
     
     #sidePanel button {
       width: 100%;
-      padding: 6px 8px;
-      margin: 3px 0;
-      border: none;
+      padding: 8px 10px;
+      margin: 4px 0;
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px;
       font-size: 10px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       color: #fff;
-      background: linear-gradient(135deg, #333 0%, #555 100%);
+      background: rgba(255,255,255,0.05);
     }
     
     #sidePanel button:hover {
-      transform: scale(1.02);
-      filter: brightness(1.2);
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.1);
+      border-color: var(--accent);
     }
     
     #sidePanel button.active {
-      box-shadow: 0 0 10px rgba(255,255,255,0.3);
+      background: rgba(255, 215, 0, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
     }
     
-    .btn-walk { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important; }
-    .btn-idle { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
-    .btn-stop { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important; }
-    .btn-tunnel { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important; }
+    /* Colored Buttons override */
+    .btn-walk { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important; border:none !important; }
+    .btn-idle { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; border:none !important;}
+    .btn-stop { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important; border:none !important;}
+    .btn-tunnel { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important; border:none !important;}
     
     .tunnel-speeds {
       display: flex;
-      gap: 3px;
+      gap: 5px;
     }
     .tunnel-speeds button {
       flex: 1;
@@ -117,46 +135,54 @@
     }
     
     #info {
-      font-size: 9px;
+      font-size: 10px;
       color: #aaa;
-      line-height: 1.4;
+      line-height: 1.5;
+      font-family: monospace;
+      padding: 5px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 4px;
     }
     
     /* Status Toast */
     #status {
       position: fixed;
-      bottom: 20px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.9);
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 12px;
+      background: rgba(10, 10, 10, 0.9);
+      color: var(--accent);
+      padding: 12px 25px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
       opacity: 0;
       transition: opacity 0.3s;
       z-index: 200;
+      border: 1px solid var(--accent);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.5);
     }
     #status.show { opacity: 1; }
-    #status.success { background: rgba(39, 174, 96, 0.9); }
-    #status.error { background: rgba(231, 76, 60, 0.9); }
+    #status.success { border-color: #2ecc71; color: #2ecc71; }
+    #status.error { border-color: #e74c3c; color: #e74c3c; }
     
     /* Toggle Panel Button */
     #togglePanel {
       position: fixed;
       top: 10px;
-      right: 180px;
-      width: 30px;
-      height: 30px;
-      background: rgba(0,0,0,0.8);
-      border: none;
+      right: 200px;
+      width: 36px;
+      height: 36px;
+      background: var(--bg-panel);
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 8px;
-      color: #fff;
-      font-size: 14px;
+      color: var(--accent);
+      font-size: 18px;
       cursor: pointer;
       z-index: 101;
+      backdrop-filter: blur(10px);
     }
-    #togglePanel:hover { background: rgba(50,50,50,0.9); }
+    #togglePanel:hover { border-color: var(--accent); }
     
     .hidden { display: none !important; }
   </style>

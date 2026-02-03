@@ -2,663 +2,775 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>WEBAR - Upload 3D Model</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>WEBAR - Dragon's Forge</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --primary: #8B0000;
+      --primary-dark: #4a0000;
+      --accent: #FFD700;
+      --accent-glow: rgba(255, 215, 0, 0.5);
+      --bg-dark: #050505;
+      --card-bg: rgba(20, 20, 20, 0.85);
+      --text: #e0e0e0;
+      --success: #2ecc71;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: 'Cinzel', Georgia, serif;
+      font-family: 'Inter', sans-serif;
       min-height: 100vh;
-      background: #8B0000;
+      background-color: var(--bg-dark);
+      background: radial-gradient(circle at center, #2a0a0a 0%, #000000 100%);
+      color: var(--text);
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 20px;
+      overflow-x: hidden;
+      position: relative;
     }
 
+    /* Animated Embers Background */
+    #canvas-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Main Container */
     .main-container {
       position: relative;
+      z-index: 10;
       width: 100%;
-      max-width: 900px;
-      min-height: 500px;
-      background: url('bg-dragon.jpg') center/cover no-repeat;
-      border-radius: 12px;
-      padding: 40px 30px;
+      max-width: 1000px;
+      margin: 20px;
+      padding: 0;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 20px;
       box-shadow: 
-        0 10px 40px rgba(0,0,0,0.5),
-        inset 0 0 100px rgba(0,0,0,0.3);
+        0 20px 50px rgba(0,0,0,0.8),
+        0 0 30px rgba(139, 0, 0, 0.2),
+        inset 0 0 2px rgba(255, 215, 0, 0.1);
+      display: grid;
+      grid-template-columns: 1fr;
       overflow: hidden;
     }
 
-    /* Glossy overlay */
-    .main-container::before {
+    @media (min-width: 800px) {
+      .main-container {
+        grid-template-columns: 40% 60%;
+        min-height: 600px;
+      }
+    }
+
+    /* Left Panel - Hero */
+    .hero-panel {
+      background: linear-gradient(135deg, rgba(139, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.9) 100%),
+                  url('bg-dragon.jpg'),
+                  url('https://images.unsplash.com/photo-1633479392263-6c8411c5f35f?q=80&w=1000&auto=format&fit=crop');
+      background-position: center;
+      background-size: cover;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+      border-right: 1px solid rgba(255, 215, 0, 0.15);
+      text-align: center;
+    }
+    
+    .hero-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-panel::before {
       content: '';
       position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 40%;
-      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
-      pointer-events: none;
-      border-radius: 12px 12px 0 0;
+      inset: 0;
+      background: radial-gradient(circle, transparent 0%, #000 130%);
     }
 
-    /* Hide emoji dragons since we have real image */
-    .dragon-left, .dragon-right, .clouds {
-      display: none;
-    }
-
-    /* Dragon decorations - Left side */
-    .dragon-left {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 180px;
-      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 600"><defs><linearGradient id="gold1" x1="0%25" y1="0%25" x2="100%25" y2="100%25"><stop offset="0%25" style="stop-color:%23FFD700"/><stop offset="50%25" style="stop-color:%23B8860B"/><stop offset="100%25" style="stop-color:%23FFD700"/></linearGradient></defs><text x="100" y="200" font-size="120" text-anchor="middle" fill="url(%23gold1)" transform="rotate(-15 100 200)">🐉</text><text x="100" y="400" font-size="100" text-anchor="middle" fill="url(%23gold1)" transform="rotate(10 100 400)">🐉</text></svg>') center/contain no-repeat;
-      opacity: 0.9;
-      pointer-events: none;
-    }
-
-    /* Dragon decorations - Right side */
-    .dragon-right {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 180px;
-      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 600"><defs><linearGradient id="gold2" x1="0%25" y1="0%25" x2="100%25" y2="100%25"><stop offset="0%25" style="stop-color:%23FFD700"/><stop offset="50%25" style="stop-color:%23B8860B"/><stop offset="100%25" style="stop-color:%23FFD700"/></linearGradient></defs><text x="100" y="200" font-size="120" text-anchor="middle" fill="url(%23gold2)" transform="scale(-1,1) translate(-200,0) rotate(-15 100 200)">🐉</text><text x="100" y="400" font-size="100" text-anchor="middle" fill="url(%23gold2)" transform="scale(-1,1) translate(-200,0) rotate(10 100 400)">🐉</text></svg>') center/contain no-repeat;
-      opacity: 0.9;
-      pointer-events: none;
-    }
-
-    /* Cloud decorations */
-    .clouds {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      opacity: 0.4;
-    }
-    .cloud {
-      position: absolute;
-      font-size: 30px;
-      color: #FFD700;
-    }
-    .cloud:nth-child(1) { top: 20%; left: 5%; }
-    .cloud:nth-child(2) { top: 60%; left: 8%; }
-    .cloud:nth-child(3) { top: 80%; left: 3%; }
-    .cloud:nth-child(4) { top: 20%; right: 5%; }
-    .cloud:nth-child(5) { top: 60%; right: 8%; }
-    .cloud:nth-child(6) { top: 80%; right: 3%; }
-
-    /* Title */
     h1 {
-      text-align: center;
-      color: #FFD700;
-      font-size: 22px;
-      margin-bottom: 30px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-      letter-spacing: 3px;
-      position: relative;
-      z-index: 10;
-    }
-
-    /* Form container */
-    .form-wrapper {
-      position: relative;
-      z-index: 10;
-      max-width: 550px;
-      margin: 0 auto;
-    }
-
-    /* Upload areas - Black lacquer style */
-    .upload-area {
-      background: linear-gradient(180deg, #1a1a1a 0%, #000000 50%, #0d0d0d 100%);
-      border: 2px solid;
-      border-image: linear-gradient(135deg, #C0C0C0, #E8E8E8, #A9A9A9, #C0C0C0) 1;
-      padding: 20px;
-      margin: 12px 0;
-      text-align: center;
-      cursor: pointer;
-      position: relative;
-      transition: all 0.3s;
-      box-shadow: 
-        inset 0 2px 10px rgba(0,0,0,0.8),
-        0 2px 5px rgba(0,0,0,0.3);
-    }
-    .upload-area:hover {
-      border-image: linear-gradient(135deg, #FFD700, #FFA500, #FFD700) 1;
-      box-shadow: 
-        inset 0 2px 10px rgba(0,0,0,0.8),
-        0 0 15px rgba(255,215,0,0.3);
-    }
-    .upload-area input { display: none; }
-    .upload-area .text {
-      color: #C0C0C0;
-      font-size: 13px;
-      font-family: system-ui, sans-serif;
-    }
-    .upload-area .file-info {
-      color: #90EE90;
-      font-size: 12px;
-      margin-top: 8px;
-      font-family: system-ui, sans-serif;
-    }
-
-    /* Input fields - Pearl/Mother of pearl style */
-    .input-field {
-      width: 100%;
-      padding: 14px 18px;
-      margin: 10px 0;
-      border: 2px solid #B8860B;
-      background: linear-gradient(135deg, 
-        #F5F5DC 0%, 
-        #FFFACD 25%, 
-        #F0E68C 50%, 
-        #EEE8AA 75%, 
-        #F5F5DC 100%
-      );
-      background-size: 200% 200%;
-      animation: pearl-shimmer 3s ease infinite;
-      color: #4a3728;
-      font-size: 14px;
-      font-family: system-ui, sans-serif;
-      box-shadow: 
-        inset 0 2px 4px rgba(255,255,255,0.5),
-        0 2px 4px rgba(0,0,0,0.2);
-    }
-    @keyframes pearl-shimmer {
-      0%, 100% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-    }
-    .input-field::placeholder {
-      color: #8B7355;
-    }
-    .input-field:focus {
-      outline: none;
-      border-color: #FFD700;
-      box-shadow: 
-        inset 0 2px 4px rgba(255,255,255,0.5),
-        0 0 10px rgba(255,215,0,0.4);
-    }
-
-    /* Submit button - Green with gold dragon */
-    .submit-btn {
-      width: 100%;
-      padding: 16px;
-      margin-top: 15px;
-      border: none;
-      background: linear-gradient(180deg, #228B22 0%, #006400 40%, #004d00 100%);
-      color: #FFD700;
-      font-size: 16px;
       font-family: 'Cinzel', serif;
-      font-weight: bold;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 
-        0 4px 15px rgba(0,100,0,0.5),
-        inset 0 2px 4px rgba(255,255,255,0.2);
-      transition: all 0.3s;
-    }
-    .submit-btn::before {
-      content: '🐲';
-      position: absolute;
-      left: 20px;
-      font-size: 20px;
-    }
-    .submit-btn::after {
-      content: '🐲';
-      position: absolute;
-      right: 20px;
-      font-size: 20px;
-      transform: scaleX(-1);
-    }
-    .submit-btn:hover {
-      background: linear-gradient(180deg, #32CD32 0%, #228B22 40%, #006400 100%);
-      transform: translateY(-2px);
-      box-shadow: 
-        0 6px 20px rgba(0,100,0,0.6),
-        inset 0 2px 4px rgba(255,255,255,0.3);
+      font-weight: 900;
+      font-size: 3.5rem;
+      background: linear-gradient(to bottom, #FFD700, #FDB931, #B8860B);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      margin-bottom: 0.5rem;
+      letter-spacing: 4px;
     }
 
-    /* Labels */
-    .label {
-      color: #FFD700;
-      font-size: 12px;
-      margin-top: 15px;
-      margin-bottom: 5px;
-      display: block;
-      font-family: system-ui, sans-serif;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    .subtitle {
+      font-family: 'Cinzel', serif;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      margin-bottom: 2rem;
     }
 
-    /* Progress bar */
-    #progress {
-      width: 100%;
-      height: 6px;
-      background: rgba(0,0,0,0.5);
-      margin-top: 15px;
-      display: none;
-      overflow: hidden;
-    }
-    #progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #FFD700, #FFA500, #FFD700);
-      background-size: 200% 100%;
-      animation: progress-shimmer 1s infinite;
-      width: 0%;
-    }
-    @keyframes progress-shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
+    .dragon-icon {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 20px rgba(255, 77, 77, 0.6));
+      animation: float 6s ease-in-out infinite;
+      margin-bottom: 20px;
     }
 
-    /* Result area */
-    #result {
-      display: none;
-      margin-top: 20px;
-      padding: 20px;
-      background: linear-gradient(180deg, #1a1a1a 0%, #000000 100%);
-      border: 2px solid #FFD700;
-      text-align: center;
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
     }
-    #result.show { display: block; }
-    #result h2 {
-      color: #90EE90;
-      font-size: 18px;
-      margin-bottom: 15px;
+
+    /* Right Panel - Form */
+    .form-panel {
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-height: 80vh;
+      overflow-y: auto;
     }
-    #result .url-box {
-      background: rgba(255,215,0,0.1);
-      border: 1px solid #B8860B;
-      padding: 12px;
-      margin: 12px 0;
-      word-break: break-all;
+    
+    .form-panel::-webkit-scrollbar {
+      width: 6px;
     }
-    #result .url-box a {
-      color: #FFD700;
-      font-size: 12px;
-      text-decoration: none;
-      font-family: system-ui, sans-serif;
+    .form-panel::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.3);
     }
-    #qrcode {
-      display: inline-block;
-      padding: 12px;
-      background: white;
-      margin: 15px 0;
+    .form-panel::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 3px;
     }
-    .copy-btn {
-      background: linear-gradient(180deg, #4169E1, #0000CD);
-      border: none;
-      color: white;
-      padding: 10px 25px;
-      cursor: pointer;
-      font-size: 13px;
+
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      padding-bottom: 10px;
       margin-top: 10px;
-    }
-    .instructions {
-      background: rgba(139,0,0,0.3);
-      border: 1px solid #B8860B;
-      padding: 15px;
-      margin-top: 15px;
-      text-align: left;
-      font-size: 12px;
-      color: #DEB887;
-      font-family: system-ui, sans-serif;
-    }
-    .instructions h3 {
-      color: #FFD700;
-      margin-bottom: 10px;
-    }
-    .instructions ol {
-      margin-left: 20px;
-    }
-    .instructions li {
-      margin: 6px 0;
-    }
-
-    /* Star decoration */
-    .star {
-      position: absolute;
-      right: 20px;
-      bottom: 20px;
-      color: #FFD700;
-      font-size: 24px;
-      opacity: 0.8;
-    }
-
-    /* Effect selector */
-    .effect-selector {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      margin: 10px 0;
-    }
-    .effect-option {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      background: linear-gradient(180deg, #1a1a1a 0%, #000000 100%);
-      border: 1px solid #B8860B;
-      border-radius: 6px;
-      color: #DEB887;
-      font-size: 12px;
-      font-family: system-ui, sans-serif;
+      gap: 10px;
+    }
+
+    /* Upload Cards */
+    .upload-grid {
+      display: grid;
+      gap: 15px;
+    }
+
+    .upload-card {
+      position: relative;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .upload-card:hover {
+      border-color: var(--accent);
+      background: rgba(255, 215, 0, 0.08);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+    }
+
+    .upload-card.active {
+      border-style: solid;
+      border-color: var(--success);
+      background: rgba(46, 204, 113, 0.15);
+    }
+
+    .upload-icon {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      font-size: 22px;
+      color: var(--accent);
+    }
+
+    .upload-info {
+      flex: 1;
+    }
+
+    .upload-title {
+      font-weight: 600;
+      font-size: 1rem;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+    }
+
+    .upload-desc {
+      font-size: 0.85rem;
+      color: #bbb;
+      line-height: 1.4;
+    }
+
+    .file-status {
+      font-size: 0.75rem;
+      color: var(--success);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .upload-card.active .file-status { opacity: 1; }
+
+    input[type="file"] { display: none; }
+
+    /* Inputs */
+    .input-group {
+      position: relative;
+    }
+
+    .styled-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px 15px;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
       transition: all 0.3s;
     }
-    .effect-option:hover {
-      border-color: #FFD700;
-      background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+
+    .styled-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.1);
+      background: rgba(0, 0, 0, 0.5);
     }
-    .effect-option input[type="checkbox"] {
-      accent-color: #FFD700;
-      width: 16px;
-      height: 16px;
+
+    /* Height Control */
+    .height-control {
+      display: flex;
+      align-items: center;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 5px;
+      border: 1px solid rgba(255,255,255,0.1);
     }
-    .effect-option input[type="checkbox"]:checked + span,
-    .effect-option:has(input:checked) {
-      color: #FFD700;
+
+    .height-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1.2rem;
     }
+    .height-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
+
+    .height-val {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+      color: var(--accent);
+      background: transparent;
+      border: none;
+      font-size: 1rem;
+    }
+
+    /* Submit Button */
+    .submit-btn {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #8B0000 0%, #c0392b 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s;
+      box-shadow: 0 10px 20px rgba(139, 0, 0, 0.3);
+      letter-spacing: 1px;
+      margin-top: 10px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 30px rgba(139, 0, 0, 0.5);
+      background: linear-gradient(135deg, #a00000 0%, #e74c3c 100%);
+    }
+
+    .submit-btn::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: 0.5s;
+    }
+
+    .submit-btn:hover::after {
+      left: 100%;
+    }
+
+    /* Result Area */
+    #result-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #result-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .result-card {
+      background: #111;
+      border: 1px solid var(--accent);
+      padding: 40px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
+      transform: scale(0.9);
+      transition: transform 0.3s;
+    }
+    #result-overlay.active .result-card { transform: scale(1); }
+
+    .qr-box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      display: inline-block;
+      margin: 20px 0;
+    }
+
+    .link-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px dashed #444;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      word-break: break-all;
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: none;
+      border: none;
+      color: #666;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: #fff; }
+
+    .action-btn {
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .action-btn:hover { background: #fff; }
+
+    /* Loading Bar */
+    .progress-container {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
   </style>
 </head>
 <body>
+
+  <!-- Animated Background -->
+  <canvas id="canvas-bg"></canvas>
+
   <div class="main-container">
-    <div class="dragon-left"></div>
-    <div class="dragon-right"></div>
-    <div class="clouds">
-      <span class="cloud">☁</span>
-      <span class="cloud">☁</span>
-      <span class="cloud">☁</span>
-      <span class="cloud">☁</span>
-      <span class="cloud">☁</span>
-      <span class="cloud">☁</span>
-    </div>
-    <span class="star">✦</span>
-
-    <h1>Upload 3D Model + Audio (WEB AR Demo)</h1>
-    
-    <div class="form-wrapper">
-      <form id="uploadForm">
-        <div class="upload-area" id="modelUpload">
-          <div class="text">📁 Kéo thả hoặc nhấp để chọn 3D Model (GLB, GLTF hoặc FBX)</div>
-          <input type="file" name="model" accept=".glb,.gltf,.fbx" required />
-          <div class="file-info" id="modelInfo"></div>
-        </div>
-
-        <div class="upload-area" id="audioUpload">
-          <div class="text">🎵 Kéo thả hoặc nhấp để chọn Audio (tùy chọn)</div>
-          <input type="file" name="audio" accept="audio/*" />
-          <div class="file-info" id="audioInfo"></div>
-        </div>
-
-        <label class="label">Optional caption / TTS text</label>
-        <input type="text" name="caption" class="input-field" placeholder="Văn bản để phát khi xem" />
-
-        <label class="label">🖼️ Hình nền sàn (nơi nhân vật đứng)</label>
-        <div class="upload-area" id="groundUpload" style="min-height: 60px;">
-          <div class="text">🎨 Kéo thả hoặc nhấp để chọn hình nền sàn</div>
-          <input type="file" name="groundImage" accept="image/*" />
-          <div class="file-info" id="groundInfo"></div>
-        </div>
-
-        <label class="label">🌳 Môi trường 3D (bao quanh nhân vật - VD: rừng, thành phố...)</label>
-        <div class="upload-area" id="envUpload" style="min-height: 60px;">
-          <div class="text">🌄 Kéo thả hoặc nhấp để chọn ảnh môi trường 360°</div>
-          <input type="file" name="envImage" accept="image/*" />
-          <div class="file-info" id="envInfo"></div>
-        </div>
-
-        <label class="label">🏠 Vật thể 3D phụ trên sàn (cây, đá, nhà, xe...)</label>
-        <div class="upload-area" id="propsUpload" style="min-height: 80px;">
-          <div class="text">🎄 Kéo thả hoặc nhấp để chọn nhiều file GLB/GLTF</div>
-          <input type="file" name="props" accept=".glb,.gltf" multiple />
-          <div class="file-info" id="propsInfo"></div>
-        </div>
-        <div id="propsList" style="margin-top: 5px;"></div>
-
-        <label class="label">📍 Vị trí Model (Y - độ cao)</label>
-        <div style="display: flex; gap: 5px; align-items: center; margin-bottom: 10px;">
-          <button type="button" id="btnYDown" style="padding: 10px 15px; border-radius: 8px; border: none; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; font-size: 16px; cursor: pointer;">⬇️</button>
-          <input type="number" name="modelY" id="modelYInput" value="0" step="0.5" style="width: 80px; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); background: rgba(0,0,0,0.5); color: #FFD700; font-size: 14px; text-align: center;" />
-          <button type="button" id="btnYUp" style="padding: 10px 15px; border-radius: 8px; border: none; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; font-size: 16px; cursor: pointer;">⬆️</button>
-          <span style="color: #aaa; font-size: 11px; margin-left: 5px;">Điều chỉnh độ cao model</span>
-        </div>
-
-        <div style="background: rgba(0,255,100,0.1); padding: 10px; border-radius: 8px; margin: 10px 0; border: 1px solid rgba(0,255,100,0.3);">
-          <p style="color: #90EE90; font-size: 12px; margin: 0;">
-            ✨ <strong>Animation tự động:</strong> Hệ thống sẽ tự động phát hiện rigging và áp dụng animation đi bộ chuyên nghiệp cho mọi nhân vật 3D!
-          </p>
-        </div>
-
-        <button type="submit" class="submit-btn">Upload & Tạo Link</button>
-      </form>
-
-      <div id="progress">
-        <div id="progress-bar"></div>
+    <!-- Left: Branding -->
+    <div class="hero-panel">
+      <div class="hero-content">
+        <!-- User provided Dragon Image -->
+        <img src="7e170b92-fab9-464b-8673-2c1fbe370e2c.png" class="dragon-icon" alt="Dragon Logo">
+        <h1>WEBAR</h1>
+        <p class="subtitle">Next-Gen 3D Visualization</p>
+        <p style="font-size: 1rem; color: #ccc; max-width: 340px; margin: 20px auto 0; line-height: 1.6; font-weight: 300;">
+          Upload your 3D models and experience them in Augmented Reality instantly.
+        </p>
       </div>
+    </div>
 
-      <div id="result"></div>
+    <!-- Right: Form -->
+    <div class="form-panel">
+      <form id="uploadForm">
+        
+        <!-- Section 1: Core Assets -->
+        <div class="section-title">
+          <span>📦</span> Core Assets
+        </div>
+        
+        <div class="upload-grid">
+          <!-- 3D Model -->
+          <div class="upload-card" onclick="document.getElementById('file-model').click()">
+            <div class="upload-icon">💠</div>
+            <div class="upload-info">
+              <div class="upload-title">3D Model (Required)</div>
+              <div class="upload-desc">.glb, .gltf, .fbx</div>
+              <div class="file-status" id="status-model">selected</div>
+            </div>
+            <input type="file" id="file-model" name="model" accept=".glb,.gltf,.fbx" required>
+          </div>
+
+          <!-- Audio -->
+          <div class="upload-card" onclick="document.getElementById('file-audio').click()">
+            <div class="upload-icon">🎵</div>
+            <div class="upload-info">
+              <div class="upload-title">Background Audio</div>
+              <div class="upload-desc">Optional .mp3, .wav</div>
+              <div class="file-status" id="status-audio">selected</div>
+            </div>
+            <input type="file" id="file-audio" name="audio" accept="audio/*">
+          </div>
+        </div>
+
+        <!-- Section 2: Environment -->
+        <div class="section-title">
+          <span>🌍</span> Environment
+        </div>
+
+        <div class="upload-grid">
+           <!-- Ground Image -->
+           <div class="upload-card" onclick="document.getElementById('file-ground').click()">
+            <div class="upload-icon">🪵</div>
+            <div class="upload-info">
+              <div class="upload-title">Floor Texture</div>
+              <div class="upload-desc">Image for model to stand on</div>
+              <div class="file-status" id="status-ground">selected</div>
+            </div>
+            <input type="file" id="file-ground" name="groundImage" accept="image/*">
+          </div>
+
+          <!-- 360 Environment -->
+          <div class="upload-card" onclick="document.getElementById('file-env').click()">
+            <div class="upload-icon">🌅</div>
+            <div class="upload-info">
+              <div class="upload-title">360° Skybox</div>
+              <div class="upload-desc">Equirectangular panoramic image</div>
+              <div class="file-status" id="status-env">selected</div>
+            </div>
+            <input type="file" id="file-env" name="envImage" accept="image/*">
+          </div>
+          
+          <!-- Props -->
+          <div class="upload-card" onclick="document.getElementById('file-props').click()">
+            <div class="upload-icon">🎄</div>
+            <div class="upload-info">
+              <div class="upload-title">Decorations / Props</div>
+              <div class="upload-desc">Multiple small .glb items</div>
+              <div class="file-status" id="status-props">0 items</div>
+            </div>
+            <input type="file" id="file-props" name="props" accept=".glb,.gltf" multiple>
+          </div>
+        </div>
+
+        <!-- Section 3: Configuration -->
+        <div class="section-title">
+          <span>⚙️</span> Configuration
+        </div>
+
+        <div class="input-group">
+          <input type="text" name="caption" class="styled-input" placeholder="Enter a caption or greeting message...">
+        </div>
+
+        <div class="upload-grid" style="grid-template-columns: 1fr;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #aaa; font-size: 0.9rem;">Initial Height (Y-Axis)</label>
+            <div class="height-control">
+              <button type="button" class="height-btn" onclick="adjustHeight(-0.5)">-</button>
+              <input type="number" id="modelY" name="modelY" class="height-val" value="0" step="0.5" readonly>
+              <button type="button" class="height-btn" onclick="adjustHeight(0.5)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span>🏹 Launch WebAR Experience</span>
+        </button>
+
+      </form>
+    </div>
+    
+    <!-- Progress Bar at bottom -->
+    <div class="progress-container" id="uploadProgress">
+      <div class="progress-bar" id="progressBar"></div>
     </div>
   </div>
 
+  <!-- Result Overlay -->
+  <div id="result-overlay">
+    <div class="result-card">
+      <button class="close-btn" onclick="document.getElementById('result-overlay').classList.remove('active')">×</button>
+      <div style="font-size: 40px; margin-bottom: 20px;">🎉</div>
+      <h2 style="font-family: 'Cinzel', serif; color: var(--accent); margin-bottom: 15px;">Ready to View</h2>
+      
+      <div class="qr-box" id="qrcode"></div>
+      
+      <div class="link-box" id="resultUrl">https://webar.com/view/xyz</div>
+      
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button class="action-btn" onclick="window.open(document.getElementById('resultUrl').textContent, '_blank')">🚀 Open Now</button>
+        <button class="action-btn" style="background:#444; color:white;" onclick="copyLink()">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
-    const form = document.getElementById('uploadForm');
-    const result = document.getElementById('result');
-    const progress = document.getElementById('progress');
-    const progressBar = document.getElementById('progress-bar');
+    // ════════════════════════════════════════════════════════════════════════
+    // UI INTERACTIONS
+    // ════════════════════════════════════════════════════════════════════════
+    
+    // File Input Handling
+    function setupFileInput(id, statusId, isMultiple = false) {
+      const input = document.getElementById(id);
+      const status = document.getElementById(statusId);
+      const card = input.closest('.upload-card');
 
-    // Model Y position controls
-    const modelYInput = document.getElementById('modelYInput');
-    document.getElementById('btnYUp').onclick = () => {
-      modelYInput.value = (parseFloat(modelYInput.value) + 0.5).toFixed(1);
-    };
-    document.getElementById('btnYDown').onclick = () => {
-      modelYInput.value = (parseFloat(modelYInput.value) - 0.5).toFixed(1);
-    };
-
-    // Model upload
-    const modelUpload = document.getElementById('modelUpload');
-    const modelInput = modelUpload.querySelector('input');
-    const modelInfo = document.getElementById('modelInfo');
-
-    modelUpload.addEventListener('click', () => modelInput.click());
-    modelUpload.addEventListener('dragover', (e) => { e.preventDefault(); });
-    modelUpload.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const files = e.dataTransfer.files;
-      if (files.length > 0 && (files[0].name.endsWith('.glb') || files[0].name.endsWith('.gltf') || files[0].name.endsWith('.fbx'))) {
-        modelInput.files = files;
-        modelInfo.textContent = `Đã chọn: ${files[0].name}`;
-      }
-    });
-    modelInput.addEventListener('change', () => {
-      if (modelInput.files[0]) modelInfo.textContent = `Đã chọn: ${modelInput.files[0].name}`;
-    });
-
-
-    // Audio upload
-    const audioUpload = document.getElementById('audioUpload');
-    const audioInput = audioUpload.querySelector('input');
-    const audioInfo = document.getElementById('audioInfo');
-
-    audioUpload.addEventListener('click', () => audioInput.click());
-    audioUpload.addEventListener('dragover', (e) => { e.preventDefault(); });
-    audioUpload.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const files = e.dataTransfer.files;
-      if (files.length > 0 && files[0].type.startsWith('audio/')) {
-        audioInput.files = files;
-        audioInfo.textContent = `Đã chọn: ${files[0].name}`;
-      }
-    });
-    audioInput.addEventListener('change', () => {
-      if (audioInput.files[0]) audioInfo.textContent = `Đã chọn: ${audioInput.files[0].name}`;
-    });
-
-    // Ground image upload
-    const groundUpload = document.getElementById('groundUpload');
-    const groundInput = groundUpload.querySelector('input');
-    const groundInfo = document.getElementById('groundInfo');
-
-    groundUpload.addEventListener('click', () => groundInput.click());
-    groundUpload.addEventListener('dragover', (e) => { e.preventDefault(); groundUpload.style.borderColor = '#FFD700'; });
-    groundUpload.addEventListener('dragleave', () => { groundUpload.style.borderColor = 'rgba(255,215,0,0.3)'; });
-    groundUpload.addEventListener('drop', (e) => {
-      e.preventDefault();
-      groundUpload.style.borderColor = 'rgba(255,215,0,0.3)';
-      const files = e.dataTransfer.files;
-      if (files.length > 0 && files[0].type.startsWith('image/')) {
-        groundInput.files = files;
-        groundInfo.textContent = `Đã chọn: ${files[0].name}`;
-        groundInfo.style.color = '#90EE90';
-      }
-    });
-    groundInput.addEventListener('change', () => {
-      if (groundInput.files[0]) {
-        groundInfo.textContent = `Đã chọn: ${groundInput.files[0].name}`;
-        groundInfo.style.color = '#90EE90';
-      }
-    });
-
-    // Environment image upload
-    const envUpload = document.getElementById('envUpload');
-    const envInput = envUpload.querySelector('input');
-    const envInfo = document.getElementById('envInfo');
-
-    envUpload.addEventListener('click', () => envInput.click());
-    envUpload.addEventListener('dragover', (e) => { e.preventDefault(); envUpload.style.borderColor = '#FFD700'; });
-    envUpload.addEventListener('dragleave', () => { envUpload.style.borderColor = 'rgba(255,215,0,0.3)'; });
-    envUpload.addEventListener('drop', (e) => {
-      e.preventDefault();
-      envUpload.style.borderColor = 'rgba(255,215,0,0.3)';
-      const files = e.dataTransfer.files;
-      if (files.length > 0 && files[0].type.startsWith('image/')) {
-        envInput.files = files;
-        envInfo.textContent = `Đã chọn: ${files[0].name}`;
-        envInfo.style.color = '#90EE90';
-      }
-    });
-    envInput.addEventListener('change', () => {
-      if (envInput.files[0]) {
-        envInfo.textContent = `Đã chọn: ${envInput.files[0].name}`;
-        envInfo.style.color = '#90EE90';
-      }
-    });
-
-    // Props (3D objects) upload - multiple files
-    const propsUpload = document.getElementById('propsUpload');
-    const propsInput = propsUpload.querySelector('input');
-    const propsInfo = document.getElementById('propsInfo');
-    const propsList = document.getElementById('propsList');
-
-    propsUpload.addEventListener('click', () => propsInput.click());
-    propsUpload.addEventListener('dragover', (e) => { e.preventDefault(); propsUpload.style.borderColor = '#FFD700'; });
-    propsUpload.addEventListener('dragleave', () => { propsUpload.style.borderColor = 'rgba(255,215,0,0.3)'; });
-    propsUpload.addEventListener('drop', (e) => {
-      e.preventDefault();
-      propsUpload.style.borderColor = 'rgba(255,215,0,0.3)';
-      const files = e.dataTransfer.files;
-      const validFiles = Array.from(files).filter(f => f.name.endsWith('.glb') || f.name.endsWith('.gltf'));
-      if (validFiles.length > 0) {
-        // Create a new DataTransfer to set files
-        const dt = new DataTransfer();
-        validFiles.forEach(f => dt.items.add(f));
-        propsInput.files = dt.files;
-        updatePropsList();
-      }
-    });
-    propsInput.addEventListener('change', updatePropsList);
-
-    function updatePropsList() {
-      const files = Array.from(propsInput.files);
-      if (files.length === 0) {
-        propsInfo.textContent = '';
-        propsList.innerHTML = '';
-        return;
-      }
-      propsInfo.textContent = `Đã chọn ${files.length} vật thể 3D`;
-      propsInfo.style.color = '#90EE90';
-      propsList.innerHTML = files.map((f, i) => `
-        <div style="background: rgba(255,215,0,0.1); padding: 5px 10px; margin: 3px 0; border-radius: 5px; font-size: 12px; color: #FFD700;">
-          🎄 ${f.name}
-        </div>
-      `).join('');
+      input.addEventListener('change', () => {
+        if (input.files && input.files.length > 0) {
+          card.classList.add('active');
+          if (isMultiple) {
+            status.textContent = `${input.files.length} items`;
+          } else {
+            status.textContent = input.files[0].name.length > 20 
+              ? '...' + input.files[0].name.slice(-15) 
+              : input.files[0].name;
+          }
+        } else {
+          card.classList.remove('active');
+        }
+      });
     }
 
-    // Form submit
+    setupFileInput('file-model', 'status-model');
+    setupFileInput('file-audio', 'status-audio');
+    setupFileInput('file-ground', 'status-ground');
+    setupFileInput('file-env', 'status-env');
+    setupFileInput('file-props', 'status-props', true);
+
+    // Height Adjustment
+    function adjustHeight(val) {
+      const input = document.getElementById('modelY');
+      let current = parseFloat(input.value);
+      input.value = (current + val).toFixed(1);
+    }
+
+    function copyLink() {
+      const text = document.getElementById('resultUrl').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const oldText = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = oldText, 2000);
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // BACKGROUND ANIMATION (Ember Particles)
+    // ════════════════════════════════════════════════════════════════════════
+    const canvas = document.getElementById('canvas-bg');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height; 
+        this.reset(true); 
+      }
+
+      reset(initial = false) {
+        // Randomly decide direction: Up (Ember) or Down (Ash/Snow)
+        this.direction = Math.random() > 0.5 ? 'up' : 'down';
+        
+        if (!initial) {
+            this.x = Math.random() * canvas.width;
+            this.y = this.direction === 'up' ? canvas.height + 10 : -10;
+        }
+
+        this.size = Math.random() * 3;
+        this.opacity = Math.random() * 0.5 + 0.1;
+        
+        if (this.direction === 'up') {
+            // Embers (Rising)
+            this.speed = Math.random() * 1 + 0.5;
+            this.color = Math.random() > 0.6 ? '#FFD700' : '#E25822';
+            this.fade = Math.random() * 0.005 + 0.002;
+        } else {
+            // Ash/Snow (Falling)
+            this.speed = Math.random() * 1 + 0.2;
+            this.color = Math.random() > 0.5 ? '#ffffff' : '#a0a0a0';
+            this.fade = Math.random() * 0.002;
+        }
+      }
+
+      update() {
+        if (this.direction === 'up') {
+            this.y -= this.speed;
+            this.opacity -= this.fade;
+            this.x += Math.sin(this.y * 0.01) * 0.5;
+            if (this.y < -10 || this.opacity <= 0) this.reset();
+        } else {
+            this.y += this.speed;
+            this.x += Math.cos(this.y * 0.01) * 0.5;
+            if (this.y > canvas.height + 10) this.reset();
+        }
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.opacity;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Increased particle count for "snow" density
+    for (let i = 0; i < 200; i++) particles.push(new Particle());
+
+    function animateBg() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animateBg);
+    }
+    animateBg();
+
+    // ════════════════════════════════════════════════════════════════════════
+    // UPLOAD LOGIC
+    // ════════════════════════════════════════════════════════════════════════
+    const form = document.getElementById('uploadForm');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('uploadProgress');
+    const resultOverlay = document.getElementById('result-overlay');
+    const submitBtn = document.getElementById('submitBtn');
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      result.innerHTML = '<p style="color:#FFD700;">⏳ Đang upload...</p>';
-      result.classList.add('show');
-      progress.style.display = 'block';
+      
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>⏳ Uploading...</span>';
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
       
       const fd = new FormData(form);
       
-      // Get selected effects
-      const effectCheckboxes = document.querySelectorAll('input[name="effects"]:checked');
-      const effects = Array.from(effectCheckboxes).map(cb => cb.value);
-      fd.append('effects', JSON.stringify(effects));
-      
-      // Parse animations
-      const animationsText = fd.get('animations') || '';
-      fd.delete('animations');
-      const animations = animationsText.split(',').map(a => {
-        const [name, speed] = a.trim().split(':');
-        return name ? { name: name.trim(), speed: parseFloat(speed) || 1.0 } : null;
-      }).filter(a => a);
-      fd.append('animations', JSON.stringify(animations));
-      
-      // Remove effect checkboxes from FormData
-      fd.delete('effects');
-      fd.append('effects', JSON.stringify(effects));
-      
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/upload');
+      
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           progressBar.style.width = (e.loaded / e.total * 100) + '%';
         }
       };
+      
       xhr.onload = () => {
-        progress.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
+        progressContainer.style.display = 'none';
+
         if (xhr.status === 200) {
           const j = JSON.parse(xhr.responseText);
-          result.innerHTML = `
-            <h2>✅ Upload thành công!</h2>
-            <div class="url-box">
-              <strong style="color:#FFD700;">🔗 Link AR:</strong><br>
-              <a href="${j.url}" target="_blank" id="arUrl">${j.url}</a>
-            </div>
-            <button class="copy-btn" onclick="navigator.clipboard.writeText('${j.url}').then(()=>alert('Đã sao chép!'))">📋 Sao chép</button>
-            <div id="qrcode"></div>
-            <p style="color:#FFD700;margin-top:10px;">📱 Quét mã QR để xem AR</p>
-            <div class="instructions">
-              <h3>📖 Hướng dẫn:</h3>
-              <ol>
-                <li>Quét mã QR hoặc mở link trên điện thoại</li>
-                <li>Cho phép truy cập camera</li>
-                <li>Mô hình 3D sẽ hiển thị trên camera</li>
-                <li>Sử dụng các nút để điều khiển animation, audio</li>
-              </ol>
-            </div>
-          `;
+          
+          // Show Result
+          document.getElementById('resultUrl').textContent = j.url;
+          document.getElementById('qrcode').innerHTML = '';
           new QRCode(document.getElementById('qrcode'), { 
-            text: j.url, width: 150, height: 150,
-            colorDark: "#8B0000", colorLight: "#ffffff"
+            text: j.url, 
+            width: 160, 
+            height: 160,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
           });
+          
+          resultOverlay.style.display = 'flex';
+          setTimeout(() => resultOverlay.classList.add('active'), 10);
         } else {
-          result.innerHTML = '<p style="color:#ff6b6b;">❌ Upload thất bại</p>';
+          alert('Upload failed: ' + xhr.statusText);
         }
       };
+      
+      xhr.onerror = () => {
+        alert('Network Error');
+        submitBtn.disabled = false;
+      };
+      
       xhr.send(fd);
     });
+
   </script>
 </body>
 </html>
