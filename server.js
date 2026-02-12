@@ -209,22 +209,28 @@ app.post('/upload', (req, res, next) => {
     };
     saveDB(db);
 
-    // Auto-optimize GLB models in background (don't block response)
+    // Auto-optimize GLB models in background (truly async, doesn't block event loop)
     if (modelFile && modelFile.endsWith('.glb')) {
       const modelFullPath = path.join(UPLOADS_DIR, modelFile);
-      setImmediate(() => {
-        try {
-          const { execSync } = require('child_process');
-          console.log(`🔧 Auto-optimizing ${modelFile}...`);
-          execSync(`node optimize_models.mjs "${modelFullPath}"`, { 
-            cwd: __dirname, 
-            timeout: 300000,
-            stdio: 'inherit' 
-          });
-        } catch (e) {
-          console.log('Auto-optimize failed (will use original):', e.message);
+      const { spawn } = require('child_process');
+      console.log(`🔧 Auto-optimizing ${modelFile} (background)...`);
+      const child = spawn('node', ['optimize_models.mjs', modelFullPath], {
+        cwd: __dirname,
+        stdio: 'inherit',
+        detached: false
+      });
+      child.on('close', (code) => {
+        if (code === 0) {
+          console.log(`✅ Optimized ${modelFile} successfully`);
+        } else {
+          console.log(`⚠️ Optimize ${modelFile} exited with code ${code} (will use original)`);
         }
       });
+      child.on('error', (err) => {
+        console.log('Auto-optimize failed (will use original):', err.message);
+      });
+      // Unref so it doesn't prevent server shutdown
+      child.unref();
     }
 
     const url = `${req.protocol}://${req.get('host')}/view/${id}`;

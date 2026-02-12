@@ -630,7 +630,7 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" async></script>
   <script>
     // ════════════════════════════════════════════════════════════════════════
     // UI INTERACTIONS
@@ -750,8 +750,10 @@
       }
     }
 
-    // Increased particle count for "snow" density
-    for (let i = 0; i < 200; i++) particles.push(new Particle());
+    // Reduced particle count for better performance
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const particleCount = isMobileDevice ? 60 : 120;
+    for (let i = 0; i < particleCount; i++) particles.push(new Particle());
 
     function animateBg() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -785,10 +787,42 @@
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/upload');
       
+      // Track upload start time for speed calculation
+      const uploadStartTime = Date.now();
+      let lastLoaded = 0;
+      let lastTime = uploadStartTime;
+      
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
-          progressBar.style.width = (e.loaded / e.total * 100) + '%';
+          const pct = (e.loaded / e.total * 100);
+          progressBar.style.width = pct + '%';
+          
+          // Calculate upload speed
+          const now = Date.now();
+          const elapsed = (now - lastTime) / 1000;
+          if (elapsed > 0.5) {
+            const speed = (e.loaded - lastLoaded) / elapsed;
+            const remaining = (e.total - e.loaded) / speed;
+            lastLoaded = e.loaded;
+            lastTime = now;
+            
+            const speedText = speed > 1048576 
+              ? (speed / 1048576).toFixed(1) + ' MB/s' 
+              : (speed / 1024).toFixed(0) + ' KB/s';
+            const remainText = remaining < 60 
+              ? Math.ceil(remaining) + 's' 
+              : Math.ceil(remaining / 60) + 'min';
+            
+            if (pct < 100) {
+              submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% · ${speedText} · ~${remainText}</span>`;
+            }
+          }
         }
+      };
+      
+      xhr.upload.onload = () => {
+        submitBtn.innerHTML = '<span>⚡ Generating QR...</span>';
+        progressBar.style.width = '100%';
       };
       
       xhr.onload = () => {
@@ -799,17 +833,29 @@
         if (xhr.status === 200) {
           const j = JSON.parse(xhr.responseText);
           
-          // Show Result
+          // Show Result immediately
           document.getElementById('resultUrl').textContent = j.url;
           document.getElementById('qrcode').innerHTML = '';
-          new QRCode(document.getElementById('qrcode'), { 
-            text: j.url, 
-            width: 160, 
-            height: 160,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
-          });
+          
+          // Generate QR code (wait for library if async loaded)
+          const generateQR = () => {
+            new QRCode(document.getElementById('qrcode'), { 
+              text: j.url, 
+              width: 160, 
+              height: 160,
+              colorDark: "#000000",
+              colorLight: "#ffffff",
+              correctLevel : QRCode.CorrectLevel.M
+            });
+          };
+          
+          if (typeof QRCode !== 'undefined') {
+            generateQR();
+          } else {
+            // QR library still loading (async), wait for it
+            const qrScript = document.querySelector('script[src*="qrcode"]');
+            qrScript.addEventListener('load', generateQR);
+          }
           
           resultOverlay.style.display = 'flex';
           setTimeout(() => resultOverlay.classList.add('active'), 10);
@@ -821,6 +867,8 @@
       xhr.onerror = () => {
         alert('Network Error');
         submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
+        progressContainer.style.display = 'none';
       };
       
       xhr.send(fd);
