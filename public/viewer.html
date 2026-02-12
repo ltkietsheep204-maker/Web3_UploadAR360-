@@ -840,7 +840,7 @@
 
   <!-- 3D Canvas + Camera -->
   <div id="container">
-    <video id="cameraVideo" autoplay playsinline muted></video>
+    <video id="cameraVideo" autoplay playsinline webkit-playsinline muted></video>
     <canvas id="canvas3d"></canvas>
   </div>
 
@@ -991,8 +991,9 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+  <!-- fflate MUST load before FBXLoader -->
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1265,12 +1266,34 @@ function updateSizeIndicator(heightCM) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function initARCamera() {
   try {
+    // Check if mediaDevices is available (requires HTTPS on Safari)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.log('📷 Camera API not available (needs HTTPS)');
+      arMode = false;
+      return false;
+    }
+    
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     const video = document.getElementById('cameraVideo');
     video.srcObject = stream;
-    await video.play();
+    
+    // Safari-safe play
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.muted = true;
+    
+    try {
+      await video.play();
+    } catch(playErr) {
+      console.log('📷 Video autoplay blocked, will play on interaction');
+      document.addEventListener('touchstart', function playOnTouch() {
+        video.play().catch(() => {});
+        document.removeEventListener('touchstart', playOnTouch);
+      }, { once: true });
+    }
+    
     arMode = true;
 
     // Make scene transparent for AR
@@ -1281,7 +1304,7 @@ async function initARCamera() {
     console.log('📷 AR Camera active');
     return true;
   } catch (e) {
-    console.log('📷 Camera not available, using 3D mode');
+    console.log('📷 Camera not available:', e.message);
     arMode = false;
     return false;
   }
@@ -1291,24 +1314,41 @@ async function initARCamera() {
 // INITIALIZE SCENE
 // ══════════════════════════════════════════════════════════════════════════════
 async function init() {
+  try {
   const canvas = document.getElementById('canvas3d');
   setLoadingProgress(10);
+
+  // Check WebGL support
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) {
+    document.getElementById('loadingScreen').innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p></div>';
+    return;
+  }
 
   // Scene
   scene = new THREE.Scene();
   scene.background = null;
 
-  // Camera - positioned for real-life view
-  // At 3m distance, a 1.7m human fills ~60% of vertical FOV with 50° FOV
+  // Camera
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 500);
-  camera.position.set(0, 0.9, 3.5); // Eye-level, 3.5m away
+  camera.position.set(0, 0.9, 3.5);
 
-  // Renderer - optimized for mobile
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
+  // Renderer - Safari/iOS compatible
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  renderer = new THREE.WebGLRenderer({ 
+    canvas, 
+    antialias: !isIOS, // Antialias on desktop, off on iOS for performance
+    alpha: true,
+    preserveDrawingBuffer: true // Required for Safari screenshot
+  });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.BasicShadowMap; // Faster shadow
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isIOS ? 2 : 2));
+  renderer.shadowMap.enabled = !isIOS; // Disable shadows on iOS for speed
+  if (renderer.shadowMap.enabled) {
+    renderer.shadowMap.type = THREE.BasicShadowMap;
+  }
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -1322,20 +1362,22 @@ async function init() {
   controls.maxDistance = 20;
 
   // Lighting - outdoor natural light
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  const ambientLight = new THREE.AmbientLight(0xffffff, isIOS ? 0.8 : 0.6);
   scene.add(ambientLight);
 
   const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
   sunLight.position.set(5, 10, 7);
-  sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 1024;
-  sunLight.shadow.mapSize.height = 1024;
-  sunLight.shadow.camera.near = 0.5;
-  sunLight.shadow.camera.far = 30;
-  sunLight.shadow.camera.left = -3;
-  sunLight.shadow.camera.right = 3;
-  sunLight.shadow.camera.top = 3;
-  sunLight.shadow.camera.bottom = -3;
+  if (!isIOS) {
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 30;
+    sunLight.shadow.camera.left = -3;
+    sunLight.shadow.camera.right = 3;
+    sunLight.shadow.camera.top = 3;
+    sunLight.shadow.camera.bottom = -3;
+  }
   scene.add(sunLight);
 
   const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
@@ -1436,6 +1478,16 @@ async function init() {
 
   // Setup UI
   setupUI();
+  
+  } catch(initError) {
+    console.error('Init failed:', initError);
+    document.getElementById('loadingScreen').innerHTML = 
+      '<div style="color:#fff;text-align:center;padding:40px;font-family:sans-serif;">' +
+      '<h2 style="color:#FFD700;">Đã xảy ra lỗi</h2>' +
+      '<p style="margin-top:10px;">' + (initError.message || 'Không thể khởi tạo 3D') + '</p>' +
+      '<p style="margin-top:10px;color:#888;">Vui lòng thử lại hoặc dùng trình duyệt khác</p>' +
+      '<button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">Thử lại</button></div>';
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1495,6 +1547,7 @@ function loadModel() {
 }
 
 function processLoadedModel(loadedModel, animations = []) {
+  try {
   scene.add(loadedModel);
 
   // ═══════════════════════════════════════════════════════════════
@@ -1504,14 +1557,27 @@ function processLoadedModel(loadedModel, animations = []) {
   const { scaleFactor, realHeightCM } = autoResizeToRealLife(loadedModel, targetHeightCM);
 
   // Update slider
-  document.getElementById('scaleSlider').value = targetHeightCM;
-  document.getElementById('scaleValue').textContent = targetHeightCM + 'cm';
+  const slider = document.getElementById('scaleSlider');
+  const scaleVal = document.getElementById('scaleValue');
+  if (slider) slider.value = targetHeightCM;
+  if (scaleVal) scaleVal.textContent = targetHeightCM + 'cm';
 
-  // Enable shadows
+  // Enable shadows (skip on iOS)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   loadedModel.traverse(child => {
     if (child.isMesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
+      if (!isIOS) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+      // Fix for Safari: ensure materials are properly initialized
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach(m => { m.needsUpdate = true; });
+        } else {
+          child.material.needsUpdate = true;
+        }
+      }
     }
   });
 
@@ -1554,6 +1620,10 @@ function processLoadedModel(loadedModel, animations = []) {
 
   // Save to collection
   saveToCollection(assetData);
+  } catch(e) {
+    console.error('processLoadedModel error:', e);
+    hideLoading();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
