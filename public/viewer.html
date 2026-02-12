@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>WEBAR - AR Viewer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Preload critical scripts -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" as="script" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" as="script" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #8B0000;
@@ -1262,7 +1266,7 @@ function updateSizeIndicator(heightCM) {
 async function initARCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     const video = document.getElementById('cameraVideo');
     video.srcObject = stream;
@@ -1299,11 +1303,12 @@ async function init() {
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 500);
   camera.position.set(0, 0.9, 3.5); // Eye-level, 3.5m away
 
-  // Renderer
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  // Renderer - optimized for mobile
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.BasicShadowMap; // Faster shadow
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -1323,14 +1328,14 @@ async function init() {
   const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
   sunLight.position.set(5, 10, 7);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 2048;
-  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.mapSize.width = 1024;
+  sunLight.shadow.mapSize.height = 1024;
   sunLight.shadow.camera.near = 0.5;
-  sunLight.shadow.camera.far = 50;
-  sunLight.shadow.camera.left = -5;
-  sunLight.shadow.camera.right = 5;
-  sunLight.shadow.camera.top = 5;
-  sunLight.shadow.camera.bottom = -5;
+  sunLight.shadow.camera.far = 30;
+  sunLight.shadow.camera.left = -3;
+  sunLight.shadow.camera.right = 3;
+  sunLight.shadow.camera.top = 3;
+  sunLight.shadow.camera.bottom = -3;
   scene.add(sunLight);
 
   const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
@@ -1359,8 +1364,8 @@ async function init() {
   grid.visible = false;
   scene.add(grid);
 
-  // Environment dome
-  const domeGeo = new THREE.SphereGeometry(100, 64, 32);
+  // Environment dome - simplified
+  const domeGeo = new THREE.SphereGeometry(100, 32, 16);
   const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
   environmentDome = new THREE.Mesh(domeGeo, domeMat);
   scene.add(environmentDome);
@@ -1368,9 +1373,9 @@ async function init() {
   clock = new THREE.Clock();
   setLoadingProgress(30);
 
-  // Init AR camera
-  await initARCamera();
-  setLoadingProgress(50);
+  // AR camera - start in parallel, don't block loading
+  initARCamera().then(() => setLoadingProgress(50));
+  setLoadingProgress(40);
 
   // Load asset data
   const pathParts = window.location.pathname.split('/');
@@ -1438,7 +1443,13 @@ async function init() {
 // ══════════════════════════════════════════════════════════════════════════════
 function loadModel() {
   const modelPath = assetData?.model || '/uploads/default.glb';
+  
+  if (!modelPath || modelPath === '/uploads/default.glb') {
+    console.warn('No model path found, checking asset data...');
+  }
+  
   const isFBX = modelPath.toLowerCase().endsWith('.fbx');
+  const fullUrl = modelPath.startsWith('http') ? modelPath : modelPath;
 
   const onProgress = (p) => {
     if (p.total > 0) {
@@ -1449,16 +1460,35 @@ function loadModel() {
 
   const onError = (err) => {
     console.error('Model load error:', err);
-    showToast('Lỗi', 'Không thể tải mô hình 3D');
-    hideLoading();
+    // Try with full absolute URL as fallback
+    const absUrl = window.location.origin + modelPath;
+    console.log('Retrying with absolute URL:', absUrl);
+    
+    if (isFBX) {
+      new THREE.FBXLoader().load(absUrl, fbx => {
+        processLoadedModel(fbx, fbx.animations || []);
+      }, onProgress, (err2) => {
+        console.error('Model load failed completely:', err2);
+        hideLoading();
+      });
+    } else {
+      new THREE.GLTFLoader().load(absUrl, gltf => {
+        processLoadedModel(gltf.scene, gltf.animations || []);
+      }, onProgress, (err2) => {
+        console.error('Model load failed completely:', err2);
+        hideLoading();
+      });
+    }
   };
 
+  console.log('Loading model from:', fullUrl);
+
   if (isFBX) {
-    new THREE.FBXLoader().load(modelPath, fbx => {
+    new THREE.FBXLoader().load(fullUrl, fbx => {
       processLoadedModel(fbx, fbx.animations || []);
     }, onProgress, onError);
   } else {
-    new THREE.GLTFLoader().load(modelPath, gltf => {
+    new THREE.GLTFLoader().load(fullUrl, gltf => {
       processLoadedModel(gltf.scene, gltf.animations || []);
     }, onProgress, onError);
   }
@@ -1951,9 +1981,24 @@ function closeCollection() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// INIT
+// GLOBAL ERROR HANDLING
 // ══════════════════════════════════════════════════════════════════════════════
-init();
+window.onerror = function(msg, url, line, col, error) {
+  console.error('Global error:', msg, url, line);
+  return false;
+};
+
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT - with error handling
+// ══════════════════════════════════════════════════════════════════════════════
+init().catch(err => {
+  console.error('Init error:', err);
+  hideLoading();
+});
 
 </script>
 </body>

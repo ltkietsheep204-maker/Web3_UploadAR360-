@@ -9,6 +9,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ═══════════════════════════════════════════════════════════════════
+// PERFORMANCE: Compression & Caching
+// ═══════════════════════════════════════════════════════════════════
+// Enable gzip compression
+let compression;
+try { compression = require('compression'); app.use(compression()); } catch(e) {
+  console.log('compression module not found, skipping');
+}
+
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 const DATA_DIR = path.join(__dirname, 'data');
@@ -18,6 +27,21 @@ if (!fs.existsSync(PUBLIC_DIR)) fs.mkdirSync(PUBLIC_DIR);
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify({}), 'utf8');
+
+// ═══════════════════════════════════════════════════════════════════
+// PERFORMANCE: Cache DB in memory instead of reading file every time
+// ═══════════════════════════════════════════════════════════════════
+let dbCache = null;
+function getDB() {
+  if (!dbCache) {
+    dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  }
+  return dbCache;
+}
+function saveDB(db) {
+  dbCache = db;
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -30,9 +54,30 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB max
+});
 
-app.use(express.static(PUBLIC_DIR));
+// ═══════════════════════════════════════════════════════════════════
+// PERFORMANCE: Static files with aggressive caching for uploads
+// ═══════════════════════════════════════════════════════════════════
+app.use('/uploads', express.static(path.join(PUBLIC_DIR, 'uploads'), {
+  maxAge: '7d',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // GLB/GLTF/FBX files - cache aggressively
+    if (filePath.match(/\.(glb|gltf|fbx)$/i)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+    }
+  }
+}));
+
+app.use(express.static(PUBLIC_DIR, {
+  maxAge: '1h',
+  etag: true
+}));
 
 app.post('/upload', (req, res, next) => {
   req._uploadId = nanoid(8);
@@ -54,7 +99,7 @@ app.post('/upload', (req, res, next) => {
 
     if (!modelFile) return res.status(400).json({ error: 'Model file is required (glb/gltf).' });
 
-    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    const db = getDB();
     
     // Parse animations safely
     let animations = [];
@@ -104,7 +149,7 @@ app.post('/upload', (req, res, next) => {
       },
       createdAt: Date.now()
     };
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    saveDB(db);
 
     const url = `${req.protocol}://${req.get('host')}/view/${id}`;
     res.json({ id, url });
@@ -115,7 +160,7 @@ app.post('/upload', (req, res, next) => {
 });
 
 app.get('/api/asset/:id', (req, res) => {
-  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = getDB();
   const asset = db[req.params.id];
   if (!asset) return res.status(404).json({ error: 'Not found' });
   res.json(asset);
@@ -129,7 +174,7 @@ app.get('/view/:id', (req, res) => {
 // API: List all uploaded models (for collection/discovery)
 // ═══════════════════════════════════════════════════════════════════
 app.get('/api/assets', (req, res) => {
-  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = getDB();
   const list = Object.values(db).map(a => ({
     id: a.id,
     characterName: a.characterName || 'Vị Tướng',
