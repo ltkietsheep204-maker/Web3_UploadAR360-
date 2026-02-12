@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🔍 iOS Safari Diagnostic</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 15px;
+      padding-bottom: 80px;
+    }
+    h1 {
+      color: #FFD700;
+      font-size: 1.2rem;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #888;
+      font-size: 0.75rem;
+      margin-bottom: 15px;
+    }
+    .device-info {
+      background: #1a1a2e;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 0.7rem;
+      line-height: 1.6;
+      word-break: break-all;
+    }
+    .device-info strong { color: #FFD700; }
+    .test-section {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .test-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #1a1a1a;
+      cursor: pointer;
+    }
+    .test-header h3 {
+      font-size: 0.85rem;
+      color: #ddd;
+    }
+    .test-body {
+      padding: 10px 12px;
+    }
+    .test-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: 0.75rem;
+    }
+    .test-item:last-child { border-bottom: none; }
+    .status {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+    }
+    .status.pass { background: #1a3a1a; color: #2ecc71; }
+    .status.fail { background: #3a1a1a; color: #e74c3c; }
+    .status.warn { background: #3a3a1a; color: #f39c12; }
+    .status.running { background: #1a1a3a; color: #3498db; animation: pulse 1s infinite; }
+    .status.skip { background: #222; color: #666; }
+    @keyframes pulse { 50% { opacity: 0.5; } }
+    .test-label { flex: 1; }
+    .test-label small { display: block; color: #666; margin-top: 2px; word-break: break-all; }
+    .detail { color: #888; font-size: 0.65rem; margin-top: 2px; word-break: break-all; }
+
+    .run-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #8B0000, #cc0000);
+      color: #FFD700;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .run-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .run-btn:active {
+      transform: scale(0.98);
+    }
+
+    .summary {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #111;
+      border-top: 2px solid #222;
+      padding: 10px 15px;
+      display: flex;
+      justify-content: space-around;
+      z-index: 100;
+    }
+    .summary-item {
+      text-align: center;
+      font-size: 0.7rem;
+    }
+    .summary-item .count {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    .summary-item.pass-sum .count { color: #2ecc71; }
+    .summary-item.fail-sum .count { color: #e74c3c; }
+    .summary-item.warn-sum .count { color: #f39c12; }
+
+    #testCanvas {
+      width: 100%;
+      height: 200px;
+      background: #000;
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    .log-box {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-family: 'Menlo', monospace;
+      font-size: 0.6rem;
+      line-height: 1.5;
+    }
+    .log-box .log-err { color: #e74c3c; }
+    .log-box .log-ok { color: #2ecc71; }
+    .log-box .log-warn { color: #f39c12; }
+    .log-box .log-info { color: #3498db; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Chẩn Đoán iOS Safari</h1>
+  <p class="subtitle">Kiểm tra tất cả tính năng cần thiết cho WEBAR</p>
+
+  <!-- Device Info -->
+  <div class="device-info" id="deviceInfo">Đang lấy thông tin thiết bị...</div>
+
+  <!-- Run All -->
+  <button class="run-btn" id="runAllBtn" onclick="runAllTests()">▶ CHẠY TẤT CẢ BÀI KIỂM TRA</button>
+
+  <!-- Test 1: Basic Browser APIs -->
+  <div class="test-section">
+    <div class="test-header"><h3>1️⃣ Browser APIs cơ bản</h3></div>
+    <div class="test-body" id="test1Body"></div>
+  </div>
+
+  <!-- Test 2: WebGL -->
+  <div class="test-section">
+    <div class="test-header"><h3>2️⃣ WebGL Rendering</h3></div>
+    <div class="test-body" id="test2Body">
+      <canvas id="testCanvas"></canvas>
+      <div id="webglInfo"></div>
+    </div>
+  </div>
+
+  <!-- Test 3: Three.js Loading -->
+  <div class="test-section">
+    <div class="test-header"><h3>3️⃣ Three.js Scripts</h3></div>
+    <div class="test-body" id="test3Body"></div>
+  </div>
+
+  <!-- Test 4: Three.js Scene -->
+  <div class="test-section">
+    <div class="test-header"><h3>4️⃣ Three.js Scene Test</h3></div>
+    <div class="test-body" id="test4Body">
+      <canvas id="threeCanvas" style="width:100%;height:200px;background:#000;border-radius:8px;"></canvas>
+      <div id="threeInfo"></div>
+    </div>
+  </div>
+
+  <!-- Test 5: Network / Model Loading -->
+  <div class="test-section">
+    <div class="test-header"><h3>5️⃣ Network & API</h3></div>
+    <div class="test-body" id="test5Body"></div>
+  </div>
+
+  <!-- Test 6: Camera / Media -->
+  <div class="test-section">
+    <div class="test-header"><h3>6️⃣ Camera & Media</h3></div>
+    <div class="test-body" id="test6Body"></div>
+  </div>
+
+  <!-- Test 7: Memory / Performance -->
+  <div class="test-section">
+    <div class="test-header"><h3>7️⃣ Performance & Memory</h3></div>
+    <div class="test-body" id="test7Body"></div>
+  </div>
+
+  <!-- Console Log -->
+  <div class="test-section">
+    <div class="test-header"><h3>📋 Console Log</h3></div>
+    <div class="test-body">
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+
+  <!-- Summary Bar -->
+  <div class="summary">
+    <div class="summary-item pass-sum">
+      <div class="count" id="passCount">0</div>
+      <div>Passed</div>
+    </div>
+    <div class="summary-item fail-sum">
+      <div class="count" id="failCount">0</div>
+      <div>Failed</div>
+    </div>
+    <div class="summary-item warn-sum">
+      <div class="count" id="warnCount">0</div>
+      <div>Warning</div>
+    </div>
+  </div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DIAGNOSTIC ENGINE
+// ═══════════════════════════════════════════════════════════════
+const results = { pass: 0, fail: 0, warn: 0 };
+const logs = [];
+
+function log(msg, type = 'info') {
+  const box = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.className = 'log-' + type;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  logs.push({ msg, type });
+}
+
+function addTestItem(containerId, status, label, detail) {
+  const container = document.getElementById(containerId);
+  const item = document.createElement('div');
+  item.className = 'test-item';
+
+  const statusIcons = { pass: '✓', fail: '✗', warn: '⚠', running: '⏳', skip: '—' };
+  
+  item.innerHTML = `
+    <div class="status ${status}">${statusIcons[status]}</div>
+    <div class="test-label">${label}${detail ? '<small>' + detail + '</small>' : ''}</div>
+  `;
+  container.appendChild(item);
+
+  if (status === 'pass') results.pass++;
+  if (status === 'fail') results.fail++;
+  if (status === 'warn') results.warn++;
+  updateSummary();
+}
+
+function updateSummary() {
+  document.getElementById('passCount').textContent = results.pass;
+  document.getElementById('failCount').textContent = results.fail;
+  document.getElementById('warnCount').textContent = results.warn;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEVICE INFO
+// ═══════════════════════════════════════════════════════════════
+function showDeviceInfo() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  const isChrome = /CriOS/.test(ua);
+  const isFirefox = /FxiOS/.test(ua);
+  
+  let browser = 'Không xác định';
+  if (isChrome) browser = 'Chrome (iOS)';
+  else if (isFirefox) browser = 'Firefox (iOS)';
+  else if (isSafari) browser = 'Safari';
+  
+  const iosMatch = ua.match(/OS (\d+)_(\d+)/);
+  const iosVersion = iosMatch ? `${iosMatch[1]}.${iosMatch[2]}` : 'N/A';
+  
+  const info = document.getElementById('deviceInfo');
+  info.innerHTML = `
+    <strong>Platform:</strong> ${isIOS ? '🍎 iOS' : navigator.platform}<br>
+    <strong>iOS Version:</strong> ${iosVersion}<br>
+    <strong>Browser:</strong> ${browser}<br>
+    <strong>Screen:</strong> ${screen.width}x${screen.height} @${window.devicePixelRatio}x<br>
+    <strong>Window:</strong> ${window.innerWidth}x${window.innerHeight}<br>
+    <strong>Touch:</strong> ${'ontouchstart' in window ? '✅ Có' : '❌ Không'}<br>
+    <strong>Protocol:</strong> ${location.protocol}<br>
+    <strong>UA:</strong> ${ua}
+  `;
+  
+  log('Device: ' + (isIOS ? 'iOS ' + iosVersion : navigator.platform) + ' / ' + browser, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 1: BROWSER APIs
+// ═══════════════════════════════════════════════════════════════
+function test1_BrowserAPIs() {
+  log('▸ Testing Browser APIs...', 'info');
+  const container = 'test1Body';
+  document.getElementById(container).innerHTML = '';
+
+  // Promise
+  addTestItem(container, typeof Promise !== 'undefined' ? 'pass' : 'fail',
+    'Promise API', typeof Promise !== 'undefined' ? 'Có hỗ trợ' : 'KHÔNG hỗ trợ - cần polyfill');
+
+  // Fetch
+  addTestItem(container, typeof fetch !== 'undefined' ? 'pass' : 'fail',
+    'Fetch API', typeof fetch !== 'undefined' ? 'Có hỗ trợ' : 'KHÔNG hỗ trợ');
+
+  // Async/Await
+  let asyncOk = false;
+  try { new Function('return async function(){}')(); asyncOk = true; } catch(e) {}
+  addTestItem(container, asyncOk ? 'pass' : 'fail',
+    'Async/Await', asyncOk ? 'Có hỗ trợ' : 'KHÔNG hỗ trợ');
+
+  // Optional chaining
+  let optionalOk = false;
+  try { new Function('const a = {}; return a?.b?.c')(); optionalOk = true; } catch(e) {}
+  addTestItem(container, optionalOk ? 'pass' : 'fail',
+    'Optional Chaining (?.)', optionalOk ? 'Có hỗ trợ' : 'KHÔNG - viewer.html dùng nhiều ?. syntax');
+
+  // Nullish coalescing
+  let nullishOk = false;
+  try { new Function('return null ?? "ok"')(); nullishOk = true; } catch(e) {}
+  addTestItem(container, nullishOk ? 'pass' : 'fail',
+    'Nullish Coalescing (??)', nullishOk ? 'Có hỗ trợ' : 'KHÔNG hỗ trợ');
+
+  // Template literals
+  let templateOk = false;
+  try { new Function('return `test ${1+1}`')(); templateOk = true; } catch(e) {}
+  addTestItem(container, templateOk ? 'pass' : 'pass',
+    'Template Literals', 'Có hỗ trợ');
+
+  // HTTPS check
+  const isHTTPS = location.protocol === 'https:';
+  addTestItem(container, isHTTPS ? 'pass' : 'warn',
+    'HTTPS', isHTTPS ? 'Trang web đang dùng HTTPS' : 'Đang dùng HTTP - Camera sẽ không hoạt động trên Safari');
+
+  // localStorage
+  let storageOk = false;
+  try { localStorage.setItem('_test', '1'); localStorage.removeItem('_test'); storageOk = true; } catch(e) {}
+  addTestItem(container, storageOk ? 'pass' : 'warn',
+    'localStorage', storageOk ? 'Có hỗ trợ' : 'Bị chặn (Private browsing?)');
+
+  // Service Worker
+  addTestItem(container, 'serviceWorker' in navigator ? 'pass' : 'warn',
+    'Service Worker', 'serviceWorker' in navigator ? 'Có hỗ trợ' : 'Không hỗ trợ');
+
+  log('✓ Browser APIs test complete', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 2: WebGL
+// ═══════════════════════════════════════════════════════════════
+function test2_WebGL() {
+  log('▸ Testing WebGL...', 'info');
+  const container = 'test2Body';
+  // Keep canvas, clear previous test items after canvas
+  const canvas = document.getElementById('testCanvas');
+  const info = document.getElementById('webglInfo');
+  info.innerHTML = '';
+
+  // WebGL1
+  let gl = null;
+  let webgl1 = false;
+  try {
+    gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    webgl1 = !!gl;
+  } catch(e) {}
+  addTestItem(container, webgl1 ? 'pass' : 'fail',
+    'WebGL 1.0', webgl1 ? 'Có hỗ trợ' : 'KHÔNG - không thể chạy Three.js');
+
+  // WebGL2
+  let gl2 = null;
+  let webgl2 = false;
+  try {
+    gl2 = canvas.getContext('webgl2');
+    webgl2 = !!gl2;
+  } catch(e) {}
+  addTestItem(container, webgl2 ? 'pass' : 'warn',
+    'WebGL 2.0', webgl2 ? 'Có hỗ trợ' : 'Không có - sẽ dùng WebGL 1.0');
+
+  // Use whichever context we got
+  const activeGL = gl2 || gl;
+  
+  if (activeGL) {
+    // Renderer info
+    const debugInfo = activeGL.getExtension('WEBGL_debug_renderer_info');
+    const vendor = debugInfo ? activeGL.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'N/A';
+    const rendererName = debugInfo ? activeGL.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'N/A';
+    addTestItem(container, 'pass', 'GPU Vendor', vendor);
+    addTestItem(container, 'pass', 'GPU Renderer', rendererName);
+
+    // Max texture size
+    const maxTex = activeGL.getParameter(activeGL.MAX_TEXTURE_SIZE);
+    addTestItem(container, maxTex >= 4096 ? 'pass' : 'warn',
+      'Max Texture Size', maxTex + 'px' + (maxTex < 4096 ? ' (nhỏ, có thể lỗi texture)' : ''));
+
+    // Max viewport
+    const maxVP = activeGL.getParameter(activeGL.MAX_VIEWPORT_DIMS);
+    addTestItem(container, 'pass', 'Max Viewport', maxVP[0] + 'x' + maxVP[1]);
+
+    // Max render buffer
+    const maxRB = activeGL.getParameter(activeGL.MAX_RENDERBUFFER_SIZE);
+    addTestItem(container, 'pass', 'Max RenderBuffer', maxRB + 'px');
+
+    // Extensions count
+    const exts = activeGL.getSupportedExtensions();
+    addTestItem(container, 'pass', 'WebGL Extensions', exts.length + ' extensions');
+
+    // Test important extensions
+    const importantExts = [
+      'OES_texture_float',
+      'OES_element_index_uint',
+      'OES_standard_derivatives',
+      'WEBGL_depth_texture',
+      'WEBGL_compressed_texture_s3tc',
+      'EXT_shader_texture_lod'
+    ];
+    importantExts.forEach(ext => {
+      const has = activeGL.getExtension(ext);
+      addTestItem(container, has ? 'pass' : 'warn',
+        ext, has ? 'Có' : 'Không có');
+    });
+
+    // Test draw
+    try {
+      canvas.width = canvas.clientWidth * Math.min(window.devicePixelRatio, 2);
+      canvas.height = canvas.clientHeight * Math.min(window.devicePixelRatio, 2);
+      activeGL.viewport(0, 0, canvas.width, canvas.height);
+      activeGL.clearColor(0.1, 0.05, 0.2, 1.0);
+      activeGL.clear(activeGL.COLOR_BUFFER_BIT);
+
+      // Draw a test triangle
+      const vs = activeGL.createShader(activeGL.VERTEX_SHADER);
+      activeGL.shaderSource(vs, `
+        attribute vec2 p;
+        void main() { gl_Position = vec4(p, 0.0, 1.0); }
+      `);
+      activeGL.compileShader(vs);
+
+      const fs = activeGL.createShader(activeGL.FRAGMENT_SHADER);
+      activeGL.shaderSource(fs, `
+        precision mediump float;
+        void main() { gl_FragColor = vec4(1.0, 0.84, 0.0, 1.0); }
+      `);
+      activeGL.compileShader(fs);
+
+      const prog = activeGL.createProgram();
+      activeGL.attachShader(prog, vs);
+      activeGL.attachShader(prog, fs);
+      activeGL.linkProgram(prog);
+      activeGL.useProgram(prog);
+
+      const buf = activeGL.createBuffer();
+      activeGL.bindBuffer(activeGL.ARRAY_BUFFER, buf);
+      activeGL.bufferData(activeGL.ARRAY_BUFFER, new Float32Array([0, 0.8, -0.7, -0.6, 0.7, -0.6]), activeGL.STATIC_DRAW);
+
+      const loc = activeGL.getAttribLocation(prog, 'p');
+      activeGL.enableVertexAttribArray(loc);
+      activeGL.vertexAttribPointer(loc, 2, activeGL.FLOAT, false, 0, 0);
+      activeGL.drawArrays(activeGL.TRIANGLES, 0, 3);
+
+      // Check for errors
+      const err = activeGL.getError();
+      addTestItem(container, err === 0 ? 'pass' : 'fail',
+        'WebGL Draw Test', err === 0 ? 'Vẽ tam giác thành công (xem canvas phía trên)' : 'Lỗi GL: ' + err);
+
+      log('WebGL draw test OK', 'ok');
+    } catch(e) {
+      addTestItem(container, 'fail', 'WebGL Draw Test', 'CRASH: ' + e.message);
+      log('WebGL draw FAILED: ' + e.message, 'err');
+    }
+
+    // Context loss listener
+    canvas.addEventListener('webglcontextlost', function(e) {
+      addTestItem(container, 'fail', 'WebGL Context Lost!', 'GPU bị crash - thiết bị không đủ bộ nhớ GPU');
+      log('⚠ WebGL CONTEXT LOST!', 'err');
+    });
+  } else {
+    addTestItem(container, 'fail', 'WebGL', 'KHÔNG có WebGL - không thể chạy ứng dụng 3D');
+    log('WebGL NOT supported!', 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 3: THREE.JS SCRIPT LOADING
+// ═══════════════════════════════════════════════════════════════
+async function test3_ThreeJS() {
+  log('▸ Testing Three.js script loading...', 'info');
+  const container = 'test3Body';
+  document.getElementById(container).innerHTML = '';
+
+  const scripts = [
+    { name: 'Three.js Core', url: 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', global: 'THREE' },
+    { name: 'OrbitControls', url: 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', global: 'THREE.OrbitControls' },
+    { name: 'GLTFLoader', url: 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js', global: 'THREE.GLTFLoader' },
+    { name: 'fflate', url: 'https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js', global: 'fflate' },
+    { name: 'FBXLoader', url: 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js', global: 'THREE.FBXLoader' },
+  ];
+
+  for (const s of scripts) {
+    const start = performance.now();
+    try {
+      const resp = await fetch(s.url, { mode: 'cors' });
+      const elapsed = Math.round(performance.now() - start);
+
+      if (resp.ok) {
+        const size = resp.headers.get('content-length');
+        const sizeKB = size ? Math.round(size / 1024) + 'KB' : 'unknown size';
+        addTestItem(container, 'pass', s.name,
+          `${resp.status} OK - ${sizeKB} - ${elapsed}ms`);
+        log(`${s.name}: load OK (${elapsed}ms)`, 'ok');
+      } else {
+        addTestItem(container, 'fail', s.name,
+          `HTTP ${resp.status} ${resp.statusText} - ${elapsed}ms`);
+        log(`${s.name}: HTTP ${resp.status}`, 'err');
+      }
+    } catch(e) {
+      const elapsed = Math.round(performance.now() - start);
+      addTestItem(container, 'fail', s.name,
+        `FETCH FAILED: ${e.message} - ${elapsed}ms`);
+      log(`${s.name}: FETCH FAILED: ${e.message}`, 'err');
+    }
+  }
+
+  // Check if already loaded in global scope
+  addTestItem(container, typeof THREE !== 'undefined' ? 'pass' : 'warn',
+    'THREE global', typeof THREE !== 'undefined'
+      ? 'THREE v' + (THREE.REVISION || '?') + ' đã load'
+      : 'Chưa load (bình thường - script chỉ được fetch, chưa execute)');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 4: THREE.JS SCENE RENDERING
+// ═══════════════════════════════════════════════════════════════
+async function test4_ThreeScene() {
+  log('▸ Testing Three.js scene creation...', 'info');
+  const container = 'test4Body';
+  const info = document.getElementById('threeInfo');
+  info.innerHTML = '';
+
+  // We need Three.js loaded first
+  if (typeof THREE === 'undefined') {
+    // Load Three.js
+    try {
+      await loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js');
+      addTestItem(container, 'pass', 'Three.js Loaded', 'THREE r' + THREE.REVISION);
+    } catch(e) {
+      addTestItem(container, 'fail', 'Three.js Load', 'FAILED: ' + e.message);
+      log('Cannot load Three.js for scene test!', 'err');
+      return;
+    }
+  }
+
+  const canvas = document.getElementById('threeCanvas');
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  // Test 1: Create renderer (most critical test)
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: !isIOS,
+      alpha: true,
+      preserveDrawingBuffer: true
+    });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    addTestItem(container, 'pass', 'WebGLRenderer', 'Tạo renderer thành công');
+    log('WebGLRenderer created OK', 'ok');
+  } catch(e) {
+    addTestItem(container, 'fail', 'WebGLRenderer',
+      'CRASH tạo renderer: ' + e.message);
+    log('WebGLRenderer FAILED: ' + e.message, 'err');
+    return;
+  }
+
+  // Test 2: Shadow Map (this crashes on some iOS)
+  try {
+    if (!isIOS) {
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.BasicShadowMap;
+      addTestItem(container, 'pass', 'Shadow Map', 'Enabled (desktop mode)');
+    } else {
+      renderer.shadowMap.enabled = false;
+      addTestItem(container, 'pass', 'Shadow Map', 'Disabled (iOS mode - tránh crash)');
+    }
+  } catch(e) {
+    addTestItem(container, 'fail', 'Shadow Map', 'Lỗi: ' + e.message);
+  }
+
+  // Test 3: Encoding/ToneMapping
+  try {
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    addTestItem(container, 'pass', 'Output Settings', 'sRGB + ACES Filmic OK');
+  } catch(e) {
+    addTestItem(container, 'fail', 'Output Settings', 'Lỗi: ' + e.message);
+  }
+
+  // Test 4: Full scene with mesh
+  try {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+
+    const camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.01, 500);
+    camera.position.set(0, 1, 3);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
+    dirLight.position.set(5, 10, 7);
+    if (!isIOS) {
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+    }
+    scene.add(dirLight);
+
+    // Test mesh (golden box - like placeholder for a general model)
+    const geo = new THREE.BoxGeometry(0.5, 1.5, 0.3);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.6, roughness: 0.3 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = 0.75;
+    if (!isIOS) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+    scene.add(mesh);
+
+    // Ground
+    const groundGeo = new THREE.PlaneGeometry(5, 5);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = !isIOS;
+    scene.add(ground);
+
+    // Render
+    camera.lookAt(0, 0.75, 0);
+    renderer.render(scene, camera);
+
+    // Check for errors
+    const glErr = renderer.getContext().getError();
+    if (glErr === 0) {
+      addTestItem(container, 'pass', 'Scene Render', '✅ Render scene 3D thành công! (nhìn canvas phía trên)');
+      log('Three.js scene render OK!', 'ok');
+    } else {
+      addTestItem(container, 'fail', 'Scene Render', 'GL Error sau khi render: ' + glErr);
+    }
+
+    // Animate briefly to test stability
+    let frames = 0;
+    const testAnim = () => {
+      if (frames >= 30) {
+        addTestItem(container, 'pass', 'Animation Loop', '30 frames rendered OK');
+        log('Animation loop: 30 frames OK', 'ok');
+        renderer.dispose();
+        return;
+      }
+      mesh.rotation.y += 0.05;
+      renderer.render(scene, camera);
+      frames++;
+      requestAnimationFrame(testAnim);
+    };
+    testAnim();
+
+  } catch(e) {
+    addTestItem(container, 'fail', 'Scene Render', 'CRASH: ' + e.message);
+    log('Scene render CRASHED: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 5: NETWORK & API
+// ═══════════════════════════════════════════════════════════════
+async function test5_Network() {
+  log('▸ Testing Network & API...', 'info');
+  const container = 'test5Body';
+  document.getElementById(container).innerHTML = '';
+
+  // CDN connectivity
+  const cdnStart = performance.now();
+  try {
+    const resp = await fetch('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', { method: 'HEAD' });
+    const cdnTime = Math.round(performance.now() - cdnStart);
+    addTestItem(container, 'pass', 'CDN (jsdelivr)', `Kết nối OK - ${cdnTime}ms`);
+  } catch(e) {
+    addTestItem(container, 'fail', 'CDN (jsdelivr)', 'Không kết nối được: ' + e.message);
+  }
+
+  // Google Fonts
+  const fontStart = performance.now();
+  try {
+    const resp = await fetch('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400', { method: 'HEAD' });
+    const fontTime = Math.round(performance.now() - fontStart);
+    addTestItem(container, resp.ok ? 'pass' : 'warn', 'Google Fonts', `${resp.status} - ${fontTime}ms`);
+  } catch(e) {
+    addTestItem(container, 'warn', 'Google Fonts', 'Không tải được font: ' + e.message);
+  }
+
+  // Own API
+  const apiStart = performance.now();
+  try {
+    const resp = await fetch('/api/assets');
+    const apiTime = Math.round(performance.now() - apiStart);
+    if (resp.ok) {
+      const data = await resp.json();
+      const count = Array.isArray(data) ? data.length : Object.keys(data).length;
+      addTestItem(container, 'pass', 'API /api/assets', `${count} assets - ${apiTime}ms`);
+      log(`API: ${count} assets loaded in ${apiTime}ms`, 'ok');
+
+      // Try loading first model info
+      if (Array.isArray(data) && data.length > 0) {
+        const firstId = data[0].id;
+        try {
+          const assetResp = await fetch(`/api/asset/${firstId}`);
+          const assetData = await assetResp.json();
+          addTestItem(container, 'pass', 'API /api/asset/:id',
+            `${assetData.characterName || firstId} - model: ${assetData.model || 'N/A'}`);
+
+          // Try fetching the model file header
+          if (assetData.model) {
+            const modelStart = performance.now();
+            try {
+              const modelResp = await fetch(assetData.model, { method: 'HEAD' });
+              const modelTime = Math.round(performance.now() - modelStart);
+              const modelSize = modelResp.headers.get('content-length');
+              const sizeMB = modelSize ? (modelSize / 1024 / 1024).toFixed(1) + 'MB' : 'unknown size';
+              addTestItem(container, modelResp.ok ? 'pass' : 'fail',
+                'Model File',
+                modelResp.ok ? `${assetData.model} - ${sizeMB} - ${modelTime}ms` : `HTTP ${modelResp.status}`);
+              
+              if (modelSize && modelSize > 50 * 1024 * 1024) {
+                addTestItem(container, 'warn', 'Model Size Warning',
+                  `File ${sizeMB} quá lớn! iPhone có thể hết RAM. Nên < 30MB`);
+              }
+            } catch(e) {
+              addTestItem(container, 'fail', 'Model File', 'Không tải được: ' + e.message);
+            }
+          }
+        } catch(e) {
+          addTestItem(container, 'warn', 'API /api/asset/:id', 'Không load được: ' + e.message);
+        }
+      } else {
+        addTestItem(container, 'warn', 'Assets', 'Chưa có model nào được upload');
+      }
+    } else {
+      addTestItem(container, 'fail', 'API /api/assets', `HTTP ${resp.status}`);
+    }
+  } catch(e) {
+    addTestItem(container, 'fail', 'API /api/assets', 'Không kết nối: ' + e.message);
+  }
+
+  // CORS test
+  try {
+    const corsResp = await fetch(window.location.origin + '/api/assets', {
+      headers: { 'Origin': window.location.origin }
+    });
+    addTestItem(container, 'pass', 'CORS', 'Không bị chặn CORS');
+  } catch(e) {
+    addTestItem(container, 'fail', 'CORS', 'CORS lỗi: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 6: CAMERA & MEDIA
+// ═══════════════════════════════════════════════════════════════
+async function test6_Camera() {
+  log('▸ Testing Camera & Media...', 'info');
+  const container = 'test6Body';
+  document.getElementById(container).innerHTML = '';
+
+  // MediaDevices API
+  addTestItem(container, navigator.mediaDevices ? 'pass' : 'fail',
+    'MediaDevices API', navigator.mediaDevices
+      ? 'navigator.mediaDevices có sẵn'
+      : 'KHÔNG có - cần HTTPS trên Safari iOS');
+
+  // getUserMedia
+  addTestItem(container,
+    navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'pass' : 'fail',
+    'getUserMedia', navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+      ? 'Có hỗ trợ'
+      : 'KHÔNG - camera sẽ không hoạt động');
+
+  // HTTPS required check
+  if (location.protocol !== 'https:') {
+    addTestItem(container, 'warn', 'HTTPS Required',
+      'Safari iOS yêu cầu HTTPS để dùng camera. Hiện đang dùng ' + location.protocol);
+  }
+
+  // Video element test
+  const video = document.createElement('video');
+  addTestItem(container, video.canPlayType ? 'pass' : 'fail',
+    'Video Element', video.canPlayType ? 'Có hỗ trợ' : 'KHÔNG');
+
+  // Playsinline support
+  addTestItem(container, 'playsInline' in video ? 'pass' : 'warn',
+    'playsInline', 'playsInline' in video ? 'Có (quan trọng cho iOS)' : 'Không có attr');
+
+  // Autoplay policy
+  video.muted = true;
+  video.setAttribute('playsinline', '');
+  let autoplayOk = false;
+  try {
+    video.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAAhmcmVl';
+    await video.play();
+    autoplayOk = true;
+  } catch(e) {}
+  addTestItem(container, autoplayOk ? 'pass' : 'warn',
+    'Muted Autoplay', autoplayOk ? 'Hoạt động' : 'Bị chặn - cần user interaction');
+
+  // Actual camera test (will ask permission)
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      const track = stream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      addTestItem(container, 'pass', 'Camera Access',
+        `${settings.width}x${settings.height} @ ${track.label}`);
+      stream.getTracks().forEach(t => t.stop());
+      log('Camera access OK', 'ok');
+    } catch(e) {
+      addTestItem(container, e.name === 'NotAllowedError' ? 'warn' : 'fail',
+        'Camera Access',
+        e.name === 'NotAllowedError'
+          ? 'Bị từ chối quyền truy cập (user denied)'
+          : 'Lỗi: ' + e.message);
+      log('Camera: ' + e.message, e.name === 'NotAllowedError' ? 'warn' : 'err');
+    }
+  } else {
+    addTestItem(container, 'skip', 'Camera Access', 'Bỏ qua - không có MediaDevices API');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEST 7: PERFORMANCE & MEMORY
+// ═══════════════════════════════════════════════════════════════
+function test7_Performance() {
+  log('▸ Testing Performance & Memory...', 'info');
+  const container = 'test7Body';
+  document.getElementById(container).innerHTML = '';
+
+  // Memory (Safari supports performance.memory partially)
+  if (performance.memory) {
+    const used = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(1);
+    const total = (performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(1);
+    const limit = (performance.memory.jsHeapSizeLimit / 1024 / 1024).toFixed(0);
+    addTestItem(container, 'pass', 'JS Heap Memory',
+      `${used}MB / ${total}MB (limit: ${limit}MB)`);
+  } else {
+    addTestItem(container, 'warn', 'JS Heap Memory',
+      'Safari không hỗ trợ performance.memory - không đo được RAM');
+  }
+
+  // Device memory hint
+  if (navigator.deviceMemory) {
+    addTestItem(container, navigator.deviceMemory >= 4 ? 'pass' : 'warn',
+      'Device Memory', navigator.deviceMemory + 'GB');
+  } else {
+    addTestItem(container, 'warn', 'Device Memory', 'Không xác định (Safari không hỗ trợ)');
+  }
+
+  // Hardware concurrency (CPU cores)
+  const cores = navigator.hardwareConcurrency || 'unknown';
+  addTestItem(container, cores >= 4 ? 'pass' : (cores !== 'unknown' ? 'warn' : 'warn'),
+    'CPU Cores', cores + (cores !== 'unknown' ? ' cores' : ''));
+
+  // Connection speed
+  if (navigator.connection) {
+    const conn = navigator.connection;
+    addTestItem(container, conn.effectiveType === '4g' ? 'pass' : 'warn',
+      'Network Speed', `${conn.effectiveType} - downlink: ${conn.downlink}Mbps`);
+  } else {
+    addTestItem(container, 'warn', 'Network Speed', 'Không xác định (Safari không hỗ trợ Navigator.connection)');
+  }
+
+  // Touch / interaction test
+  addTestItem(container, 'ontouchstart' in window ? 'pass' : 'warn',
+    'Touch Support', 'ontouchstart' in window ? 'Có touch events' : 'Không có touch');
+
+  // requestAnimationFrame performance
+  let rafCount = 0;
+  const rafStart = performance.now();
+  const testRAF = () => {
+    rafCount++;
+    if (rafCount >= 60) {
+      const elapsed = performance.now() - rafStart;
+      const fps = Math.round(60000 / elapsed);
+      addTestItem(container, fps >= 30 ? 'pass' : 'warn',
+        'RAF Performance', `${fps} fps (60 frames in ${Math.round(elapsed)}ms)`);
+      log(`RAF benchmark: ${fps} fps`, fps >= 30 ? 'ok' : 'warn');
+      return;
+    }
+    requestAnimationFrame(testRAF);
+  };
+  requestAnimationFrame(testRAF);
+
+  // Max simultaneous XHR
+  addTestItem(container, 'pass', 'User Agent Length', navigator.userAgent.length + ' chars');
+
+  // Check for iOS low-power mode hints
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    addTestItem(container, 'warn', 'iOS Notice',
+      'iOS có thể giới hạn WebGL khi pin thấp hoặc nóng máy. ' +
+      'Tắt Low Power Mode nếu có.');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Failed to load: ' + url));
+    document.head.appendChild(script);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RUN ALL TESTS
+// ═══════════════════════════════════════════════════════════════
+async function runAllTests() {
+  const btn = document.getElementById('runAllBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang chạy bài kiểm tra...';
+
+  // Reset
+  results.pass = 0;
+  results.fail = 0;
+  results.warn = 0;
+  document.getElementById('logBox').innerHTML = '';
+  updateSummary();
+
+  log('═══ BẮT ĐẦU KIỂM TRA iOS Safari ═══', 'info');
+  log('Thời gian: ' + new Date().toLocaleString('vi-VN'), 'info');
+
+  try {
+    test1_BrowserAPIs();
+    test2_WebGL();
+    await test3_ThreeJS();
+    await test4_ThreeScene();
+    await test5_Network();
+    await test6_Camera();
+    test7_Performance();
+  } catch(e) {
+    log('TEST RUNNER ERROR: ' + e.message, 'err');
+  }
+
+  // Wait for async tests
+  await new Promise(r => setTimeout(r, 2000));
+
+  log('', 'info');
+  log(`═══ KẾT QUẢ: ${results.pass} PASS / ${results.fail} FAIL / ${results.warn} WARN ═══`, 
+    results.fail > 0 ? 'err' : 'ok');
+
+  // Generate diagnosis
+  if (results.fail === 0) {
+    log('✅ Tất cả test cơ bản PASSED. Nếu vẫn lỗi, vấn đề có thể ở model file hoặc memory.', 'ok');
+  } else {
+    log('❌ Có ' + results.fail + ' test FAILED. Xem chi tiết ở trên để tìm nguyên nhân.', 'err');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔄 CHẠY LẠI KIỂM TRA';
+}
+
+// Auto-show device info
+showDeviceInfo();
+</script>
+</body>
+</html>
