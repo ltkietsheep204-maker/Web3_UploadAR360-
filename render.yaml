@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: webar-app
+    runtime: node
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
