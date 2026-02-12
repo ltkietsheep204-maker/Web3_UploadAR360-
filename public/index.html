@@ -158,8 +158,11 @@
     }
 
     .section-title {
-      font-family: 'Cinzel', serif;
-      font-size: 1.2rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
       color: var(--accent);
       border-bottom: 1px solid rgba(255, 215, 0, 0.2);
       padding-bottom: 10px;
@@ -295,6 +298,35 @@
       background: transparent;
       border: none;
       font-size: 1rem;
+    }
+
+    /* Stat Sliders */
+    .stat-slider {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.1);
+      outline: none;
+      margin-top: 5px;
+    }
+    .stat-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .stat-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stat-value {
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 600;
     }
 
     /* Submit Button */
@@ -523,7 +555,30 @@
           </div>
         </div>
 
-        <!-- Section 3: Configuration -->
+        <!-- Section 3: Character Info -->
+        <div class="section-title">
+          <span>⚔️</span> Character Info
+        </div>
+
+        <div class="upload-grid" style="grid-template-columns: 1fr;">
+          <div class="input-group">
+            <input type="text" name="characterName" class="styled-input" placeholder="Tên vị tướng (vd: Trần Hưng Đạo)">
+          </div>
+          <div class="input-group">
+            <input type="text" name="characterEra" class="styled-input" placeholder="Triều đại / Thời kỳ (vd: Nhà Trần, 1228-1300)">
+          </div>
+          <div class="input-group">
+            <textarea name="characterBio" class="styled-input" rows="2" placeholder="Mô tả ngắn về vị tướng..." style="resize: vertical;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #aaa; font-size: 0.9rem;">Chiều cao nhân vật (cm)</label>
+            <div class="height-control">
+              <input type="number" name="characterHeight" class="height-val" value="170" min="100" max="250" style="width: 80px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Configuration -->
         <div class="section-title">
           <span>⚙️</span> Configuration
         </div>

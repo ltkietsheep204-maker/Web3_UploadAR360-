@@ -2,213 +2,986 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WEBAR - 3D Viewer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WEBAR - AR Viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #8B0000;
       --accent: #FFD700;
-      --bg-panel: rgba(20, 20, 20, 0.85);
+      --bg-panel: rgba(10, 10, 10, 0.85);
       --text: #e0e0e0;
+      --hp-green: #2ecc71;
+      --hp-red: #e74c3c;
+      --mana-blue: #3498db;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       background: #000;
       overflow: hidden;
       height: 100vh;
       width: 100vw;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
-    
-    #container {
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
-    
+
+    #container { width: 100%; height: 100%; position: relative; }
+
     #canvas3d {
-      width: 100%;
-      height: 100%;
-      display: block;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 2;
+      width: 100%; height: 100%;
+      display: block; position: absolute;
+      top: 0; left: 0; z-index: 2;
     }
-    
+
     #cameraVideo {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 1;
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; z-index: 1;
     }
-    
-    /* Compact Side Panel */
-    #sidePanel {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 180px;
-      background: var(--bg-panel);
-      border-radius: 12px;
-      padding: 15px;
-      z-index: 100;
-      font-size: 11px;
-      color: var(--text);
-      max-height: 90vh;
-      overflow-y: auto;
-      backdrop-filter: blur(15px);
-      -webkit-backdrop-filter: blur(15px);
-      border: 1px solid rgba(255, 215, 0, 0.2);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+
+    /* ══════════════════════════════════════════════════════════════════
+       LOADING SCREEN - Cinematic
+    ══════════════════════════════════════════════════════════════════ */
+    #loadingScreen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: radial-gradient(ellipse at center, #1a0a0a 0%, #000 100%);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      transition: opacity 0.8s ease;
     }
-    
-    #sidePanel::-webkit-scrollbar {
-      width: 4px;
+    #loadingScreen.fade-out { opacity: 0; pointer-events: none; }
+
+    .loading-dragon {
+      width: 100px; height: 100px;
+      animation: pulse 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.6));
     }
-    #sidePanel::-webkit-scrollbar-thumb {
-      background: #444;
-      border-radius: 2px;
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.1); opacity: 1; }
     }
-    
-    .section-title {
-      font-family: 'Cinzel', serif;
-      font-size: 11px;
-      color: var(--accent);
-      text-transform: uppercase;
-      margin: 12px 0 8px;
-      padding-bottom: 5px;
-      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-      letter-spacing: 1px;
+
+    .loading-title {
+      font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700;
+      background: linear-gradient(to right, #FFD700, #FDB931);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-top: 20px; letter-spacing: 4px;
     }
-    
-    .section-title:first-child {
-      margin-top: 0;
+
+    .loading-subtitle {
+      color: #888; font-size: 0.9rem; margin-top: 10px;
+      letter-spacing: 2px;
     }
-    
-    #sidePanel button {
-      width: 100%;
-      padding: 8px 10px;
-      margin: 4px 0;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 6px;
-      font-size: 10px;
-      font-family: 'Inter', sans-serif;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: #fff;
-      background: rgba(255,255,255,0.05);
-    }
-    
-    #sidePanel button:hover {
-      transform: translateY(-1px);
+
+    .loading-bar-container {
+      width: 200px; height: 3px;
       background: rgba(255,255,255,0.1);
-      border-color: var(--accent);
+      border-radius: 2px; margin-top: 30px;
+      overflow: hidden;
     }
-    
-    #sidePanel button.active {
-      background: rgba(255, 215, 0, 0.2);
-      border-color: var(--accent);
-      color: var(--accent);
+    .loading-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #FFD700, #ff6b35);
+      border-radius: 2px;
+      transition: width 0.3s;
     }
-    
-    /* Colored Buttons override */
-    .btn-walk { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important; border:none !important; }
-    .btn-idle { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; border:none !important;}
-    .btn-stop { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important; border:none !important;}
-    .btn-tunnel { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important; border:none !important;}
-    
-    .tunnel-speeds {
-      display: flex;
-      gap: 5px;
-    }
-    .tunnel-speeds button {
-      flex: 1;
-      font-size: 9px;
-      padding: 4px 2px;
-    }
-    
-    #info {
-      font-size: 10px;
-      color: #aaa;
-      line-height: 1.5;
-      font-family: monospace;
-      padding: 5px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 4px;
-    }
-    
-    /* Status Toast */
-    #status {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
+
+    /* ══════════════════════════════════════════════════════════════════
+       CHARACTER TITLE - Center Top
+    ══════════════════════════════════════════════════════════════════ */
+    #characterTitle {
+      position: fixed; top: 30px; left: 50%;
       transform: translateX(-50%);
-      background: rgba(10, 10, 10, 0.9);
-      color: var(--accent);
-      padding: 12px 25px;
-      border-radius: 30px;
-      font-size: 13px;
-      font-family: 'Inter', sans-serif;
-      opacity: 0;
-      transition: opacity 0.3s;
-      z-index: 200;
-      border: 1px solid var(--accent);
-      box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+      z-index: 50; pointer-events: none;
+      text-align: center;
+      display: none;
     }
-    #status.show { opacity: 1; }
-    #status.success { border-color: #2ecc71; color: #2ecc71; }
-    #status.error { border-color: #e74c3c; color: #e74c3c; }
-    
-    /* Toggle Panel Button */
-    #togglePanel {
-      position: fixed;
-      top: 10px;
-      right: 200px;
-      width: 36px;
-      height: 36px;
-      background: var(--bg-panel);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
+
+    .title-main {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem; font-weight: 800;
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+      letter-spacing: 3px;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+    }
+
+    .title-era {
+      font-family: 'Be Vietnam Pro', sans-serif;
+      font-size: 0.9rem; font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       CHARACTER HUD - Hidden
+    ══════════════════════════════════════════════════════════════════ */
+    #characterHUD {
+      display: none !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       EPIC SUMMON EFFECT - When character appears
+    ══════════════════════════════════════════════════════════════════ */
+    #summonEffect {
+      position: fixed; inset: 0; z-index: 40;
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.3s;
+      overflow: hidden;
+    }
+    #summonEffect.active { opacity: 1; }
+
+    /* Main magic circle */
+    .summon-circle {
+      position: absolute;
+      bottom: 15%; left: 50%;
+      transform: translateX(-50%);
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 60px rgba(255, 215, 0, 0.6),
+                  0 0 120px rgba(255, 215, 0, 0.3),
+                  inset 0 0 60px rgba(255, 215, 0, 0.3);
+      animation: summonSpin 3s linear infinite;
+    }
+    .summon-circle::before {
+      content: '';
+      position: absolute; inset: 15px;
+      border: 2px solid rgba(255, 215, 0, 0.6);
+      border-radius: 50%;
+      animation: summonSpin 2s linear infinite reverse;
+    }
+    .summon-circle::after {
+      content: '';
+      position: absolute; inset: 35px;
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      border-radius: 50%;
+      animation: summonSpin 4s linear infinite;
+    }
+    @keyframes summonSpin {
+      from { transform: translateX(-50%) rotate(0deg); }
+      to { transform: translateX(-50%) rotate(360deg); }
+    }
+
+    /* Rising particles */
+    .summon-particles {
+      position: absolute; bottom: 10%; left: 50%;
+      transform: translateX(-50%);
+      width: 300px; height: 400px;
+    }
+    .particle {
+      position: absolute; bottom: 0;
+      width: 4px; height: 4px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent);
+      animation: particleRise 2s ease-out infinite;
+    }
+    @keyframes particleRise {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-400px) scale(0); opacity: 0; }
+    }
+
+    /* Energy beam */
+    .summon-beam {
+      position: absolute; bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 120px; height: 100vh;
+      background: linear-gradient(to top, 
+        rgba(255, 215, 0, 0.8) 0%,
+        rgba(255, 215, 0, 0.4) 20%,
+        rgba(255, 215, 0, 0.1) 50%,
+        transparent 100%);
+      animation: beamPulse 0.8s ease-out;
+      filter: blur(3px);
+    }
+    @keyframes beamPulse {
+      0% { opacity: 0; transform: translateX(-50%) scaleY(0); }
+      30% { opacity: 1; transform: translateX(-50%) scaleY(1.2); }
+      100% { opacity: 0; transform: translateX(-50%) scaleY(1); }
+    }
+
+    /* Flash effect */
+    .summon-flash {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at center bottom, 
+        rgba(255,215,0,0.5) 0%, 
+        rgba(255,215,0,0.2) 30%,
+        transparent 70%);
+      animation: summonFlash 0.6s ease-out;
+    }
+    @keyframes summonFlash {
+      0% { opacity: 0; transform: scale(0.3); }
+      30% { opacity: 1; }
+      100% { opacity: 0; transform: scale(2); }
+    }
+
+    /* Outer ring explosion */
+    .summon-ring {
+      position: absolute; bottom: 25%; left: 50%;
+      transform: translate(-50%, 50%);
+      width: 50px; height: 50px;
+      border: 3px solid var(--accent);
+      border-radius: 50%;
+      animation: ringExpand 1.5s ease-out;
+    }
+    @keyframes ringExpand {
+      0% { width: 50px; height: 50px; opacity: 1; border-width: 3px; }
+      100% { width: 500px; height: 500px; opacity: 0; border-width: 1px; }
+    }
+
+    /* Character name reveal */
+    .summon-text {
+      position: absolute; top: 25%; left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem; font-weight: 800;
       color: var(--accent);
-      font-size: 18px;
-      cursor: pointer;
-      z-index: 101;
+      text-shadow: 0 0 30px rgba(255,215,0,0.9), 
+                   0 0 60px rgba(255,215,0,0.5),
+                   0 4px 15px rgba(0,0,0,0.9);
+      animation: summonTextAnim 2s ease-out forwards;
+      white-space: nowrap;
+      letter-spacing: 3px;
+    }
+    @keyframes summonTextAnim {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.3) translateY(50px); letter-spacing: 20px; }
+      40% { opacity: 1; transform: translateX(-50%) scale(1.15) translateY(0); letter-spacing: 5px; }
+      60% { transform: translateX(-50%) scale(1) translateY(0); letter-spacing: 3px; }
+      100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-40px); }
+    }
+
+    /* Era subtitle */
+    .summon-era {
+      position: absolute; top: 35%; left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Be Vietnam Pro', sans-serif;
+      font-size: 0.9rem; font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+      animation: summonEraAnim 2s ease-out forwards;
+      animation-delay: 0.3s;
+      opacity: 0;
+      letter-spacing: 2px;
+    }
+    @keyframes summonEraAnim {
+      0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      30% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      80% { opacity: 1; }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+
+    /* Dragon silhouette */
+    .summon-dragon {
+      position: absolute; top: 10%; left: 50%;
+      transform: translateX(-50%);
+      font-size: 80px;
+      filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
+      animation: dragonAppear 2s ease-out forwards;
+      opacity: 0;
+    }
+    @keyframes dragonAppear {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.5) rotate(-10deg); }
+      30% { opacity: 0.8; transform: translateX(-50%) scale(1.1) rotate(5deg); }
+      50% { opacity: 0.6; transform: translateX(-50%) scale(1) rotate(0deg); }
+      100% { opacity: 0; transform: translateX(-50%) scale(1.2) translateY(-30px); }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       BOTTOM ACTION BAR - Pokemon Go style
+    ══════════════════════════════════════════════════════════════════ */
+    #actionBar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 50;
+      padding: 10px 15px 25px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .action-buttons {
+      display: flex; justify-content: center;
+      align-items: center; gap: 12px;
+    }
+
+    .action-btn-round {
+      width: 50px; height: 50px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.6);
+      color: #fff; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s;
       backdrop-filter: blur(10px);
     }
-    #togglePanel:hover { border-color: var(--accent); }
-    
-    .hidden { display: none !important; }
+    .action-btn-round:hover, .action-btn-round:active {
+      transform: scale(1.1);
+      border-color: var(--accent);
+    }
+    .action-btn-round.active {
+      border-color: var(--accent);
+      background: rgba(255, 215, 0, 0.2);
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+    }
+
+    /* Main capture/summon button */
+    .btn-summon {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      background: linear-gradient(135deg, #8B0000 0%, #c0392b 100%);
+      color: #fff; font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 0 20px rgba(139, 0, 0, 0.5),
+                  0 0 40px rgba(255, 215, 0, 0.2);
+      position: relative;
+    }
+    .btn-summon:active { transform: scale(0.95); }
+    .btn-summon::after {
+      content: '';
+      position: absolute; inset: -6px;
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 50%;
+      animation: summonPulse 2s ease-in-out infinite;
+    }
+    @keyframes summonPulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+
+    /* Bio popup */
+    #bioPopup {
+      position: fixed; bottom: 100px; left: 15px; right: 15px;
+      z-index: 55;
+      background: var(--bg-panel);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transform: translateY(120%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    #bioPopup.show { transform: translateY(0); }
+
+    .bio-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    }
+    .bio-avatar {
+      width: 45px; height: 45px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      background: rgba(0,0,0,0.5);
+    }
+    .bio-title-area { flex: 1; }
+    .bio-name {
+      font-family: 'Playfair Display', serif; font-weight: 700;
+      color: var(--accent); font-size: 1.1rem;
+    }
+    .bio-era { font-size: 0.75rem; color: #999; }
+    .bio-close {
+      background: none; border: none; color: #666;
+      font-size: 20px; cursor: pointer;
+    }
+    .bio-text {
+      color: #ccc; font-size: 0.85rem; line-height: 1.7;
+      margin-top: 8px;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════════
+       POKEMON GO STYLE - Location Discovery Mode
+    ══════════════════════════════════════════════════════════════════ */
+    #discoveryMode {
+      position: fixed; inset: 0; z-index: 200;
+      background: #000;
+      display: none;
+    }
+    #discoveryMode.active { display: flex; flex-direction: column; }
+
+    .discovery-header {
+      padding: 15px 20px;
+      background: linear-gradient(135deg, #1a0a0a 0%, #2a0a0a 100%);
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .discovery-back {
+      background: none; border: none;
+      color: var(--accent); font-size: 20px;
+      cursor: pointer;
+    }
+    .discovery-title {
+      font-family: 'Playfair Display', serif;
+      color: var(--accent); font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .discovery-map {
+      flex: 1; position: relative; overflow: hidden;
+      background: #0a0a0a;
+    }
+
+    .discovery-radar {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 280px; height: 280px;
+    }
+    .radar-circle {
+      position: absolute; top: 50%; left: 50%;
+      border: 1px solid rgba(255, 215, 0, 0.15);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .radar-c1 { width: 100%; height: 100%; }
+    .radar-c2 { width: 66%; height: 66%; }
+    .radar-c3 { width: 33%; height: 33%; }
+
+    .radar-sweep {
+      position: absolute; top: 50%; left: 50%;
+      width: 50%; height: 2px;
+      background: linear-gradient(90deg, rgba(255,215,0,0.6), transparent);
+      transform-origin: left center;
+      animation: radarSweep 3s linear infinite;
+    }
+    @keyframes radarSweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .radar-dot {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+      transform: translate(-50%, -50%);
+      animation: radarBlink 1.5s ease-in-out infinite;
+      cursor: pointer;
+    }
+    @keyframes radarBlink {
+      0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.8); }
+      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+    }
+
+    .radar-player {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #3498db;
+      border: 2px solid #fff;
+      box-shadow: 0 0 15px rgba(52, 152, 219, 0.8);
+      z-index: 5;
+    }
+
+    .discovery-bottom {
+      padding: 15px 20px;
+      background: var(--bg-panel);
+      border-top: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .nearby-generals {
+      display: flex; gap: 10px; overflow-x: auto;
+      padding: 5px 0;
+    }
+    .nearby-generals::-webkit-scrollbar { display: none; }
+
+    .nearby-card {
+      min-width: 120px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px; padding: 10px;
+      text-align: center; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nearby-card:active {
+      transform: scale(0.95);
+      border-color: var(--accent);
+    }
+    .nearby-card .nc-icon { font-size: 28px; }
+    .nearby-card .nc-name {
+      font-size: 0.75rem; color: var(--accent);
+      font-family: 'Playfair Display', serif;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .nearby-card .nc-dist {
+      font-size: 0.6rem; color: #888;
+      margin-top: 2px;
+    }
+    .nearby-card .nc-status {
+      font-size: 0.55rem; padding: 2px 6px;
+      border-radius: 4px; margin-top: 4px;
+      display: inline-block;
+    }
+    .nc-status.locked {
+      background: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+    }
+    .nc-status.available {
+      background: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       CHALLENGE MODE - At historical sites
+    ══════════════════════════════════════════════════════════════════ */
+    #challengeOverlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.95);
+      display: none; flex-direction: column;
+      justify-content: center; align-items: center;
+      padding: 20px;
+    }
+    #challengeOverlay.active { display: flex; }
+
+    .challenge-card {
+      background: linear-gradient(135deg, #1a0a0a 0%, #0a0a1a 100%);
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      padding: 25px;
+      max-width: 380px; width: 100%;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(255, 215, 0, 0.15);
+    }
+
+    .challenge-icon { font-size: 50px; margin-bottom: 15px; }
+    .challenge-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem; color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .challenge-desc {
+      color: #aaa; font-size: 0.85rem; line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .challenge-question {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 15px;
+      margin-bottom: 15px;
+    }
+    .challenge-q-text {
+      color: #fff; font-size: 0.95rem; line-height: 1.5;
+      font-weight: 600;
+    }
+    .challenge-options {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .challenge-opt {
+      padding: 12px 15px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      color: #ddd; font-size: 0.85rem;
+      cursor: pointer; transition: all 0.2s;
+      text-align: left;
+    }
+    .challenge-opt:active { transform: scale(0.98); }
+    .challenge-opt.correct {
+      border-color: #2ecc71; background: rgba(46,204,113,0.2);
+      color: #2ecc71;
+    }
+    .challenge-opt.wrong {
+      border-color: #e74c3c; background: rgba(231,76,60,0.2);
+      color: #e74c3c;
+    }
+    .challenge-reward {
+      margin-top: 15px; padding: 12px;
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 10px;
+      color: var(--accent); font-size: 0.85rem;
+      display: none;
+    }
+    .challenge-close {
+      margin-top: 15px; padding: 10px 25px;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 8px;
+      font-weight: 700; cursor: pointer;
+      display: none;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       COLLECTION BOOK
+    ══════════════════════════════════════════════════════════════════ */
+    #collectionOverlay {
+      position: fixed; inset: 0; z-index: 250;
+      background: rgba(0,0,0,0.95);
+      display: none; flex-direction: column;
+    }
+    #collectionOverlay.active { display: flex; }
+
+    .collection-header {
+      padding: 15px 20px;
+      background: linear-gradient(135deg, #1a0a0a 0%, #0a0a1a 100%);
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .collection-title {
+      flex: 1; font-family: 'Playfair Display', serif;
+      color: var(--accent); font-size: 1rem;
+      font-weight: 600;
+    }
+    .collection-count {
+      color: #888; font-size: 0.8rem;
+    }
+    .collection-close-btn {
+      background: none; border: none;
+      color: #888; font-size: 22px; cursor: pointer;
+    }
+
+    .collection-grid {
+      flex: 1; overflow-y: auto;
+      padding: 15px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .collect-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 12px;
+      text-align: center; transition: all 0.2s;
+    }
+    .collect-card.unlocked {
+      border-color: rgba(255, 215, 0, 0.3);
+      background: rgba(255, 215, 0, 0.05);
+    }
+    .collect-card.locked { opacity: 0.4; }
+    .collect-icon { font-size: 36px; margin-bottom: 6px; }
+    .collect-name {
+      font-size: 0.75rem; color: var(--accent);
+      font-family: 'Playfair Display', serif;
+      font-weight: 600;
+    }
+    .collect-lock {
+      font-size: 0.6rem; color: #666; margin-top: 2px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       NOTIFICATION TOAST - Hidden
+    ══════════════════════════════════════════════════════════════════ */
+    #toast {
+      display: none !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SIDE PANEL - Compact controls
+    ══════════════════════════════════════════════════════════════════ */
+    #sidePanel {
+      position: fixed; top: 80px; right: 10px;
+      width: 52px; z-index: 60;
+      display: flex; flex-direction: column;
+      gap: 8px;
+    }
+
+    .side-btn {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      color: #fff; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .side-btn:active {
+      transform: scale(0.9);
+      border-color: var(--accent);
+    }
+    .side-btn.active {
+      border-color: var(--accent);
+      background: rgba(255, 215, 0, 0.15);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SIZE INDICATOR
+    ══════════════════════════════════════════════════════════════════ */
+    #sizeIndicator {
+      position: fixed; left: 10px; bottom: 100px;
+      z-index: 50; pointer-events: none;
+    }
+    .size-ruler {
+      width: 3px; background: rgba(255,255,255,0.3);
+      position: relative; border-radius: 2px;
+    }
+    .size-label {
+      position: absolute; left: 10px; top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.6);
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 0.7rem; color: var(--accent);
+      white-space: nowrap;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+    .size-notch-top, .size-notch-bottom {
+      position: absolute; left: -3px;
+      width: 9px; height: 2px;
+      background: rgba(255,255,255,0.5);
+    }
+    .size-notch-top { top: 0; }
+    .size-notch-bottom { bottom: 0; }
+
+    /* AR placement indicator */
+    #arPlacement {
+      position: fixed; bottom: 130px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 45; pointer-events: none;
+      color: #fff; font-size: 0.8rem;
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #arPlacement.show { opacity: 1; }
+
+    /* Photo mode flash */
+    #flashOverlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: #fff; pointer-events: none;
+      opacity: 0; transition: opacity 0.1s;
+    }
+
+    /* Caption display */
+    #captionDisplay {
+      position: fixed; bottom: 90px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 48;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      padding: 8px 20px;
+      border-radius: 20px;
+      color: var(--accent);
+      font-family: 'Cinzel', serif;
+      font-size: 0.8rem;
+      max-width: 80%;
+      text-align: center;
+      display: none;
+    }
+
+    /* Scale mode slider */
+    #scaleControl {
+      position: fixed; left: 15px;
+      top: 50%; transform: translateY(-50%);
+      z-index: 55; display: none;
+      flex-direction: column; align-items: center; gap: 5px;
+    }
+    #scaleControl.show { display: flex; }
+    .scale-label {
+      color: var(--accent); font-size: 0.65rem;
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+      letter-spacing: 1px;
+    }
+    #scaleSlider {
+      -webkit-appearance: none;
+      width: 120px; height: 4px;
+      transform: rotate(-90deg);
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      outline: none;
+      margin: 50px 0;
+    }
+    #scaleSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+    .scale-value {
+      color: #fff; font-size: 0.7rem;
+      background: rgba(0,0,0,0.6);
+      padding: 3px 8px; border-radius: 4px;
+    }
+
+    @media (max-width: 500px) {
+      .hud-name { font-size: 0.85rem; }
+      .stat-badge { padding: 3px 5px; font-size: 0.6rem; }
+      .btn-summon { width: 60px; height: 60px; font-size: 24px; }
+      .action-btn-round { width: 42px; height: 42px; font-size: 16px; }
+    }
   </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <img src="/7e170b92-fab9-464b-8673-2c1fbe370e2c.png" class="loading-dragon" alt="Loading"
+         onerror="this.style.display='none'">
+    <div class="loading-title">TRIỆU HỒN TƯỚNG</div>
+    <div class="loading-subtitle">Đang tải mô hình 3D...</div>
+    <div class="loading-bar-container">
+      <div class="loading-bar" id="loadingBar"></div>
+    </div>
+  </div>
+
+  <!-- 3D Canvas + Camera -->
   <div id="container">
     <video id="cameraVideo" autoplay playsinline muted></video>
     <canvas id="canvas3d"></canvas>
   </div>
-  
-  <button id="togglePanel">☰</button>
-  
-  <div id="sidePanel">
-    <div class="section-title">📊 Model Info</div>
-    <div id="info">Loading...</div>
 
-    <div class="section-title">🎬 Animations</div>
-    <div id="animButtons"></div>
-    
-    <div class="section-title">⚙️ Controls</div>
-    <button id="btnSkeleton">🦴 Skeleton</button>
-    <button id="btn360AR" style="background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);">🌍 360° AR</button>
-    <button id="btnARCamera" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);">📷 Camera AR</button>
+  <!-- Character Title - Center Top -->
+  <div id="characterTitle">
+    <div class="title-main" id="titleName">Vị Tướng</div>
+    <div class="title-era" id="titleEra"></div>
   </div>
-  
-  <div id="status"></div>
+
+  <!-- Character HUD - Hidden -->
+  <div id="characterHUD" style="display: none;">
+    <div class="hud-top">
+      <div class="hud-avatar" id="hudAvatar">⚔️</div>
+      <div class="hud-info">
+        <div class="hud-name" id="hudName">Vị Tướng</div>
+        <div class="hud-era" id="hudEra"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Epic Summon Effect -->
+  <div id="summonEffect">
+    <div class="summon-beam"></div>
+    <div class="summon-circle"></div>
+    <div class="summon-ring"></div>
+    <div class="summon-particles" id="summonParticles"></div>
+    <div class="summon-flash"></div>
+    <div class="summon-dragon">🐉</div>
+    <div class="summon-text" id="summonText">TRIỆU HỒN!</div>
+    <div class="summon-era" id="summonEra"></div>
+  </div>
+
+  <!-- Side Buttons -->
+  <div id="sidePanel">
+    <button class="side-btn" id="btnCamera" title="Camera AR">📷</button>
+    <button class="side-btn" id="btnScale" title="Điều chỉnh kích thước">📏</button>
+    <button class="side-btn" id="btnPhoto" title="Chụp ảnh">📸</button>
+    <button class="side-btn" id="btnInfo" title="Thông tin tướng">📜</button>
+    <button class="side-btn" id="btnDiscovery" title="Khám phá">🗺️</button>
+    <button class="side-btn" id="btnCollection" title="Bộ sưu tập">📖</button>
+  </div>
+
+  <!-- Scale Control -->
+  <div id="scaleControl">
+    <div class="scale-value" id="scaleValue">170cm</div>
+    <input type="range" id="scaleSlider" min="50" max="300" value="170">
+    <div class="scale-label">CHIỀU CAO</div>
+  </div>
+
+  <!-- Size indicator -->
+  <div id="sizeIndicator" style="display: none;">
+    <div class="size-ruler" id="sizeRuler">
+      <div class="size-notch-top"></div>
+      <div class="size-notch-bottom"></div>
+      <div class="size-label" id="sizeLabel">170cm</div>
+    </div>
+  </div>
+
+  <!-- AR Placement hint -->
+  <div id="arPlacement">Hướng camera vào một vùng trống để đặt vị tướng</div>
+
+  <!-- Caption -->
+  <div id="captionDisplay"></div>
+
+  <!-- Bottom Action Bar - Hidden -->
+  <div id="actionBar" style="display: none;">
+    <div class="action-buttons">
+      <button class="btn-summon" id="btnSummon" title="Triệu hồn">⚔️</button>
+    </div>
+  </div>
+
+  <!-- Bio Popup - Hidden -->
+  <div id="bioPopup" style="display: none;">
+    <div class="bio-header">
+      <div class="bio-avatar" id="bioAvatar">⚔️</div>
+      <div class="bio-title-area">
+        <div class="bio-name" id="bioName">Vị Tướng</div>
+        <div class="bio-era" id="bioEra"></div>
+      </div>
+      <button class="bio-close" onclick="document.getElementById('bioPopup').classList.remove('show')">✕</button>
+    </div>
+    <div class="bio-text" id="bioText"></div>
+  </div>
+
+  <!-- Discovery Mode (Pokemon Go Map) -->
+  <div id="discoveryMode">
+    <div class="discovery-header">
+      <button class="discovery-back" onclick="closeDiscovery()">←</button>
+      <div class="discovery-title">KHÁM PHÁ DI TÍCH</div>
+    </div>
+    <div class="discovery-map">
+      <div class="discovery-radar">
+        <div class="radar-circle radar-c1"></div>
+        <div class="radar-circle radar-c2"></div>
+        <div class="radar-circle radar-c3"></div>
+        <div class="radar-sweep"></div>
+        <div class="radar-player"></div>
+        <div id="radarDots"></div>
+      </div>
+      <div style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+                  color: #666; font-size: 0.7rem; text-align: center;">
+        Di chuyển đến các di tích lịch sử để mở khóa vị tướng mới
+      </div>
+    </div>
+    <div class="discovery-bottom">
+      <div style="color: var(--accent); font-family: 'Cinzel', serif; font-size: 0.8rem; margin-bottom: 8px;">
+        VỊ TƯỚNG GẦN ĐÂY
+      </div>
+      <div class="nearby-generals" id="nearbyGenerals"></div>
+    </div>
+  </div>
+
+  <!-- Challenge Overlay -->
+  <div id="challengeOverlay">
+    <div class="challenge-card">
+      <div class="challenge-icon" id="challengeIcon">🏛️</div>
+      <div class="challenge-title" id="challengeTitle">Thử thách lịch sử</div>
+      <div class="challenge-desc" id="challengeDesc"></div>
+      <div class="challenge-question">
+        <div class="challenge-q-text" id="challengeQText"></div>
+      </div>
+      <div class="challenge-options" id="challengeOptions"></div>
+      <div class="challenge-reward" id="challengeReward"></div>
+      <button class="challenge-close" id="challengeCloseBtn" onclick="closeChallenge()">Tiếp tục</button>
+    </div>
+  </div>
+
+  <!-- Collection Book -->
+  <div id="collectionOverlay">
+    <div class="collection-header">
+      <div class="collection-title">📖 Sổ Tướng Lĩnh</div>
+      <div class="collection-count" id="collectionCount">0/0</div>
+      <button class="collection-close-btn" onclick="closeCollection()">✕</button>
+    </div>
+    <div class="collection-grid" id="collectionGrid"></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast">
+    <div class="toast-title" id="toastTitle"></div>
+    <div class="toast-msg" id="toastMsg"></div>
+  </div>
+
+  <!-- Flash for photo -->
+  <div id="flashOverlay"></div>
 
   <!-- Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -217,1145 +990,971 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js"></script>
 
-  <script>
-    // ══════════════════════════════════════════════════════════════════════════
-    // GLOBAL VARIABLES
-    // ══════════════════════════════════════════════════════════════════════════
-    let scene, camera, renderer, controls, clock;
-    let model, mixer, skeletonHelper;
-    let proceduralAnimator = null;
-    let environmentDome = null; // 3D environment sphere
-    let assetData = null; // Asset data from API
-    
-    // ══════════════════════════════════════════════════════════════════════════
-    // PROCEDURAL ANIMATOR CLASS
-    // ══════════════════════════════════════════════════════════════════════════
-    class ProceduralAnimator {
-      constructor(model) {
-        this.model = model;
-        this.bones = {};
-        this.isPlaying = false;
-        this.animType = null;
-        this.time = 0;
-        this.animId = null;
-        this.originalRotations = {};
-        
-        // Tunnel Walk settings - Character walks towards camera from center
-        this.tunnelWalk = {
-          enabled: false,
-          // Z axis (depth - towards camera)
-          startZ: -6,
-          endZ: 2,
-          // X axis (stays centered)
-          startX: 0,
-          endX: 0,
-          // Movement
-          speed: 0.25,
-          progress: 0,
-          looping: true
-        };
-        this.originalPosition = { x: 0, y: 0, z: 0 };
-        
-        // Bone mappings for Warrior model
-        this.boneNameMap = {
-          hips: ['Hip', 'hips', 'pelvis', 'Hips', 'Pelvis'],
-          spine: ['Waist', 'waist', 'spine', 'Spine'],
-          spine1: ['Spine01', 'spine01', 'spine1'],
-          spine2: ['Spine02', 'spine02', 'spine2', 'chest'],
-          neck: ['NeckTwist01', 'neck', 'Neck'],
-          head: ['Head', 'head'],
-          
-          leftUpLeg: ['L_Thigh', 'LeftUpLeg', 'leftThigh'],
-          leftLeg: ['L_Calf', 'LeftLeg', 'leftShin'],
-          leftFoot: ['L_Foot', 'LeftFoot', 'leftFoot'],
-          
-          rightUpLeg: ['R_Thigh', 'RightUpLeg', 'rightThigh'],
-          rightLeg: ['R_Calf', 'RightLeg', 'rightShin'],
-          rightFoot: ['R_Foot', 'RightFoot', 'rightFoot'],
-          
-          leftShoulder: ['L_Clavicle', 'LeftShoulder'],
-          leftArm: ['L_Upperarm', 'LeftArm', 'leftArm'],
-          leftForeArm: ['L_Forearm', 'LeftForeArm', 'leftForeArm'],
-          leftHand: ['L_Hand', 'LeftHand', 'leftHand'],
-          
-          rightShoulder: ['R_Clavicle', 'RightShoulder'],
-          rightArm: ['R_Upperarm', 'RightArm', 'rightArm'],
-          rightForeArm: ['R_Forearm', 'RightForeArm', 'rightForeArm'],
-          rightHand: ['R_Hand', 'RightHand', 'rightHand']
-        };
-        
-        this.detectBones();
-      }
-      
-      detectBones() {
-        console.log('🔍 Detecting bones...');
-        
-        this.model.traverse(child => {
-          if (child.isBone || child.type === 'Bone') {
-            const name = child.name;
-            
-            for (const [standardName, aliases] of Object.entries(this.boneNameMap)) {
-              if (this.bones[standardName]) continue;
-              
-              for (const alias of aliases) {
-                if (name === alias || name.toLowerCase().includes(alias.toLowerCase())) {
-                  this.bones[standardName] = child;
-                  console.log(`  ✓ ${standardName}: ${name}`);
-                  break;
-                }
-              }
-            }
-          }
-        });
-        
-        console.log(`📊 Mapped ${Object.keys(this.bones).length} bones`);
-        this.storeOriginalRotations();
-        
-        this.originalPosition = {
-          x: this.model.position.x,
-          y: this.model.position.y,
-          z: this.model.position.z
-        };
-      }
-      
-      storeOriginalRotations() {
-        Object.keys(this.bones).forEach(name => {
-          const bone = this.bones[name];
-          if (bone) {
-            this.originalRotations[name] = {
-              x: bone.rotation.x,
-              y: bone.rotation.y,
-              z: bone.rotation.z
-            };
-          }
-        });
-      }
-      
-      getBoneCount() {
-        return Object.keys(this.bones).length;
-      }
-      
-      play(type = 'walk') {
-        if (this.isPlaying && this.animType === type) return;
-        this.stop();
-        this.isPlaying = true;
-        this.animType = type;
-        this.time = 0;
-        this.animate();
-      }
-      
-      stop() {
-        this.isPlaying = false;
-        this.animType = null;
-        if (this.animId) {
-          cancelAnimationFrame(this.animId);
-          this.animId = null;
-        }
-        this.resetPose();
-      }
-      
-      resetPose() {
-        Object.keys(this.bones).forEach(name => {
-          const bone = this.bones[name];
-          const orig = this.originalRotations[name];
-          if (bone && orig) {
-            bone.rotation.x = orig.x;
-            bone.rotation.y = orig.y;
-            bone.rotation.z = orig.z;
-          }
-        });
-      }
-      
-      resetPosition() {
-        this.model.position.x = this.originalPosition.x;
-        this.model.position.y = this.originalPosition.y;
-        this.model.position.z = this.originalPosition.z;
-        this.tunnelWalk.progress = 0;
-      }
-      
-      setTunnelWalk(enabled, options = {}) {
-        this.tunnelWalk.enabled = enabled;
-        if (options.speed !== undefined) this.tunnelWalk.speed = options.speed;
-        
-        if (enabled) {
-          this.tunnelWalk.progress = 0;
-          // Start from center, walk towards camera
-          this.tunnelWalk.startX = 0;
-          this.tunnelWalk.endX = 0;
-          this.tunnelWalk.startZ = -6;
-          this.tunnelWalk.endZ = 2;
-          
-          this.model.position.z = this.tunnelWalk.startZ;
-          this.model.position.x = this.tunnelWalk.startX;
-          
-          // Face camera (forward)
-          this.model.rotation.y = 0;
-        }
-      }
-      
-      updateTunnelPosition(dt) {
-        if (!this.tunnelWalk.enabled) return;
-        
-        const tw = this.tunnelWalk;
-        tw.progress += dt * tw.speed * 0.06;
-        
-        if (tw.progress >= 1) {
-          if (tw.looping) {
-            tw.progress = 0;
-            // Reset to start position (center, far back)
-            tw.startX = 0;
-            tw.endX = 0;
-            tw.startZ = -6;
-            tw.endZ = 2;
-            
-            this.model.position.x = tw.startX;
-            this.model.position.z = tw.startZ;
-            this.model.rotation.y = 0;
-          } else {
-            tw.progress = 1;
-          }
-        }
-        
-        // Smooth easing
-        const t = tw.progress;
-        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        
-        // Move along both X and Z axes
-        this.model.position.z = tw.startZ + (tw.endZ - tw.startZ) * eased;
-        this.model.position.x = tw.startX + (tw.endX - tw.startX) * eased;
-      }
-      
-      animate() {
-        if (!this.isPlaying) return;
-        
-        const dt = 0.016;
-        this.time += dt;
-        
-        this.updateTunnelPosition(dt);
-        
-        if (this.animType === 'walk') {
-          this.animateWalk();
-        } else if (this.animType === 'idle') {
-          this.animateIdle();
-        } else if (this.animType === 'look_around') {
-          this.animateLookAround();
-        }
-        
-        this.animId = requestAnimationFrame(() => this.animate());
-      }
-      
-      // ════════════════════════════════════════════════════════════════════════
-      // WALK ANIMATION - Professional quality walk cycle
-      // ════════════════════════════════════════════════════════════════════════
-      animateWalk() {
-        const speed = 1.0; // Slightly slower for more natural feel
-        const t = this.time * speed;
-        const phase = (t % 1) * Math.PI * 2;
-        const b = this.bones;
-        
-        const orig = (name, axis) => this.originalRotations[name]?.[axis] || 0;
-        
-        // Smooth sine functions for more natural motion
-        const smoothSin = (p) => Math.sin(p);
-        const smoothCos = (p) => Math.cos(p);
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // HIPS/PELVIS - Center of mass, figure-8 motion
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.hips) {
-          // Lateral tilt - weight shift side to side
-          b.hips.rotation.z = orig('hips', 'z') + smoothSin(phase) * 0.035;
-          // Rotation - pelvis turns with leg swing
-          b.hips.rotation.y = orig('hips', 'y') + smoothSin(phase) * 0.06;
-          // Vertical tilt - slight forward/back
-          b.hips.rotation.x = orig('hips', 'x') + smoothSin(phase * 2) * 0.015;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // SPINE CHAIN - Counter-rotation for balance, S-curve
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.spine) {
-          // Counter-rotate against hips
-          b.spine.rotation.y = orig('spine', 'y') - smoothSin(phase) * 0.045;
-          b.spine.rotation.z = orig('spine', 'z') - smoothSin(phase) * 0.015;
-          // Slight forward lean when walking
-          b.spine.rotation.x = orig('spine', 'x') + 0.02;
-        }
-        if (b.spine1) {
-          b.spine1.rotation.y = orig('spine1', 'y') - smoothSin(phase) * 0.03;
-          b.spine1.rotation.z = orig('spine1', 'z') - smoothSin(phase) * 0.01;
-        }
-        if (b.spine2) {
-          // Chest counter-rotation
-          b.spine2.rotation.y = orig('spine2', 'y') - smoothSin(phase) * 0.02;
-          // Breathing overlay
-          b.spine2.rotation.x = orig('spine2', 'x') + smoothSin(t * 3) * 0.008;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // RIGHT LEG - Contact, Passing, Swing phases
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.rightUpLeg) {
-          // Thigh swing: forward (-) to back (+)
-          const thighSwing = smoothSin(phase) * 0.38;
-          // Add slight outward rotation during swing
-          b.rightUpLeg.rotation.x = orig('rightUpLeg', 'x') + thighSwing;
-          b.rightUpLeg.rotation.z = orig('rightUpLeg', 'z') + smoothSin(phase) * 0.02;
-        }
-        
-        if (b.rightLeg) {
-          // Knee bend peaks when thigh is forward
-          // Use smoothstep for more natural bend
-          const bendAmount = Math.max(0, smoothSin(phase + 0.4));
-          const kneeBend = bendAmount * bendAmount * 0.55; // Squared for snap
-          b.rightLeg.rotation.x = orig('rightLeg', 'x') + kneeBend;
-        }
-        
-        if (b.rightFoot) {
-          // Foot roll: heel strike → toe off
-          const heelStrike = smoothSin(phase - 0.6) * 0.2; // Heel down at contact
-          const toeOff = Math.max(0, smoothSin(phase + 0.5)) * 0.25; // Toe push
-          b.rightFoot.rotation.x = orig('rightFoot', 'x') + heelStrike - toeOff;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // LEFT LEG - 180° out of phase
-        // ═══════════════════════════════════════════════════════════════════
-        const leftPhase = phase + Math.PI;
-        
-        if (b.leftUpLeg) {
-          const thighSwing = smoothSin(leftPhase) * 0.38;
-          b.leftUpLeg.rotation.x = orig('leftUpLeg', 'x') + thighSwing;
-          b.leftUpLeg.rotation.z = orig('leftUpLeg', 'z') - smoothSin(leftPhase) * 0.02;
-        }
-        
-        if (b.leftLeg) {
-          const bendAmount = Math.max(0, smoothSin(leftPhase + 0.4));
-          const kneeBend = bendAmount * bendAmount * 0.55;
-          b.leftLeg.rotation.x = orig('leftLeg', 'x') + kneeBend;
-        }
-        
-        if (b.leftFoot) {
-          const heelStrike = smoothSin(leftPhase - 0.6) * 0.2;
-          const toeOff = Math.max(0, smoothSin(leftPhase + 0.5)) * 0.25;
-          b.leftFoot.rotation.x = orig('leftFoot', 'x') + heelStrike - toeOff;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // SHOULDERS - Lead the arm swing slightly
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.rightShoulder) {
-          b.rightShoulder.rotation.z = orig('rightShoulder', 'z') - smoothSin(leftPhase) * 0.025;
-          b.rightShoulder.rotation.y = orig('rightShoulder', 'y') - smoothSin(leftPhase) * 0.015;
-        }
-        if (b.leftShoulder) {
-          b.leftShoulder.rotation.z = orig('leftShoulder', 'z') + smoothSin(phase) * 0.025;
-          b.leftShoulder.rotation.y = orig('leftShoulder', 'y') + smoothSin(phase) * 0.015;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // RIGHT ARM - Opposite to right leg (follows left leg phase)
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.rightArm) {
-          // Arm swings back when right leg forward
-          const armSwing = smoothSin(leftPhase) * 0.4;
-          b.rightArm.rotation.x = orig('rightArm', 'x') + armSwing;
-          // Slight inward rotation
-          b.rightArm.rotation.z = orig('rightArm', 'z') + smoothSin(leftPhase) * 0.03;
-        }
-        
-        if (b.rightForeArm) {
-          // Elbow bends when arm swings back
-          const backSwing = Math.max(0, smoothSin(leftPhase));
-          const elbowBend = backSwing * 0.35 + 0.05; // Always slightly bent
-          b.rightForeArm.rotation.x = orig('rightForeArm', 'x') - elbowBend;
-        }
-        
-        if (b.rightHand) {
-          // Hand follows forearm with slight delay
-          b.rightHand.rotation.x = orig('rightHand', 'x') - smoothSin(leftPhase + 0.2) * 0.1;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // LEFT ARM - Opposite to left leg (follows right leg phase)
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.leftArm) {
-          const armSwing = smoothSin(phase) * 0.4;
-          b.leftArm.rotation.x = orig('leftArm', 'x') + armSwing;
-          b.leftArm.rotation.z = orig('leftArm', 'z') - smoothSin(phase) * 0.03;
-        }
-        
-        if (b.leftForeArm) {
-          const backSwing = Math.max(0, smoothSin(phase));
-          const elbowBend = backSwing * 0.35 + 0.05;
-          b.leftForeArm.rotation.x = orig('leftForeArm', 'x') - elbowBend;
-        }
-        
-        if (b.leftHand) {
-          b.leftHand.rotation.x = orig('leftHand', 'x') - smoothSin(phase + 0.2) * 0.1;
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // HEAD & NECK - Stabilization (keeps looking forward)
-        // ═══════════════════════════════════════════════════════════════════
-        if (b.neck) {
-          // Counter-rotate against spine to keep head stable
-          b.neck.rotation.y = orig('neck', 'y') + smoothSin(phase) * 0.025;
-          b.neck.rotation.z = orig('neck', 'z') + smoothSin(phase) * 0.01;
-        }
-        if (b.head) {
-          // Minimal head bob - humans stabilize head when walking
-          b.head.rotation.x = orig('head', 'x') + smoothSin(phase * 2) * 0.01;
-          // Slight look in direction of movement
-          b.head.rotation.z = orig('head', 'z') + smoothSin(phase) * 0.008;
-        }
-      }
-      
-      // ════════════════════════════════════════════════════════════════════════
-      // IDLE ANIMATION - Natural breathing and weight shift
-      // ════════════════════════════════════════════════════════════════════════
-      animateIdle() {
-        const t = this.time;
-        const b = this.bones;
-        
-        const orig = (name, axis) => this.originalRotations[name]?.[axis] || 0;
-        
-        // Breathing cycle (slower, more natural)
-        const breathCycle = Math.sin(t * 1.2) * 0.5 + 0.5; // 0 to 1
-        const breathAmount = breathCycle * 0.018;
-        
-        // Spine breathing
-        if (b.spine) {
-          b.spine.rotation.x = orig('spine', 'x') + breathAmount;
-        }
-        if (b.spine1) {
-          b.spine1.rotation.x = orig('spine1', 'x') + breathAmount * 0.7;
-        }
-        if (b.spine2) {
-          b.spine2.rotation.x = orig('spine2', 'x') + breathAmount * 0.5;
-          // Shoulders rise slightly with breath
-          b.spine2.rotation.z = orig('spine2', 'z') + Math.sin(t * 1.2 + 0.2) * 0.005;
-        }
-        
-        // Subtle weight shift (very slow)
-        if (b.hips) {
-          b.hips.rotation.z = orig('hips', 'z') + Math.sin(t * 0.3) * 0.012;
-          b.hips.rotation.y = orig('hips', 'y') + Math.sin(t * 0.2) * 0.008;
-        }
-        
-        // Arms hang naturally with slight sway
-        if (b.rightArm) {
-          b.rightArm.rotation.z = orig('rightArm', 'z') + Math.sin(t * 0.4) * 0.015;
-        }
-        if (b.leftArm) {
-          b.leftArm.rotation.z = orig('leftArm', 'z') - Math.sin(t * 0.4 + 0.5) * 0.015;
-        }
-        
-        // Head micro-movements (looking around slightly)
-        if (b.head) {
-          b.head.rotation.y = orig('head', 'y') + Math.sin(t * 0.25) * 0.025;
-          b.head.rotation.x = orig('head', 'x') + Math.sin(t * 0.35) * 0.012;
-        }
-        if (b.neck) {
-          b.neck.rotation.y = orig('neck', 'y') + Math.sin(t * 0.2 + 1) * 0.015;
-        }
-      }
-      
-      // ════════════════════════════════════════════════════════════════════════
-      // LOOK AROUND - Stand still, fidget legs, look around
-      // ════════════════════════════════════════════════════════════════════════
-      animateLookAround() {
-        const t = this.time;
-        const b = this.bones;
-        
-        const orig = (name, axis) => this.originalRotations[name]?.[axis] || 0;
-        
-        // Breathing cycle
-        const breathCycle = Math.sin(t * 1.0) * 0.5 + 0.5;
-        const breathAmount = breathCycle * 0.05;
-        
-        // ══ SPINE - Breathing motion ══
-        if (b.spine) {
-          b.spine.rotation.x = orig('spine', 'x') + breathAmount;
-          b.spine.rotation.z = orig('spine', 'z') + Math.sin(t * 0.4) * 0.03;
-        }
-        if (b.spine1) {
-          b.spine1.rotation.x = orig('spine1', 'x') + breathAmount * 0.7;
-        }
-        if (b.spine2) {
-          b.spine2.rotation.x = orig('spine2', 'x') + breathAmount * 0.5;
-        }
-        
-        // ══ HIPS - Weight shift side to side ══
-        if (b.hips) {
-          // Side-to-side weight shift - MORE VISIBLE
-          b.hips.rotation.z = orig('hips', 'z') + Math.sin(t * 0.5) * 0.08;
-          // Forward/back sway
-          b.hips.rotation.x = orig('hips', 'x') + Math.sin(t * 0.6) * 0.04;
-          // Turn body slightly
-          b.hips.rotation.y = orig('hips', 'y') + Math.sin(t * 0.3) * 0.06;
-        }
-        
-        // ══ LEGS - Fidgeting / shifting weight ══
-        // Right leg
-        if (b.rightUpLeg) {
-          b.rightUpLeg.rotation.x = orig('rightUpLeg', 'x') + Math.sin(t * 0.7) * 0.1;
-          b.rightUpLeg.rotation.z = orig('rightUpLeg', 'z') + Math.sin(t * 0.5) * 0.04;
-        }
-        if (b.rightLeg) {
-          // Knee bends when weight shifts
-          b.rightLeg.rotation.x = orig('rightLeg', 'x') + Math.max(0, Math.sin(t * 0.7)) * 0.15;
-        }
-        if (b.rightFoot) {
-          b.rightFoot.rotation.x = orig('rightFoot', 'x') + Math.sin(t * 0.8) * 0.08;
-          b.rightFoot.rotation.z = orig('rightFoot', 'z') + Math.sin(t * 0.6) * 0.03;
-        }
-        
-        // Left leg - offset timing
-        if (b.leftUpLeg) {
-          b.leftUpLeg.rotation.x = orig('leftUpLeg', 'x') + Math.sin(t * 0.65 + 2) * 0.1;
-          b.leftUpLeg.rotation.z = orig('leftUpLeg', 'z') + Math.sin(t * 0.45 + 1.5) * 0.04;
-        }
-        if (b.leftLeg) {
-          b.leftLeg.rotation.x = orig('leftLeg', 'x') + Math.max(0, Math.sin(t * 0.65 + 2)) * 0.15;
-        }
-        if (b.leftFoot) {
-          b.leftFoot.rotation.x = orig('leftFoot', 'x') + Math.sin(t * 0.75 + 1.5) * 0.08;
-          b.leftFoot.rotation.z = orig('leftFoot', 'z') + Math.sin(t * 0.55 + 1) * 0.03;
-        }
-        
-        // ══ ARMS - Swing and fidget ══
-        if (b.rightShoulder) {
-          b.rightShoulder.rotation.z = orig('rightShoulder', 'z') + Math.sin(t * 0.5) * 0.04;
-        }
-        if (b.rightArm) {
-          b.rightArm.rotation.z = orig('rightArm', 'z') + Math.sin(t * 0.6) * 0.1;
-          b.rightArm.rotation.x = orig('rightArm', 'x') + Math.sin(t * 0.45) * 0.08;
-        }
-        if (b.rightForeArm) {
-          b.rightForeArm.rotation.x = orig('rightForeArm', 'x') + Math.sin(t * 0.7) * 0.08;
-        }
-        
-        if (b.leftShoulder) {
-          b.leftShoulder.rotation.z = orig('leftShoulder', 'z') - Math.sin(t * 0.55 + 1) * 0.04;
-        }
-        if (b.leftArm) {
-          b.leftArm.rotation.z = orig('leftArm', 'z') - Math.sin(t * 0.65 + 0.8) * 0.1;
-          b.leftArm.rotation.x = orig('leftArm', 'x') + Math.sin(t * 0.5 + 1.2) * 0.08;
-        }
-        if (b.leftForeArm) {
-          b.leftForeArm.rotation.x = orig('leftForeArm', 'x') + Math.sin(t * 0.75 + 1) * 0.08;
-        }
-        
-        // ══ HEAD & NECK - Looking around MORE ══
-        if (b.neck) {
-          // Turn left/right
-          b.neck.rotation.y = orig('neck', 'y') + Math.sin(t * 0.35) * 0.15;
-          // Tilt
-          b.neck.rotation.z = orig('neck', 'z') + Math.sin(t * 0.4 + 0.5) * 0.06;
-        }
-        if (b.head) {
-          // Look around - BIGGER movement
-          b.head.rotation.y = orig('head', 'y') + Math.sin(t * 0.3) * 0.25;
-          // Look up/down
-          b.head.rotation.x = orig('head', 'x') + Math.sin(t * 0.4) * 0.12;
-          // Head tilt
-          b.head.rotation.z = orig('head', 'z') + Math.sin(t * 0.45 + 1) * 0.08;
-        }
-      }
-    }
-    
-    
-    // ══════════════════════════════════════════════════════════════════════════
-    // INITIALIZATION
-    // ══════════════════════════════════════════════════════════════════════════
-    let arMode = false;
-    let ground, grid;
-    
-    async function init() {
-      const container = document.getElementById('container');
-      const canvas = document.getElementById('canvas3d');
-      
-      // Scene - transparent for AR camera
-      scene = new THREE.Scene();
-      scene.background = null; // Transparent for camera AR
-      
-      // Camera - closer for better view
-      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 1.5, 6);
-      
-      // Renderer - alpha for AR transparency
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.shadowMap.enabled = true;
-      renderer.outputEncoding = THREE.sRGBEncoding;
-      
-      // Controls
-      controls = new THREE.OrbitControls(camera, canvas);
-      controls.enableDamping = true;
-      controls.target.set(0, 1, 0);
-      
-      // Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-      scene.add(ambientLight);
-      
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-      directionalLight.position.set(5, 10, 7);
-      directionalLight.castShadow = true;
-      scene.add(directionalLight);
-      
-      const backLight = new THREE.DirectionalLight(0x4488ff, 0.3);
-      backLight.position.set(-5, 5, -5);
-      scene.add(backLight);
-      
-      // Ground plane (semi-transparent for AR)
-      const groundGeometry = new THREE.PlaneGeometry(20, 20);
-      const groundMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x222233,
-        roughness: 0.8,
-        transparent: true,
-        opacity: 0.5
-      });
-      ground = new THREE.Mesh(groundGeometry, groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      ground.receiveShadow = true;
-      scene.add(ground);
-      
-      // Grid (can be hidden in AR)
-      grid = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
-      scene.add(grid);
-      
-      // Environment Dome (for 360 backgrounds)
-      const domeGeometry = new THREE.SphereGeometry(50, 64, 32);
-      const domeMaterial = new THREE.MeshBasicMaterial({
-        color: 0x1a1a2e,
-        side: THREE.BackSide, // Render inside
-        transparent: true,
-        opacity: 0
-      });
-      environmentDome = new THREE.Mesh(domeGeometry, domeMaterial);
-      scene.add(environmentDome);
-      
-      // Clock
-      clock = new THREE.Clock();
-      
-      // Try to init AR camera
-      await initARCamera();
-      
-      // Get asset ID from URL
-      const pathParts = window.location.pathname.split('/');
-      const assetId = pathParts[pathParts.length - 1];
-      
-      // Load asset data from API
-      if (assetId && assetId !== 'viewer.html') {
-        try {
-          const response = await fetch(`/api/asset/${assetId}`);
-          if (response.ok) {
-            assetData = await response.json();
-            console.log('📦 Asset data:', assetData);
-            
-            // Apply ground image if exists
-            if (assetData.groundImage) {
-              const textureLoader = new THREE.TextureLoader();
-              textureLoader.load(assetData.groundImage, (texture) => {
-                ground.material.map = texture;
-                ground.material.color.set(0xffffff);
-                ground.material.opacity = 1;
-                ground.material.needsUpdate = true;
-                console.log('🎨 Ground image applied:', assetData.groundImage);
-              });
-            }
-            
-            // Apply environment image if exists - but DON'T show by default
-            // Will be shown when user clicks 360° AR button
-            if (assetData.envImage) {
-              const textureLoader = new THREE.TextureLoader();
-              textureLoader.load(assetData.envImage, (texture) => {
-                texture.mapping = THREE.EquirectangularReflectionMapping;
-                // Store texture but don't apply yet
-                environmentDome.material.map = texture;
-                environmentDome.material.color.set(0xffffff);
-                // Keep opacity 0 - will show on 360 AR click
-                environmentDome.material.opacity = 0;
-                environmentDome.material.needsUpdate = true;
-                // DON'T set scene.background - keep transparent for camera
-                console.log('🌳 Environment image loaded (click 360° AR to show):', assetData.envImage);
-              });
-            }
-            
-            // Load props (3D objects) if exists
-            if (assetData.props && assetData.props.length > 0) {
-              loadProps(assetData.props);
-            }
-          }
-        } catch (e) {
-          console.log('Could not load asset data, using defaults');
-        }
-      }
-      
-      // Load model
-      loadModel();
-      
-      // Animation loop
-      animate();
-      
-      // Resize handler
-      window.addEventListener('resize', onResize);
-    }
-    
-    function loadModel() {
-      showStatus('📦 Đang tải model...', 'info');
-      
-      // Use model from asset data if available, otherwise use default
-      const modelPath = assetData?.model || '/uploads/warrior 3d model rigged.glb';
-      console.log('📦 Loading model:', modelPath);
-      
-      // Detect file type and use appropriate loader
-      const isFBX = modelPath.toLowerCase().endsWith('.fbx');
-      
-      if (isFBX) {
-        // FBX Loader
-        const fbxLoader = new THREE.FBXLoader();
-        fbxLoader.load(
-          modelPath,
-          (fbx) => {
-            model = fbx;
-            // FBX animations are in fbx.animations
-            const animations = fbx.animations || [];
-            console.log(`🎬 FBX has ${animations.length} animation(s)`);
-            processLoadedModel(model, animations);
-          },
-          (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            showStatus(`📦 Loading FBX: ${percent}%`, 'info');
-          },
-          (error) => {
-            console.error('Error loading FBX model:', error);
-            showStatus('❌ Lỗi tải model FBX', 'error');
-          }
-        );
-      } else {
-        // GLTF/GLB Loader
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-          modelPath,
-          (gltf) => {
-            model = gltf.scene;
-            // GLTF animations are in gltf.animations
-            const animations = gltf.animations || [];
-            console.log(`🎬 GLTF has ${animations.length} animation(s)`);
-            processLoadedModel(model, animations);
-          },
-          (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            showStatus(`📦 Loading: ${percent}%`, 'info');
-          },
-          (error) => {
-            console.error('Error loading model:', error);
-            showStatus('❌ Lỗi tải model', 'error');
-          }
-        );
-      }
-    }
-    
-    // Process loaded model (works for both GLTF and FBX)
-    function processLoadedModel(loadedModel, animations = []) {
-      // Add model to scene first
-      scene.add(loadedModel);
-      
-      // Reset transforms completely
-      loadedModel.position.set(0, 0, 0);
-      loadedModel.rotation.set(0, 0, 0);
-      loadedModel.scale.set(1, 1, 1);
-      loadedModel.updateMatrixWorld(true);
-      
-      // Calculate initial bounding box
-      const box = new THREE.Box3().setFromObject(loadedModel);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      
-      console.log(`📦 Original: min.y=${box.min.y.toFixed(2)}, max.y=${box.max.y.toFixed(2)}, height=${size.y.toFixed(2)}`);
-      
-      // Scale model to target height (~2.5 units)
-      const targetHeight = 2.5;
-      const scaleFactor = targetHeight / size.y;
-      loadedModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
-      loadedModel.updateMatrixWorld(true);
-      
-      // Recalculate bounding box after scaling
-      const scaledBox = new THREE.Box3().setFromObject(loadedModel);
-      const scaledSize = scaledBox.getSize(new THREE.Vector3());
-      const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
-      
-      console.log(`📦 After scale: min.y=${scaledBox.min.y.toFixed(2)}, max.y=${scaledBox.max.y.toFixed(2)}, height=${scaledSize.y.toFixed(2)}`);
-      
-      // KEY FIX: Calculate exact offset to place model feet at Y=0
-      // The model's lowest point (min.y) needs to be at ground level (Y=0)
-      // So we need to move the model UP by the negative of min.y
-      // KEY FIX: Calculate exact offset to place model feet at Y=0
-      // The model's lowest point (min.y) needs to be at ground level (Y=0)
-      // So we need to move the model UP by the negative of min.y
-      const yOffset = -scaledBox.min.y;
-      
-      // Get admin-configured Y offset (if any)
-      const adminYOffset = assetData?.modelY || 0;
-      
-      // Position model:
-      // - Center horizontally (X, Z) 
-      // - Move Y so that feet touch ground (min.y becomes 0) + admin offset
-      loadedModel.position.set(
-        -scaledCenter.x,
-        yOffset + adminYOffset,
-        -scaledCenter.z
-      );
-      
-      loadedModel.updateMatrixWorld(true);
-      
-      // Verify the fix worked
-      const finalBox = new THREE.Box3().setFromObject(loadedModel);
-      console.log(`✅ Final: min.y=${finalBox.min.y.toFixed(2)}, max.y=${finalBox.max.y.toFixed(2)}`);
-      console.log(`📍 Model position: Y=${loadedModel.position.y.toFixed(2)} (auto: ${yOffset.toFixed(2)}, admin: ${adminYOffset})`);
-      
-      // Keep ground at Y=0
-      ground.position.y = 0;
-      grid.position.y = 0;
-      
-      // Enable shadows
-      loadedModel.traverse(child => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
-      
-      model = loadedModel; // Update global reference
-      
-      // Count bones
-      let boneCount = 0;
-      loadedModel.traverse(child => {
-        if (child.isBone) boneCount++;
-      });
-      
-      // Create skeleton helper
-      loadedModel.traverse(child => {
-        if (child.isSkinnedMesh) {
-          skeletonHelper = new THREE.SkeletonHelper(loadedModel);
-          skeletonHelper.visible = false;
-          scene.add(skeletonHelper);
-        }
-      });
-      
-      // Biến lưu action để có thể dừng
-      let currentAction = null;
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBALS
+// ══════════════════════════════════════════════════════════════════════════════
+let scene, camera, renderer, controls, clock;
+let model, mixer, skeletonHelper;
+let proceduralAnimator = null;
+let environmentDome = null;
+let assetData = null;
+let ground, grid;
+let arMode = false;
+let currentAnimAction = null;
 
-      // If model has embedded animations - auto play and show stop button
-      if (animations.length > 0) {
-        mixer = new THREE.AnimationMixer(loadedModel);
-        currentAction = mixer.clipAction(animations[0]);
-        currentAction.play();
-        
-        // Add stop button
-        const animButtonsDiv = document.getElementById('animButtons');
-        animButtonsDiv.innerHTML = '';
-        const stopBtn = document.createElement('button');
-        stopBtn.textContent = '⏹️ Dừng animation';
-        stopBtn.className = 'btn-stop';
-        stopBtn.onclick = () => {
-          if (currentAction) {
-            currentAction.stop();
-            showStatus('⏹️ Đã dừng animation');
-          }
-        };
-        animButtonsDiv.appendChild(stopBtn);
-        
-        // Play button to resume
-        const playBtn = document.createElement('button');
-        playBtn.textContent = '▶️ Phát animation';
-        playBtn.className = 'btn-walk';
-        playBtn.onclick = () => {
-          if (currentAction) {
-            currentAction.reset();
-            currentAction.play();
-            showStatus('▶️ Đang phát animation');
-          }
-        };
-        animButtonsDiv.appendChild(playBtn);
-        
-        document.getElementById('info').innerHTML = `Bones: ${boneCount}<br>Animations: ${animations.length}<br>▶️ ${animations[0].name || 'Animation'}`;
-        showStatus(`✅ Model loaded - Animation đang phát!`, 'success');
-      } else {
-        // No embedded animations - use procedural animation
-        proceduralAnimator = new ProceduralAnimator(loadedModel);
-        proceduralAnimator.play('look_around');
-        document.getElementById('info').innerHTML = `Bones: ${boneCount}<br>✅ Procedural Anim`;
-        showStatus('✅ Model loaded with procedural animation!', 'success');
-      }
-    }
-    
-    // ══════════════════════════════════════════════════════════════════════════
-    // PROPS LOADER - Load additional 3D objects onto the ground
-    // ══════════════════════════════════════════════════════════════════════════
-    let loadedProps = [];
-    
-    function loadProps(propPaths) {
-      const loader = new THREE.GLTFLoader();
-      const numProps = propPaths.length;
-      
-      // Calculate positions in a circle around the main character
-      const radius = 3; // Distance from center
-      const angleStep = (2 * Math.PI) / Math.max(numProps, 4);
-      
-      propPaths.forEach((propPath, index) => {
-        loader.load(
-          propPath,
-          (gltf) => {
-            const prop = gltf.scene;
-            
-            // Calculate position
-            const angle = angleStep * index;
-            const x = Math.cos(angle) * radius * (0.5 + Math.random() * 0.5);
-            const z = Math.sin(angle) * radius * (0.5 + Math.random() * 0.5);
-            
-            // Scale prop to reasonable size
-            const box = new THREE.Box3().setFromObject(prop);
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const targetSize = 0.5 + Math.random() * 1; // Random size 0.5-1.5
-            const scale = targetSize / maxDim;
-            prop.scale.set(scale, scale, scale);
-            
-            // Position on ground
-            const newBox = new THREE.Box3().setFromObject(prop);
-            prop.position.set(x, -newBox.min.y * scale, z);
-            
-            // Random rotation
-            prop.rotation.y = Math.random() * Math.PI * 2;
-            
-            // Enable shadows
-            prop.traverse(child => {
-              if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-              }
-            });
-            
-            scene.add(prop);
-            loadedProps.push(prop);
-            
-            console.log(`🎄 Prop ${index + 1}/${numProps} loaded:`, propPath);
-          },
-          undefined,
-          (error) => {
-            console.error('Error loading prop:', propPath, error);
-          }
-        );
-      });
-    }
-    
-    // ══════════════════════════════════════════════════════════════════════════
-    // AR CAMERA
-    // ══════════════════════════════════════════════════════════════════════════
-    async function initARCamera() {
-      const video = document.getElementById('cameraVideo');
-      
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false
-        });
-        
-        video.srcObject = stream;
-        video.style.display = 'block';
-        await video.play();
-        
-        // Enable AR mode - make canvas transparent
-        arMode = true;
-        scene.background = null; // Transparent
-        renderer.setClearColor(0x000000, 0); // Transparent background
-        ground.material.opacity = 0.15;
-        grid.visible = false;
-        
-        showStatus('📷 AR Camera enabled!', 'success');
-        console.log('📷 AR Camera initialized');
-        
-      } catch (error) {
-        console.log('📷 Camera not available:', error.message);
-        video.style.display = 'none';
-        arMode = false;
-        // Show default background if no camera
-        scene.background = new THREE.Color(0x1a1a2e);
-        renderer.setClearColor(0x1a1a2e, 1);
-        showStatus('📷 Camera không khả dụng - Chế độ 3D', 'info');
-      }
-    }
-    
-    function toggleAR() {
-      const video = document.getElementById('cameraVideo');
-      
-      if (arMode) {
-        // Turn off AR
-        video.style.display = 'none';
-        scene.background = new THREE.Color(0x1a1a2e);
-        ground.material.opacity = 0.3;
-        grid.visible = true;
-        arMode = false;
-        showStatus('🖥️ Chế độ 3D', 'info');
-      } else {
-        // Turn on AR
-        initARCamera();
-      }
-      
-      updateInfoPanel();
-    }
-    
-    function updateInfoPanel() {
-      if (!proceduralAnimator) return;
-      document.getElementById('info').innerHTML = `
-        Mapped: ${proceduralAnimator.getBoneCount()} bones<br>
-        AR: ${arMode ? '✅ ON' : '❌ OFF'}<br>
-        ✅ Ready
-      `;
-    }
-    
-    function animate() {
-      requestAnimationFrame(animate);
-      
-      const delta = clock.getDelta();
-      
-      controls.update();
-      
-      if (mixer) {
-        mixer.update(delta);
-      }
-      
-      renderer.render(scene, camera);
-    }
-    
-    function onResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-    
-    function showStatus(msg, type = 'info') {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.className = 'show ' + type;
-      setTimeout(() => el.className = '', 2000);
-    }
-    
-    // ══════════════════════════════════════════════════════════════════════════
-    // EVENT HANDLERS
-    // ══════════════════════════════════════════════════════════════════════════
-    document.getElementById('togglePanel').onclick = () => {
-      document.getElementById('sidePanel').classList.toggle('hidden');
+// Real-world scale: 1 Three.js unit = 1 meter
+// A 170cm person = 1.7 units tall in Three.js
+const REAL_WORLD_SCALE = true;
+const DEFAULT_HUMAN_HEIGHT_CM = 170;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TOAST & STATUS
+// ══════════════════════════════════════════════════════════════════════════════
+function showToast(title, msg, duration = 3000) {
+  const el = document.getElementById('toast');
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastMsg').textContent = msg || '';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function setLoadingProgress(percent) {
+  document.getElementById('loadingBar').style.width = percent + '%';
+}
+
+function hideLoading() {
+  const ls = document.getElementById('loadingScreen');
+  ls.classList.add('fade-out');
+  setTimeout(() => ls.style.display = 'none', 800);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROCEDURAL ANIMATOR (Bone-based animations)
+// ══════════════════════════════════════════════════════════════════════════════
+class ProceduralAnimator {
+  constructor(mdl) {
+    this.model = mdl;
+    this.bones = {};
+    this.isPlaying = false;
+    this.animType = null;
+    this.time = 0;
+    this.animId = null;
+    this.originalRotations = {};
+
+    this.boneNameMap = {
+      hips: ['Hip','hips','pelvis','Hips','Pelvis'],
+      spine: ['Waist','waist','spine','Spine'],
+      spine1: ['Spine01','spine01','spine1'],
+      spine2: ['Spine02','spine02','spine2','chest'],
+      neck: ['NeckTwist01','neck','Neck'],
+      head: ['Head','head'],
+      leftUpLeg: ['L_Thigh','LeftUpLeg','leftThigh'],
+      leftLeg: ['L_Calf','LeftLeg','leftShin'],
+      leftFoot: ['L_Foot','LeftFoot','leftFoot'],
+      rightUpLeg: ['R_Thigh','RightUpLeg','rightThigh'],
+      rightLeg: ['R_Calf','RightLeg','rightShin'],
+      rightFoot: ['R_Foot','RightFoot','rightFoot'],
+      leftShoulder: ['L_Clavicle','LeftShoulder'],
+      leftArm: ['L_Upperarm','LeftArm','leftArm'],
+      leftForeArm: ['L_Forearm','LeftForeArm','leftForeArm'],
+      leftHand: ['L_Hand','LeftHand','leftHand'],
+      rightShoulder: ['R_Clavicle','RightShoulder'],
+      rightArm: ['R_Upperarm','RightArm','rightArm'],
+      rightForeArm: ['R_Forearm','RightForeArm','rightForeArm'],
+      rightHand: ['R_Hand','RightHand','rightHand']
     };
-    
-    document.getElementById('btnSkeleton').onclick = () => {
-      if (skeletonHelper) {
-        skeletonHelper.visible = !skeletonHelper.visible;
-        showStatus(skeletonHelper.visible ? '🦴 Skeleton ON' : '🦴 Skeleton OFF', 'info');
-      }
-    };
-    
-    // 360 AR Mode - Show environment image uploaded by admin
-    let is360Mode = false;
-    let savedBackground = null;
-    
-    document.getElementById('btn360AR').onclick = () => {
-      is360Mode = !is360Mode;
-      const video = document.getElementById('cameraVideo');
-      
-      if (is360Mode) {
-        // Switch to 360 environment mode
-        if (assetData?.envImage) {
-          // Hide camera video
-          video.style.display = 'none';
-          
-          // Show environment dome and background
-          if (environmentDome.material.map) {
-            environmentDome.material.opacity = 1;
-            environmentDome.material.needsUpdate = true;
+    this.detectBones();
+  }
+
+  detectBones() {
+    this.model.traverse(child => {
+      if (child.isBone || child.type === 'Bone') {
+        for (const [stdName, aliases] of Object.entries(this.boneNameMap)) {
+          if (this.bones[stdName]) continue;
+          for (const alias of aliases) {
+            if (child.name === alias || child.name.toLowerCase().includes(alias.toLowerCase())) {
+              this.bones[stdName] = child;
+              break;
+            }
           }
-          
-          // Make canvas background opaque
-          renderer.setClearColor(0x1a1a2e, 1);
-          
-          // Hide ground in 360 mode
-          ground.visible = false;
-          grid.visible = false;
-          
-          document.getElementById('btn360AR').style.background = 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)';
-          document.getElementById('btn360AR').textContent = '🌍 360° ON';
-          showStatus('🌍 360° AR Mode - Môi trường admin', 'success');
-        } else {
-          showStatus('⚠️ Chưa có ảnh 360° được upload!', 'error');
-          is360Mode = false;
         }
-      } else {
-        // Back to normal mode (camera or default background)
-        video.style.display = 'block';
-        
-        // Hide environment dome
-        environmentDome.material.opacity = 0;
-        environmentDome.material.needsUpdate = true;
-        scene.background = new THREE.Color(0x1a1a2e);
-        
-        // Show ground again
-        ground.visible = true;
-        grid.visible = true;
-        
-        // Make canvas transparent for camera
-        renderer.setClearColor(0x000000, 0);
-        
-        document.getElementById('btn360AR').style.background = 'linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%)';
-        document.getElementById('btn360AR').textContent = '🌍 360° AR';
-        showStatus('📷 Camera Mode', 'info');
       }
-    };
-    
-    // Camera AR Mode - Toggle camera on/off
-    document.getElementById('btnARCamera').onclick = async () => {
-      const video = document.getElementById('cameraVideo');
-      
-      if (video.srcObject) {
-        // Stop camera
-        video.srcObject.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
-        video.style.display = 'none';
-        scene.background = new THREE.Color(0x1a1a2e);
-        document.getElementById('btnARCamera').textContent = '📷 Camera OFF';
-        showStatus('📷 Camera OFF', 'info');
-      } else {
-        // Start camera
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-            audio: false
+    });
+    this.storeOriginalRotations();
+  }
+
+  storeOriginalRotations() {
+    for (const name of Object.keys(this.bones)) {
+      const b = this.bones[name];
+      if (b) this.originalRotations[name] = { x: b.rotation.x, y: b.rotation.y, z: b.rotation.z };
+    }
+  }
+
+  play(type = 'idle') {
+    if (this.isPlaying && this.animType === type) return;
+    this.stop();
+    this.isPlaying = true;
+    this.animType = type;
+    this.time = 0;
+    this.animate();
+  }
+
+  stop() {
+    this.isPlaying = false;
+    this.animType = null;
+    if (this.animId) { cancelAnimationFrame(this.animId); this.animId = null; }
+    this.resetPose();
+  }
+
+  resetPose() {
+    for (const name of Object.keys(this.bones)) {
+      const b = this.bones[name];
+      const o = this.originalRotations[name];
+      if (b && o) { b.rotation.x = o.x; b.rotation.y = o.y; b.rotation.z = o.z; }
+    }
+  }
+
+  animate() {
+    if (!this.isPlaying) return;
+    this.time += 0.016;
+    if (this.animType === 'walk') this.animateWalk();
+    else if (this.animType === 'idle') this.animateIdle();
+    else if (this.animType === 'look_around') this.animateLookAround();
+    this.animId = requestAnimationFrame(() => this.animate());
+  }
+
+  orig(name, axis) { return this.originalRotations[name]?.[axis] || 0; }
+
+  animateWalk() {
+    const t = this.time, phase = (t % 1) * Math.PI * 2;
+    const b = this.bones, o = (n,a) => this.orig(n,a);
+    const s = Math.sin, c = Math.cos;
+
+    if(b.hips){ b.hips.rotation.z=o('hips','z')+s(phase)*0.035; b.hips.rotation.y=o('hips','y')+s(phase)*0.06; }
+    if(b.spine){ b.spine.rotation.y=o('spine','y')-s(phase)*0.045; b.spine.rotation.x=o('spine','x')+0.02; }
+    if(b.rightUpLeg){ b.rightUpLeg.rotation.x=o('rightUpLeg','x')+s(phase)*0.38; }
+    if(b.rightLeg){ const bend=Math.max(0,s(phase+0.4)); b.rightLeg.rotation.x=o('rightLeg','x')+bend*bend*0.55; }
+    if(b.rightFoot){ b.rightFoot.rotation.x=o('rightFoot','x')+s(phase-0.6)*0.2; }
+    const lp = phase + Math.PI;
+    if(b.leftUpLeg){ b.leftUpLeg.rotation.x=o('leftUpLeg','x')+s(lp)*0.38; }
+    if(b.leftLeg){ const bend=Math.max(0,s(lp+0.4)); b.leftLeg.rotation.x=o('leftLeg','x')+bend*bend*0.55; }
+    if(b.leftFoot){ b.leftFoot.rotation.x=o('leftFoot','x')+s(lp-0.6)*0.2; }
+    if(b.rightArm){ b.rightArm.rotation.x=o('rightArm','x')+s(lp)*0.4; }
+    if(b.rightForeArm){ b.rightForeArm.rotation.x=o('rightForeArm','x')-Math.max(0,s(lp))*0.35-0.05; }
+    if(b.leftArm){ b.leftArm.rotation.x=o('leftArm','x')+s(phase)*0.4; }
+    if(b.leftForeArm){ b.leftForeArm.rotation.x=o('leftForeArm','x')-Math.max(0,s(phase))*0.35-0.05; }
+    if(b.head){ b.head.rotation.x=o('head','x')+s(phase*2)*0.01; }
+  }
+
+  animateIdle() {
+    const t = this.time, b = this.bones, o = (n,a) => this.orig(n,a);
+    const breath = Math.sin(t*1.2)*0.5+0.5;
+    if(b.spine){ b.spine.rotation.x=o('spine','x')+breath*0.018; }
+    if(b.spine2){ b.spine2.rotation.x=o('spine2','x')+breath*0.009; }
+    if(b.hips){ b.hips.rotation.z=o('hips','z')+Math.sin(t*0.3)*0.012; }
+    if(b.rightArm){ b.rightArm.rotation.z=o('rightArm','z')+Math.sin(t*0.4)*0.015; }
+    if(b.leftArm){ b.leftArm.rotation.z=o('leftArm','z')-Math.sin(t*0.4+0.5)*0.015; }
+    if(b.head){ b.head.rotation.y=o('head','y')+Math.sin(t*0.25)*0.025; }
+  }
+
+  animateLookAround() {
+    const t = this.time, b = this.bones, o = (n,a) => this.orig(n,a);
+    const breath = Math.sin(t*1.0)*0.5+0.5;
+    if(b.spine){ b.spine.rotation.x=o('spine','x')+breath*0.05; b.spine.rotation.z=o('spine','z')+Math.sin(t*0.4)*0.03; }
+    if(b.hips){ b.hips.rotation.z=o('hips','z')+Math.sin(t*0.5)*0.08; b.hips.rotation.y=o('hips','y')+Math.sin(t*0.3)*0.06; }
+    if(b.rightUpLeg){ b.rightUpLeg.rotation.x=o('rightUpLeg','x')+Math.sin(t*0.7)*0.1; }
+    if(b.leftUpLeg){ b.leftUpLeg.rotation.x=o('leftUpLeg','x')+Math.sin(t*0.65+2)*0.1; }
+    if(b.rightArm){ b.rightArm.rotation.z=o('rightArm','z')+Math.sin(t*0.6)*0.1; }
+    if(b.leftArm){ b.leftArm.rotation.z=o('leftArm','z')-Math.sin(t*0.65+0.8)*0.1; }
+    if(b.neck){ b.neck.rotation.y=o('neck','y')+Math.sin(t*0.35)*0.15; }
+    if(b.head){ b.head.rotation.y=o('head','y')+Math.sin(t*0.3)*0.25; b.head.rotation.x=o('head','x')+Math.sin(t*0.4)*0.12; }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUTO-RESIZE: Scale any model to real-life human height
+// ══════════════════════════════════════════════════════════════════════════════
+function autoResizeToRealLife(loadedModel, targetHeightCM) {
+  // Reset transforms
+  loadedModel.position.set(0, 0, 0);
+  loadedModel.rotation.set(0, 0, 0);
+  loadedModel.scale.set(1, 1, 1);
+  loadedModel.updateMatrixWorld(true);
+
+  // Measure original bounding box
+  const box = new THREE.Box3().setFromObject(loadedModel);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+
+  const originalHeightUnits = size.y;
+  if (originalHeightUnits <= 0) {
+    console.warn('Model has zero height, cannot auto-resize');
+    return { scaleFactor: 1, realHeightCM: 0 };
+  }
+
+  // Target: 1 unit = 1 meter in Three.js
+  // So 170cm = 1.7 units
+  const targetHeightUnits = targetHeightCM / 100;
+  const scaleFactor = targetHeightUnits / originalHeightUnits;
+
+  console.log(`📐 Auto-resize: original=${originalHeightUnits.toFixed(3)} units, target=${targetHeightUnits.toFixed(3)} units (${targetHeightCM}cm), scale=${scaleFactor.toFixed(4)}`);
+
+  // Apply scale
+  loadedModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+  loadedModel.updateMatrixWorld(true);
+
+  // Recalculate after scaling
+  const scaledBox = new THREE.Box3().setFromObject(loadedModel);
+  const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+
+  // Place feet on ground (Y=0)
+  const yOffset = -scaledBox.min.y;
+  const adminYOffset = assetData?.modelY || 0;
+
+  loadedModel.position.set(
+    -scaledCenter.x,
+    yOffset + adminYOffset,
+    -scaledCenter.z
+  );
+
+  loadedModel.updateMatrixWorld(true);
+
+  // Verify
+  const finalBox = new THREE.Box3().setFromObject(loadedModel);
+  const finalHeight = finalBox.max.y - finalBox.min.y;
+  console.log(`✅ Final height: ${(finalHeight * 100).toFixed(1)}cm (target: ${targetHeightCM}cm). Feet at Y=${finalBox.min.y.toFixed(3)}`);
+
+  return { scaleFactor, realHeightCM: targetHeightCM };
+}
+
+// Dynamic re-scale (for slider)
+function rescaleModel(newHeightCM) {
+  if (!model) return;
+  autoResizeToRealLife(model, newHeightCM);
+  updateSizeIndicator(newHeightCM);
+}
+
+function updateSizeIndicator(heightCM) {
+  const indicator = document.getElementById('sizeIndicator');
+  const ruler = document.getElementById('sizeRuler');
+  const label = document.getElementById('sizeLabel');
+
+  // Show ruler proportional to screen height
+  // Assume at default camera distance, a 170cm person takes ~60% of screen
+  const screenRatio = (heightCM / 170) * 0.6;
+  const rulerPx = Math.min(window.innerHeight * screenRatio, window.innerHeight * 0.8);
+
+  ruler.style.height = rulerPx + 'px';
+  label.textContent = heightCM + 'cm';
+  indicator.style.display = 'block';
+
+  // Auto-hide after 3s
+  clearTimeout(indicator._hideTimer);
+  indicator._hideTimer = setTimeout(() => {
+    indicator.style.display = 'none';
+  }, 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AR CAMERA
+// ══════════════════════════════════════════════════════════════════════════════
+async function initARCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = stream;
+    await video.play();
+    arMode = true;
+
+    // Make scene transparent for AR
+    if (scene) scene.background = null;
+    if (ground) { ground.material.opacity = 0.15; ground.material.transparent = true; }
+    if (grid) grid.visible = false;
+
+    console.log('📷 AR Camera active');
+    return true;
+  } catch (e) {
+    console.log('📷 Camera not available, using 3D mode');
+    arMode = false;
+    return false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INITIALIZE SCENE
+// ══════════════════════════════════════════════════════════════════════════════
+async function init() {
+  const canvas = document.getElementById('canvas3d');
+  setLoadingProgress(10);
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = null;
+
+  // Camera - positioned for real-life view
+  // At 3m distance, a 1.7m human fills ~60% of vertical FOV with 50° FOV
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 500);
+  camera.position.set(0, 0.9, 3.5); // Eye-level, 3.5m away
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  // Controls
+  controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.target.set(0, 0.85, 0); // Look at chest height
+  controls.minDistance = 0.5;
+  controls.maxDistance = 20;
+
+  // Lighting - outdoor natural light
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
+  sunLight.position.set(5, 10, 7);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.camera.near = 0.5;
+  sunLight.shadow.camera.far = 50;
+  sunLight.shadow.camera.left = -5;
+  sunLight.shadow.camera.right = 5;
+  sunLight.shadow.camera.top = 5;
+  sunLight.shadow.camera.bottom = -5;
+  scene.add(sunLight);
+
+  const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
+  fillLight.position.set(-3, 5, -5);
+  scene.add(fillLight);
+
+  // Hemisphere light for outdoor feel
+  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d1b, 0.4);
+  scene.add(hemiLight);
+
+  // Ground - hidden for clean AR view
+  const groundGeo = new THREE.PlaneGeometry(30, 30);
+  const groundMat = new THREE.MeshStandardMaterial({
+    color: 0x333333, roughness: 0.9, transparent: true, opacity: 0
+  });
+  ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  ground.visible = false;
+  scene.add(ground);
+
+  // Grid - hidden
+  grid = new THREE.GridHelper(30, 30, 0x444444, 0x222222);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.3;
+  grid.visible = false;
+  scene.add(grid);
+
+  // Environment dome
+  const domeGeo = new THREE.SphereGeometry(100, 64, 32);
+  const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
+  environmentDome = new THREE.Mesh(domeGeo, domeMat);
+  scene.add(environmentDome);
+
+  clock = new THREE.Clock();
+  setLoadingProgress(30);
+
+  // Init AR camera
+  await initARCamera();
+  setLoadingProgress(50);
+
+  // Load asset data
+  const pathParts = window.location.pathname.split('/');
+  const assetId = pathParts[pathParts.length - 1];
+
+  if (assetId && assetId !== 'viewer.html') {
+    try {
+      const resp = await fetch(`/api/asset/${assetId}`);
+      if (resp.ok) {
+        assetData = await resp.json();
+        console.log('📦 Asset data:', assetData);
+
+        // Ground image
+        if (assetData.groundImage) {
+          new THREE.TextureLoader().load(assetData.groundImage, tex => {
+            ground.material.map = tex;
+            ground.material.color.set(0xffffff);
+            ground.material.opacity = 0.8;
+            ground.material.needsUpdate = true;
           });
-          video.srcObject = stream;
-          await video.play();
-          video.style.display = 'block';
-          scene.background = null;
-          renderer.setClearColor(0x000000, 0);
-          document.getElementById('btnARCamera').textContent = '📷 Camera ON';
-          showStatus('📷 Camera AR đang hoạt động!', 'success');
-        } catch (e) {
-          console.error('Camera error:', e);
-          showStatus('❌ Không thể truy cập camera', 'error');
+        }
+
+        // Environment image
+        if (assetData.envImage) {
+          new THREE.TextureLoader().load(assetData.envImage, tex => {
+            tex.mapping = THREE.EquirectangularReflectionMapping;
+            environmentDome.material.map = tex;
+            environmentDome.material.color.set(0xffffff);
+            environmentDome.material.needsUpdate = true;
+          });
+        }
+
+        // Update HUD
+        updateCharacterHUD(assetData);
+
+        // Caption
+        if (assetData.caption) {
+          const cap = document.getElementById('captionDisplay');
+          cap.textContent = assetData.caption;
+          cap.style.display = 'block';
         }
       }
+    } catch (e) {
+      console.log('Could not load asset data');
+    }
+  }
+
+  setLoadingProgress(60);
+
+  // Load model
+  loadModel();
+
+  // Animation loop
+  animate();
+
+  // Resize
+  window.addEventListener('resize', onResize);
+
+  // Setup UI
+  setupUI();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LOAD MODEL
+// ══════════════════════════════════════════════════════════════════════════════
+function loadModel() {
+  const modelPath = assetData?.model || '/uploads/default.glb';
+  const isFBX = modelPath.toLowerCase().endsWith('.fbx');
+
+  const onProgress = (p) => {
+    if (p.total > 0) {
+      const pct = 60 + Math.round((p.loaded / p.total) * 30);
+      setLoadingProgress(Math.min(pct, 90));
+    }
+  };
+
+  const onError = (err) => {
+    console.error('Model load error:', err);
+    showToast('Lỗi', 'Không thể tải mô hình 3D');
+    hideLoading();
+  };
+
+  if (isFBX) {
+    new THREE.FBXLoader().load(modelPath, fbx => {
+      processLoadedModel(fbx, fbx.animations || []);
+    }, onProgress, onError);
+  } else {
+    new THREE.GLTFLoader().load(modelPath, gltf => {
+      processLoadedModel(gltf.scene, gltf.animations || []);
+    }, onProgress, onError);
+  }
+}
+
+function processLoadedModel(loadedModel, animations = []) {
+  scene.add(loadedModel);
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTO-RESIZE TO REAL LIFE SIZE
+  // ═══════════════════════════════════════════════════════════════
+  const targetHeightCM = assetData?.characterHeight || DEFAULT_HUMAN_HEIGHT_CM;
+  const { scaleFactor, realHeightCM } = autoResizeToRealLife(loadedModel, targetHeightCM);
+
+  // Update slider
+  document.getElementById('scaleSlider').value = targetHeightCM;
+  document.getElementById('scaleValue').textContent = targetHeightCM + 'cm';
+
+  // Enable shadows
+  loadedModel.traverse(child => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  model = loadedModel;
+
+  // Skeleton helper
+  loadedModel.traverse(child => {
+    if (child.isSkinnedMesh && !skeletonHelper) {
+      skeletonHelper = new THREE.SkeletonHelper(loadedModel);
+      skeletonHelper.visible = false;
+      scene.add(skeletonHelper);
+    }
+  });
+
+  // Animations
+  if (animations.length > 0) {
+    mixer = new THREE.AnimationMixer(loadedModel);
+    currentAnimAction = mixer.clipAction(animations[0]);
+    currentAnimAction.play();
+    console.log(`🎬 Playing embedded animation: ${animations[0].name || 'default'}`);
+  } else {
+    proceduralAnimator = new ProceduralAnimator(loadedModel);
+    proceduralAnimator.play('look_around');
+  }
+
+  setLoadingProgress(100);
+
+  // Summon effect then show
+  playSummonEffect(() => {
+    hideLoading();
+    document.getElementById('characterTitle').style.display = 'block';
+  });
+
+  // Adjust camera for the model
+  const finalBox = new THREE.Box3().setFromObject(loadedModel);
+  const fHeight = finalBox.max.y - finalBox.min.y;
+  camera.position.set(0, fHeight * 0.5, fHeight * 1.8);
+  controls.target.set(0, fHeight * 0.45, 0);
+  controls.update();
+
+  // Save to collection
+  saveToCollection(assetData);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EPIC SUMMON EFFECT
+// ══════════════════════════════════════════════════════════════════════════════
+function createSummonParticles() {
+  const container = document.getElementById('summonParticles');
+  container.innerHTML = '';
+  
+  // Create 20 particles with random positions and delays
+  for (let i = 0; i < 20; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.left = (Math.random() * 100) + '%';
+    particle.style.animationDelay = (Math.random() * 1.5) + 's';
+    particle.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    container.appendChild(particle);
+  }
+}
+
+function playSummonEffect(callback) {
+  const el = document.getElementById('summonEffect');
+  const txt = document.getElementById('summonText');
+  const era = document.getElementById('summonEra');
+  
+  txt.textContent = assetData?.characterName || 'TRIỆU HỒN!';
+  era.textContent = assetData?.characterEra || '';
+  
+  // Create particles
+  createSummonParticles();
+
+  el.classList.add('active');
+
+  // Vibration pattern for epic effect
+  if (navigator.vibrate) navigator.vibrate([100, 50, 150, 50, 200, 100, 300]);
+
+  setTimeout(() => {
+    el.classList.remove('active');
+    if (callback) callback();
+  }, 2500);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHARACTER HUD
+// ══════════════════════════════════════════════════════════════════════════════
+function updateCharacterHUD(data) {
+  if (!data) return;
+  
+  // Update title at top center
+  document.getElementById('titleName').textContent = data.characterName || 'Vị Tướng';
+  document.getElementById('titleEra').textContent = data.characterEra || '';
+  
+  // Update bio popup
+  document.getElementById('bioName').textContent = data.characterName || 'Vị Tướng';
+  document.getElementById('bioEra').textContent = data.characterEra || '';
+  document.getElementById('bioText').textContent = data.characterBio || 'Chưa có thông tin tiểu sử.';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ══════════════════════════════════════════════════════════════════════════════
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI SETUP
+// ══════════════════════════════════════════════════════════════════════════════
+function setupUI() {
+  // Camera toggle
+  document.getElementById('btnCamera').addEventListener('click', async () => {
+    const btn = document.getElementById('btnCamera');
+    if (arMode) {
+      // Disable camera
+      const video = document.getElementById('cameraVideo');
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(t => t.stop());
+        video.srcObject = null;
+      }
+      arMode = false;
+      scene.background = new THREE.Color(0x1a1a2e);
+      if (ground) { ground.material.opacity = 0; ground.visible = false; }
+      if (grid) grid.visible = false;
+      btn.classList.remove('active');
+      showToast('📷', 'Chế độ 3D');
+    } else {
+      const ok = await initARCamera();
+      if (ok) {
+        btn.classList.add('active');
+        showToast('📷', 'Camera AR đã bật');
+      }
+    }
+  });
+
+  // Scale toggle
+  const scaleCtrl = document.getElementById('scaleControl');
+  document.getElementById('btnScale').addEventListener('click', () => {
+    scaleCtrl.classList.toggle('show');
+    document.getElementById('btnScale').classList.toggle('active');
+  });
+
+  document.getElementById('scaleSlider').addEventListener('input', (e) => {
+    const h = parseInt(e.target.value);
+    document.getElementById('scaleValue').textContent = h + 'cm';
+    rescaleModel(h);
+  });
+
+  // Photo
+  document.getElementById('btnPhoto').addEventListener('click', takePhoto);
+
+  // Info
+  document.getElementById('btnInfo').addEventListener('click', () => {
+    document.getElementById('bioPopup').classList.toggle('show');
+  });
+
+  // Discovery
+  document.getElementById('btnDiscovery').addEventListener('click', openDiscovery);
+
+  // Collection
+  document.getElementById('btnCollection').addEventListener('click', openCollection);
+
+  // Summon button - Re-trigger summon effect
+  document.getElementById('btnSummon').addEventListener('click', () => {
+    playSummonEffect();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PHOTO CAPTURE
+// ══════════════════════════════════════════════════════════════════════════════
+function takePhoto() {
+  const flash = document.getElementById('flashOverlay');
+  flash.style.opacity = '1';
+  setTimeout(() => flash.style.opacity = '0', 150);
+
+  // Composite camera + 3D
+  const compCanvas = document.createElement('canvas');
+  compCanvas.width = window.innerWidth * 2;
+  compCanvas.height = window.innerHeight * 2;
+  const ctx = compCanvas.getContext('2d');
+
+  // Draw camera feed
+  const video = document.getElementById('cameraVideo');
+  if (video.srcObject) {
+    ctx.drawImage(video, 0, 0, compCanvas.width, compCanvas.height);
+  } else {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, compCanvas.width, compCanvas.height);
+  }
+
+  // Draw 3D canvas
+  renderer.render(scene, camera);
+  ctx.drawImage(renderer.domElement, 0, 0, compCanvas.width, compCanvas.height);
+
+  // Add watermark
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+  ctx.font = `${compCanvas.width * 0.02}px 'Playfair Display', serif`;
+  ctx.textAlign = 'right';
+  ctx.fillText('WEBAR - Boardgame Lịch Sử', compCanvas.width - 20, compCanvas.height - 20);
+
+  // Download
+  compCanvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `webar_${assetData?.characterName || 'general'}_${Date.now()}.png`;
+    a.click();
+    showToast('📸 Đã chụp!', 'Ảnh đã được lưu');
+  }, 'image/png');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// POKEMON GO STYLE - DISCOVERY MODE
+// ══════════════════════════════════════════════════════════════════════════════
+const HISTORICAL_SITES = [
+  { id: 'rach-gam', name: 'Rạch Gầm - Xoài Mút', general: 'Nguyễn Huệ', icon: '⚔️',
+    lat: 10.35, lng: 106.52, challenge: 'Trận Rạch Gầm',
+    question: 'Trận Rạch Gầm - Xoài Mút diễn ra năm nào?',
+    options: ['1785', '1789', '1771', '1802'], correct: 0,
+    reward: 'Mở khóa tướng Nguyễn Huệ - Quang Trung!' },
+
+  { id: 'bach-dang', name: 'Sông Bạch Đằng', general: 'Trần Hưng Đạo', icon: '🚢',
+    lat: 20.93, lng: 106.73, challenge: 'Trận Bạch Đằng',
+    question: 'Ai là người chỉ huy trận Bạch Đằng năm 1288?',
+    options: ['Trần Hưng Đạo', 'Trần Nhân Tông', 'Lê Lợi', 'Ngô Quyền'], correct: 0,
+    reward: 'Mở khóa tướng Trần Hưng Đạo!' },
+
+  { id: 'chi-lang', name: 'Ải Chi Lăng', general: 'Lê Lợi', icon: '🏔️',
+    lat: 21.58, lng: 106.57, challenge: 'Trận Chi Lăng',
+    question: 'Tướng nhà Minh nào tử trận tại ải Chi Lăng?',
+    options: ['Liễu Thăng', 'Vương Thông', 'Mộc Thạnh', 'Trương Phụ'], correct: 0,
+    reward: 'Mở khóa tướng Lê Lợi!' },
+
+  { id: 'dong-da', name: 'Gò Đống Đa', general: 'Quang Trung', icon: '🏴',
+    lat: 21.01, lng: 105.83, challenge: 'Trận Đống Đa',
+    question: 'Vua Quang Trung đại phá quân Thanh vào mùng mấy Tết Kỷ Dậu?',
+    options: ['Mùng 5', 'Mùng 1', 'Mùng 3', 'Mùng 7'], correct: 0,
+    reward: 'Mở khóa hiệu ứng Hỏa công!' },
+
+  { id: 'nhu-nguyet', name: 'Sông Như Nguyệt', general: 'Lý Thường Kiệt', icon: '📜',
+    lat: 21.22, lng: 106.07, challenge: 'Phòng tuyến Như Nguyệt',
+    question: 'Bài thơ "Nam quốc sơn hà" gắn liền với vị tướng nào?',
+    options: ['Lý Thường Kiệt', 'Trần Hưng Đạo', 'Lê Lợi', 'Nguyễn Trãi'], correct: 0,
+    reward: 'Mở khóa tướng Lý Thường Kiệt!' },
+
+  { id: 'van-kiep', name: 'Vạn Kiếp', general: 'Trần Quốc Tuấn', icon: '📖',
+    lat: 21.1, lng: 106.48, challenge: 'Binh thư yếu lược',
+    question: '"Hịch tướng sĩ" là tác phẩm của ai?',
+    options: ['Trần Quốc Tuấn', 'Nguyễn Trãi', 'Lý Thường Kiệt', 'Trần Nhân Tông'], correct: 0,
+    reward: 'Mở khóa kỹ năng Hịch Tướng Sĩ!' },
+
+  { id: 'lam-son', name: 'Lam Sơn', general: 'Lê Lợi', icon: '⚔️',
+    lat: 20.02, lng: 105.62, challenge: 'Khởi nghĩa Lam Sơn',
+    question: 'Khởi nghĩa Lam Sơn bắt đầu năm nào?',
+    options: ['1418', '1428', '1407', '1427'], correct: 0,
+    reward: 'Mở khóa tướng Lê Lợi phiên bản khởi nghĩa!' },
+
+  { id: 'hoa-lu', name: 'Cố đô Hoa Lư', general: 'Đinh Bộ Lĩnh', icon: '👑',
+    lat: 20.28, lng: 105.92, challenge: 'Thống nhất sứ quân',
+    question: 'Đinh Bộ Lĩnh dẹp loạn 12 sứ quân, lập nên quốc hiệu gì?',
+    options: ['Đại Cồ Việt', 'Đại Việt', 'Văn Lang', 'Đại Nam'], correct: 0,
+    reward: 'Mở khóa tướng Đinh Bộ Lĩnh!' }
+];
+
+function openDiscovery() {
+  const disc = document.getElementById('discoveryMode');
+  disc.classList.add('active');
+  renderRadarDots();
+  renderNearbySites();
+}
+
+function closeDiscovery() {
+  document.getElementById('discoveryMode').classList.remove('active');
+}
+
+function renderRadarDots() {
+  const container = document.getElementById('radarDots');
+  container.innerHTML = '';
+
+  HISTORICAL_SITES.forEach((site, i) => {
+    const angle = (i / HISTORICAL_SITES.length) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = 30 + Math.random() * 90;
+    const dot = document.createElement('div');
+    dot.className = 'radar-dot';
+    dot.style.left = (50 + Math.cos(angle) * dist / 140 * 50) + '%';
+    dot.style.top = (50 + Math.sin(angle) * dist / 140 * 50) + '%';
+    dot.title = site.name;
+    dot.addEventListener('click', () => {
+      closeDiscovery();
+      startSiteChallenge(site);
+    });
+    container.appendChild(dot);
+  });
+}
+
+function renderNearbySites() {
+  const container = document.getElementById('nearbyGenerals');
+  const unlocked = getCollection();
+
+  container.innerHTML = HISTORICAL_SITES.map(site => {
+    const isUnlocked = unlocked.includes(site.id);
+    return `<div class="nearby-card" onclick="closeDiscovery(); startSiteChallenge(HISTORICAL_SITES.find(s => s.id === '${site.id}'))">
+      <div class="nc-icon">${site.icon}</div>
+      <div class="nc-name">${site.general}</div>
+      <div class="nc-dist">${site.name}</div>
+      <div class="nc-status ${isUnlocked ? 'available' : 'locked'}">${isUnlocked ? '✅ Đã mở' : '🔒 Chưa mở'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHALLENGE SYSTEM - Quiz at historical sites
+// ══════════════════════════════════════════════════════════════════════════════
+function startChallenge() {
+  // Pick random challenge
+  const site = HISTORICAL_SITES[Math.floor(Math.random() * HISTORICAL_SITES.length)];
+  startSiteChallenge(site);
+}
+
+function startSiteChallenge(site) {
+  const overlay = document.getElementById('challengeOverlay');
+  document.getElementById('challengeIcon').textContent = site.icon;
+  document.getElementById('challengeTitle').textContent = site.challenge;
+  document.getElementById('challengeDesc').textContent =
+    `Bạn đã đến gần ${site.name}! Trả lời câu hỏi để mở khóa vị tướng.`;
+  document.getElementById('challengeQText').textContent = site.question;
+  document.getElementById('challengeReward').style.display = 'none';
+  document.getElementById('challengeCloseBtn').style.display = 'none';
+
+  const optsContainer = document.getElementById('challengeOptions');
+  optsContainer.innerHTML = site.options.map((opt, i) => {
+    return `<div class="challenge-opt" data-idx="${i}" onclick="answerChallenge(this, ${i}, ${site.correct}, '${site.id}')">${opt}</div>`;
+  }).join('');
+
+  overlay.classList.add('active');
+}
+
+function answerChallenge(el, chosen, correct, siteId) {
+  const opts = document.querySelectorAll('.challenge-opt');
+  opts.forEach(o => o.style.pointerEvents = 'none');
+
+  if (chosen === correct) {
+    el.classList.add('correct');
+    opts[correct].classList.add('correct');
+
+    // Unlock reward
+    const site = HISTORICAL_SITES.find(s => s.id === siteId);
+    document.getElementById('challengeReward').textContent = '🎉 ' + (site?.reward || 'Phần thưởng!');
+    document.getElementById('challengeReward').style.display = 'block';
+
+    // Save to collection
+    unlockSite(siteId);
+
+    if (navigator.vibrate) navigator.vibrate([50, 30, 100, 30, 200]);
+  } else {
+    el.classList.add('wrong');
+    opts[correct].classList.add('correct');
+
+    document.getElementById('challengeReward').textContent = '❌ Sai rồi! Đáp án đúng đã được đánh dấu.';
+    document.getElementById('challengeReward').style.display = 'block';
+    document.getElementById('challengeReward').style.borderColor = 'rgba(231,76,60,0.3)';
+    document.getElementById('challengeReward').style.background = 'rgba(231,76,60,0.1)';
+    document.getElementById('challengeReward').style.color = '#e74c3c';
+  }
+
+  document.getElementById('challengeCloseBtn').style.display = 'inline-block';
+}
+
+function closeChallenge() {
+  document.getElementById('challengeOverlay').classList.remove('active');
+  // Reset reward styling
+  const reward = document.getElementById('challengeReward');
+  reward.style.borderColor = '';
+  reward.style.background = '';
+  reward.style.color = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COLLECTION SYSTEM - Local storage based
+// ══════════════════════════════════════════════════════════════════════════════
+function getCollection() {
+  try {
+    return JSON.parse(localStorage.getItem('webar_collection') || '[]');
+  } catch { return []; }
+}
+
+function saveToCollection(data) {
+  if (!data?.id) return;
+  const col = getCollection();
+  if (!col.includes(data.id)) {
+    col.push(data.id);
+    localStorage.setItem('webar_collection', JSON.stringify(col));
+  }
+  // Also save scanned models
+  try {
+    const scanned = JSON.parse(localStorage.getItem('webar_scanned') || '{}');
+    scanned[data.id] = {
+      name: data.characterName || 'Vị Tướng',
+      era: data.characterEra || '',
+      time: Date.now()
     };
-    
-    // ══════════════════════════════════════════════════════════════════════════
-    // START
-    // ══════════════════════════════════════════════════════════════════════════
-    init();
-  </script>
+    localStorage.setItem('webar_scanned', JSON.stringify(scanned));
+  } catch {}
+}
+
+function unlockSite(siteId) {
+  const col = getCollection();
+  if (!col.includes(siteId)) {
+    col.push(siteId);
+    localStorage.setItem('webar_collection', JSON.stringify(col));
+  }
+}
+
+function openCollection() {
+  const overlay = document.getElementById('collectionOverlay');
+  const grid = document.getElementById('collectionGrid');
+  const unlocked = getCollection();
+
+  // Get scanned models
+  let scanned = {};
+  try { scanned = JSON.parse(localStorage.getItem('webar_scanned') || '{}'); } catch {}
+
+  // Combine sites + scanned models
+  let cards = '';
+
+  // Historical sites
+  HISTORICAL_SITES.forEach(site => {
+    const isUnlocked = unlocked.includes(site.id);
+    cards += `<div class="collect-card ${isUnlocked ? 'unlocked' : 'locked'}">
+      <div class="collect-icon">${isUnlocked ? site.icon : '❓'}</div>
+      <div class="collect-name">${isUnlocked ? site.general : '???'}</div>
+      <div class="collect-lock">${isUnlocked ? site.name : '🔒 Chưa mở khóa'}</div>
+    </div>`;
+  });
+
+  // Scanned models
+  for (const [id, info] of Object.entries(scanned)) {
+    cards += `<div class="collect-card unlocked">
+      <div class="collect-icon">⚔️</div>
+      <div class="collect-name">${info.name}</div>
+      <div class="collect-lock">${info.era || 'Đã quét QR'}</div>
+    </div>`;
+  }
+
+  grid.innerHTML = cards;
+
+  const total = HISTORICAL_SITES.length + Object.keys(scanned).length;
+  const unlockedCount = unlocked.length + Object.keys(scanned).length;
+  document.getElementById('collectionCount').textContent = `${unlockedCount}/${total}`;
+
+  overlay.classList.add('active');
+}
+
+function closeCollection() {
+  document.getElementById('collectionOverlay').classList.remove('active');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+init();
+
+</script>
 </body>
 </html>
