@@ -837,6 +837,7 @@
     <div class="loading-bar-container">
       <div class="loading-bar" id="loadingBar"></div>
     </div>
+    <div class="loading-status" id="loadingStatus" style="display:none;"></div>
   </div>
 
   <!-- 3D Canvas + Camera -->
@@ -1028,6 +1029,9 @@ const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
 // ══════════════════════════════════════════════════════════════════════════════
 // LIBRARY VALIDATION - Ensure all Three.js addons loaded correctly
 // ══════════════════════════════════════════════════════════════════════════════
+// Track if a fatal error occurred to prevent subsequent null crashes
+let _fatalError = false;
+
 (function validateLibraries() {
   const missing = [];
   if (typeof THREE === 'undefined') { missing.push('Three.js core'); }
@@ -1037,14 +1041,18 @@ const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
   }
   if (missing.length > 0) {
     console.error('Missing libraries:', missing.join(', '));
-    // Show user-friendly error instead of cryptic crash
-    const ls = document.getElementById('loadingScreen');
-    if (ls) {
-      const statusEl = ls.querySelector('.loading-status') || ls;
+    _fatalError = true;
+    // Show error in the status area WITHOUT destroying loadingBar
+    const statusEl = document.getElementById('loadingStatus');
+    if (statusEl) {
+      statusEl.style.display = 'block';
       statusEl.innerHTML = '<p style="color:#ff6b6b;font-size:16px;padding:20px;text-align:center;">' +
         '⚠️ Lỗi tải thư viện 3D.<br>Vui lòng tải lại trang.<br>' +
         '<button onclick="location.reload()" style="margin-top:15px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:16px;cursor:pointer;">🔄 Tải lại</button></p>';
     }
+    // Also update subtitle to show error
+    const subtitle = document.querySelector('.loading-subtitle');
+    if (subtitle) subtitle.textContent = 'Lỗi tải thư viện...';
   }
 })();
 const MODEL_CACHE_NAME = 'webar-model-cache-v1';
@@ -1088,18 +1096,23 @@ const ModelCache = {
 // ══════════════════════════════════════════════════════════════════════════════
 function showToast(title, msg, duration = 3000) {
   const el = document.getElementById('toast');
-  document.getElementById('toastTitle').textContent = title;
-  document.getElementById('toastMsg').textContent = msg || '';
+  const titleEl = document.getElementById('toastTitle');
+  const msgEl = document.getElementById('toastMsg');
+  if (!el || !titleEl) return;
+  titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = msg || '';
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), duration);
 }
 
 function setLoadingProgress(percent) {
-  document.getElementById('loadingBar').style.width = percent + '%';
+  const bar = document.getElementById('loadingBar');
+  if (bar) bar.style.width = percent + '%';
 }
 
 function hideLoading() {
   const ls = document.getElementById('loadingScreen');
+  if (!ls) return;
   ls.classList.add('fade-out');
   setTimeout(() => ls.style.display = 'none', 800);
 }
@@ -1441,8 +1454,10 @@ async function initARCamera() {
 let isRendering = true; // Controls whether render loop is active
 
 async function init() {
+  if (_fatalError) return; // Don't attempt init if libraries failed to load
   try {
   const canvas = document.getElementById('canvas3d');
+  if (!canvas) throw new Error('Canvas element not found');
   setLoadingProgress(10);
 
   // Scene
@@ -1464,7 +1479,9 @@ async function init() {
   });
   
   if (!renderer.getContext()) {
-    document.getElementById('loadingScreen').innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p></div>';
+    _fatalError = true;
+    const ls = document.getElementById('loadingScreen');
+    if (ls) ls.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;cursor:pointer;">Thử lại</button></div>';
     return;
   }
 
@@ -1669,12 +1686,16 @@ async function init() {
   
   } catch(initError) {
     console.error('Init failed:', initError);
-    document.getElementById('loadingScreen').innerHTML = 
-      '<div style="color:#fff;text-align:center;padding:40px;font-family:sans-serif;">' +
-      '<h2 style="color:#FFD700;">Đã xảy ra lỗi</h2>' +
-      '<p style="margin-top:10px;">' + (initError.message || 'Không thể khởi tạo 3D') + '</p>' +
-      '<p style="margin-top:10px;color:#888;">Vui lòng thử lại hoặc dùng trình duyệt khác</p>' +
-      '<button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">Thử lại</button></div>';
+    _fatalError = true;
+    const ls = document.getElementById('loadingScreen');
+    if (ls) {
+      ls.innerHTML = 
+        '<div style="color:#fff;text-align:center;padding:40px;font-family:sans-serif;">' +
+        '<h2 style="color:#FFD700;">Đã xảy ra lỗi</h2>' +
+        '<p style="margin-top:10px;">' + (initError.message || 'Không thể khởi tạo 3D') + '</p>' +
+        '<p style="margin-top:10px;color:#888;">Vui lòng thử lại hoặc dùng trình duyệt khác</p>' +
+        '<button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">Thử lại</button></div>';
+    }
   }
 }
 
