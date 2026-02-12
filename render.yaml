@@ -3,7 +3,7 @@ services:
     name: webar-app
     runtime: node
     env: node
-    buildCommand: npm install
+    buildCommand: npm install && npm run optimize
     startCommand: npm start
     envVars:
       - key: NODE_VERSION

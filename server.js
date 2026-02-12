@@ -12,19 +12,31 @@ app.use(express.json());
 // ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Compression & Caching
 // ═══════════════════════════════════════════════════════════════════
-// Enable gzip compression
 let compression;
-try { compression = require('compression'); app.use(compression()); } catch(e) {
+try { 
+  compression = require('compression'); 
+  app.use(compression({
+    level: 6,
+    threshold: 1024,
+    filter: (req, res) => {
+      // Always compress GLB/GLTF/FBX/JSON
+      if (req.path.match(/\.(glb|gltf|fbx|json)$/i)) return true;
+      return compression.filter(req, res);
+    }
+  })); 
+} catch(e) {
   console.log('compression module not found, skipping');
 }
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+const OPTIMIZED_DIR = path.join(UPLOADS_DIR, 'optimized');
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 if (!fs.existsSync(PUBLIC_DIR)) fs.mkdirSync(PUBLIC_DIR);
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(OPTIMIZED_DIR)) fs.mkdirSync(OPTIMIZED_DIR, { recursive: true });
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify({}), 'utf8');
 
@@ -60,16 +72,62 @@ const upload = multer({
 });
 
 // ═══════════════════════════════════════════════════════════════════
+// PERFORMANCE: Smart model serving - prefer optimized version
+// ═══════════════════════════════════════════════════════════════════
+app.get('/uploads/:filename', (req, res, next) => {
+  const filename = req.params.filename;
+  
+  // Only intercept model files
+  if (!filename.match(/\.(glb|gltf)$/i)) return next();
+  
+  // Check for optimized version first
+  const optimizedPath = path.join(OPTIMIZED_DIR, filename);
+  const originalPath = path.join(UPLOADS_DIR, filename);
+  
+  const filePath = fs.existsSync(optimizedPath) ? optimizedPath : originalPath;
+  
+  if (!fs.existsSync(filePath)) return next();
+  
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  
+  // Set aggressive cache headers
+  res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 days
+  res.setHeader('Content-Type', filename.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json');
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('X-Optimized', fs.existsSync(optimizedPath) ? 'true' : 'false');
+  
+  // Support Range requests for streaming/resume
+  const range = req.headers.range;
+  if (range) {
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunkSize = (end - start) + 1;
+    
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Content-Length': chunkSize,
+    });
+    
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+  } else {
+    res.setHeader('Content-Length', fileSize);
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Static files with aggressive caching for uploads
 // ═══════════════════════════════════════════════════════════════════
 app.use('/uploads', express.static(path.join(PUBLIC_DIR, 'uploads'), {
-  maxAge: '7d',
+  maxAge: '30d',
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    // GLB/GLTF/FBX files - cache aggressively
     if (filePath.match(/\.(glb|gltf|fbx)$/i)) {
-      res.setHeader('Cache-Control', 'public, max-age=604800');
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+      res.setHeader('Accept-Ranges', 'bytes');
     }
   }
 }));
@@ -151,6 +209,24 @@ app.post('/upload', (req, res, next) => {
     };
     saveDB(db);
 
+    // Auto-optimize GLB models in background (don't block response)
+    if (modelFile && modelFile.endsWith('.glb')) {
+      const modelFullPath = path.join(UPLOADS_DIR, modelFile);
+      setImmediate(() => {
+        try {
+          const { execSync } = require('child_process');
+          console.log(`🔧 Auto-optimizing ${modelFile}...`);
+          execSync(`node optimize_models.mjs "${modelFullPath}"`, { 
+            cwd: __dirname, 
+            timeout: 300000,
+            stdio: 'inherit' 
+          });
+        } catch (e) {
+          console.log('Auto-optimize failed (will use original):', e.message);
+        }
+      });
+    }
+
     const url = `${req.protocol}://${req.get('host')}/view/${id}`;
     res.json({ id, url });
   } catch (err) {
@@ -163,7 +239,31 @@ app.get('/api/asset/:id', (req, res) => {
   const db = getDB();
   const asset = db[req.params.id];
   if (!asset) return res.status(404).json({ error: 'Not found' });
-  res.json(asset);
+  
+  // Include optimized model path info
+  const modelFile = asset.model ? path.basename(asset.model) : null;
+  let modelSize = 0;
+  let isOptimized = false;
+  
+  if (modelFile) {
+    const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
+    const originalPath = path.join(UPLOADS_DIR, modelFile);
+    
+    if (modelFile.endsWith('.glb') && fs.existsSync(optimizedPath)) {
+      modelSize = fs.statSync(optimizedPath).size;
+      isOptimized = true;
+    } else if (fs.existsSync(originalPath)) {
+      modelSize = fs.statSync(originalPath).size;
+    }
+  }
+  
+  res.json({ 
+    ...asset, 
+    modelSize,
+    isOptimized,
+    // Tell client if Draco decoding is needed
+    needsDraco: isOptimized 
+  });
 });
 
 app.get('/view/:id', (req, res) => {

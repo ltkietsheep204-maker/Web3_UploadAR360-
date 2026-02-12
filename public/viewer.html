@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>WEBAR - AR Viewer</title>
   <!-- Preload critical scripts -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" as="script" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" as="script" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js" as="script" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -987,13 +988,14 @@
   <!-- Flash for photo -->
   <div id="flashOverlay"></div>
 
-  <!-- Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- Three.js r150 (better performance + DRACOLoader support) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/DRACOLoader.js"></script>
   <!-- fflate MUST load before FBXLoader -->
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/FBXLoader.js"></script>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1009,9 +1011,48 @@ let arMode = false;
 let currentAnimAction = null;
 
 // Real-world scale: 1 Three.js unit = 1 meter
-// A 170cm person = 1.7 units tall in Three.js
 const REAL_WORLD_SCALE = true;
 const DEFAULT_HUMAN_HEIGHT_CM = 170;
+
+// Device detection
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
+const MODEL_CACHE_NAME = 'webar-model-cache-v1';
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MODEL CACHE - Cache models in browser for instant reload
+// ══════════════════════════════════════════════════════════════════════════════
+const ModelCache = {
+  async get(url) {
+    try {
+      if (!('caches' in window)) return null;
+      const cache = await caches.open(MODEL_CACHE_NAME);
+      const response = await cache.match(url);
+      if (response) {
+        console.log('⚡ Model loaded from cache!');
+        return await response.arrayBuffer();
+      }
+    } catch (e) { console.log('Cache miss:', e.message); }
+    return null;
+  },
+
+  async put(url, arrayBuffer) {
+    try {
+      if (!('caches' in window)) return;
+      const cache = await caches.open(MODEL_CACHE_NAME);
+      const response = new Response(arrayBuffer, {
+        headers: { 'Content-Type': 'model/gltf-binary', 'X-Cached-At': Date.now().toString() }
+      });
+      await cache.put(url, response);
+      console.log('💾 Model cached for next visit');
+    } catch (e) { console.log('Cache write failed:', e.message); }
+  },
+
+  async clear() {
+    try { await caches.delete(MODEL_CACHE_NAME); } catch {}
+  }
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TOAST & STATUS
@@ -1178,6 +1219,58 @@ class ProceduralAnimator {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// iOS MEMORY OPTIMIZATION: Downscale textures to prevent Safari crashes
+// ══════════════════════════════════════════════════════════════════════════════
+function downscaleMaterialTextures(material) {
+  const maxSize = IS_IOS ? 256 : (IS_MOBILE ? 512 : 1024);
+  const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap'];
+  
+  textureProps.forEach(prop => {
+    const tex = material[prop];
+    if (!tex || !tex.image) return;
+    
+    const img = tex.image;
+    const w = img.width || img.naturalWidth || 0;
+    const h = img.height || img.naturalHeight || 0;
+    
+    if (w > maxSize || h > maxSize) {
+      const scale = maxSize / Math.max(w, h);
+      const newW = Math.floor(w * scale);
+      const newH = Math.floor(h * scale);
+      
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = newW;
+        canvas.height = newH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, newW, newH);
+        
+        tex.image = canvas;
+        tex.needsUpdate = true;
+        
+        // Release original image memory
+        if (img.close) img.close();
+        
+        console.log(`📐 ${prop}: ${w}x${h} → ${newW}x${newH}`);
+      } catch (e) {
+        // Silently fail for non-drawable images
+      }
+    }
+  });
+  
+  // On iOS/mobile: drop non-essential texture maps entirely
+  if (IS_IOS) {
+    if (material.aoMap) { material.aoMap.dispose(); material.aoMap = null; material.aoMapIntensity = 0; }
+    if (material.normalMap && material.map) { material.normalMap.dispose(); material.normalMap = null; } // Keep only diffuse
+    if (material.displacementMap) { material.displacementMap.dispose(); material.displacementMap = null; }
+    if (material.bumpMap) { material.bumpMap.dispose(); material.bumpMap = null; }
+  } else if (IS_MOBILE) {
+    if (material.aoMap) { material.aoMap.dispose(); material.aoMap = null; material.aoMapIntensity = 0; }
+    if (material.displacementMap) { material.displacementMap.dispose(); material.displacementMap = null; }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // AUTO-RESIZE: Scale any model to real-life human height
 // ══════════════════════════════════════════════════════════════════════════════
 function autoResizeToRealLife(loadedModel, targetHeightCM) {
@@ -1273,8 +1366,11 @@ async function initARCamera() {
       return false;
     }
     
+    // iOS: use lower camera resolution to save memory (camera + WebGL compete for RAM)
+    const camWidth = IS_IOS ? 640 : (IS_MOBILE ? 960 : 1280);
+    const camHeight = IS_IOS ? 480 : (IS_MOBILE ? 540 : 720);
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: { facingMode: 'environment', width: { ideal: camWidth }, height: { ideal: camHeight } }
     });
     const video = document.getElementById('cameraVideo');
     video.srcObject = stream;
@@ -1313,45 +1409,60 @@ async function initARCamera() {
 // ══════════════════════════════════════════════════════════════════════════════
 // INITIALIZE SCENE
 // ══════════════════════════════════════════════════════════════════════════════
+let isRendering = true; // Controls whether render loop is active
+
 async function init() {
   try {
   const canvas = document.getElementById('canvas3d');
   setLoadingProgress(10);
 
-  // Check WebGL support
-  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-  if (!gl) {
-    document.getElementById('loadingScreen').innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p></div>';
-    return;
-  }
-
   // Scene
   scene = new THREE.Scene();
   scene.background = null;
 
-  // Camera
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 500);
+  // Camera - use shorter far plane on mobile to reduce depth buffer memory
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, IS_MOBILE ? 100 : 500);
   camera.position.set(0, 0.9, 3.5);
 
-  // Renderer - Safari/iOS compatible
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  
+  // Renderer - iOS Safari compatible (DO NOT create separate WebGL context first!)
   renderer = new THREE.WebGLRenderer({ 
     canvas, 
-    antialias: !isIOS, // Antialias on desktop, off on iOS for performance
+    antialias: false, // Disable on all - saves significant GPU memory
     alpha: true,
-    preserveDrawingBuffer: true // Required for Safari screenshot
+    preserveDrawingBuffer: false, // CRITICAL: true doubles GPU memory, causes iOS crash
+    powerPreference: IS_MOBILE ? 'low-power' : 'high-performance',
+    failIfMajorPerformanceCaveat: false
   });
+  
+  if (!renderer.getContext()) {
+    document.getElementById('loadingScreen').innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p></div>';
+    return;
+  }
+
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isIOS ? 2 : 2));
-  renderer.shadowMap.enabled = !isIOS; // Disable shadows on iOS for speed
+  // iOS: pixel ratio 1.0 to prevent memory overflow
+  renderer.setPixelRatio(IS_IOS ? 1 : Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
+  renderer.shadowMap.enabled = !IS_MOBILE;
   if (renderer.shadowMap.enabled) {
     renderer.shadowMap.type = THREE.BasicShadowMap;
   }
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
+
+  // CRITICAL: Handle WebGL context loss (iOS recovers memory by killing contexts)
+  canvas.addEventListener('webglcontextlost', function(e) {
+    e.preventDefault();
+    console.warn('⚠️ WebGL context lost - pausing render');
+    isRendering = false;
+  }, false);
+  canvas.addEventListener('webglcontextrestored', function(e) {
+    console.log('✅ WebGL context restored - resuming');
+    isRendering = true;
+    // Re-setup renderer state
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(IS_IOS ? 1 : Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
+  }, false);
 
   // Controls
   controls = new THREE.OrbitControls(camera, canvas);
@@ -1362,12 +1473,12 @@ async function init() {
   controls.maxDistance = 20;
 
   // Lighting - outdoor natural light
-  const ambientLight = new THREE.AmbientLight(0xffffff, isIOS ? 0.8 : 0.6);
+  const ambientLight = new THREE.AmbientLight(0xffffff, IS_MOBILE ? 0.8 : 0.6);
   scene.add(ambientLight);
 
   const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
   sunLight.position.set(5, 10, 7);
-  if (!isIOS) {
+  if (!IS_MOBILE) {
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
@@ -1406,20 +1517,18 @@ async function init() {
   grid.visible = false;
   scene.add(grid);
 
-  // Environment dome - simplified
-  const domeGeo = new THREE.SphereGeometry(100, 32, 16);
-  const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
-  environmentDome = new THREE.Mesh(domeGeo, domeMat);
-  scene.add(environmentDome);
+  // Environment dome - skip on iOS to save memory
+  if (!IS_IOS) {
+    const domeGeo = new THREE.SphereGeometry(100, IS_MOBILE ? 8 : 32, IS_MOBILE ? 4 : 16);
+    const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
+    environmentDome = new THREE.Mesh(domeGeo, domeMat);
+    scene.add(environmentDome);
+  }
 
   clock = new THREE.Clock();
   setLoadingProgress(30);
 
-  // AR camera - start in parallel, don't block loading
-  initARCamera().then(() => setLoadingProgress(50));
-  setLoadingProgress(40);
-
-  // Load asset data
+  // Load asset data FIRST (fast), then start model download immediately
   const pathParts = window.location.pathname.split('/');
   const assetId = pathParts[pathParts.length - 1];
 
@@ -1430,27 +1539,7 @@ async function init() {
         assetData = await resp.json();
         console.log('📦 Asset data:', assetData);
 
-        // Ground image
-        if (assetData.groundImage) {
-          new THREE.TextureLoader().load(assetData.groundImage, tex => {
-            ground.material.map = tex;
-            ground.material.color.set(0xffffff);
-            ground.material.opacity = 0.8;
-            ground.material.needsUpdate = true;
-          });
-        }
-
-        // Environment image
-        if (assetData.envImage) {
-          new THREE.TextureLoader().load(assetData.envImage, tex => {
-            tex.mapping = THREE.EquirectangularReflectionMapping;
-            environmentDome.material.map = tex;
-            environmentDome.material.color.set(0xffffff);
-            environmentDome.material.needsUpdate = true;
-          });
-        }
-
-        // Update HUD
+        // Update HUD immediately (no waiting)
         updateCharacterHUD(assetData);
 
         // Caption
@@ -1459,18 +1548,18 @@ async function init() {
           cap.textContent = assetData.caption;
           cap.style.display = 'block';
         }
+        
+        setLoadingProgress(40);
       }
     } catch (e) {
       console.log('Could not load asset data');
     }
   }
 
-  setLoadingProgress(60);
-
-  // Load model
+  // Start model loading ASAP (highest priority)
   loadModel();
 
-  // Animation loop
+  // Start animation loop
   animate();
 
   // Resize
@@ -1478,6 +1567,38 @@ async function init() {
 
   // Setup UI
   setupUI();
+
+  // AR camera - load AFTER model finishes on iOS, or after delay on others
+  // On iOS: DON'T auto-start camera - let user tap camera button to save memory
+  if (!IS_IOS) {
+    setTimeout(() => {
+      initARCamera().then(() => setLoadingProgress(50));
+    }, 500);
+  }
+
+  // Load environment images lazily (low priority) - skip on iOS to save memory
+  if (!IS_IOS) {
+    if (assetData?.groundImage) {
+      setTimeout(() => {
+        new THREE.TextureLoader().load(assetData.groundImage, tex => {
+          ground.material.map = tex;
+          ground.material.color.set(0xffffff);
+          ground.material.opacity = 0.8;
+          ground.material.needsUpdate = true;
+        });
+      }, 2000);
+    }
+    if (assetData?.envImage && environmentDome) {
+      setTimeout(() => {
+        new THREE.TextureLoader().load(assetData.envImage, tex => {
+          tex.mapping = THREE.EquirectangularReflectionMapping;
+          environmentDome.material.map = tex;
+          environmentDome.material.color.set(0xffffff);
+          environmentDome.material.needsUpdate = true;
+        });
+      }, 3000);
+    }
+  }
   
   } catch(initError) {
     console.error('Init failed:', initError);
@@ -1491,28 +1612,34 @@ async function init() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LOAD MODEL
+// LOAD MODEL - Optimized with caching, Draco, streaming
 // ══════════════════════════════════════════════════════════════════════════════
 function loadModel() {
   const modelPath = assetData?.model || '/uploads/default.glb';
   
   if (!modelPath || modelPath === '/uploads/default.glb') {
-    console.warn('No model path found, checking asset data...');
+    console.warn('No model path found');
   }
   
   const isFBX = modelPath.toLowerCase().endsWith('.fbx');
+  const isGLB = modelPath.toLowerCase().endsWith('.glb');
   const fullUrl = modelPath.startsWith('http') ? modelPath : modelPath;
 
   const onProgress = (p) => {
     if (p.total > 0) {
       const pct = 60 + Math.round((p.loaded / p.total) * 30);
       setLoadingProgress(Math.min(pct, 90));
+      
+      // Show download size info
+      const loadedMB = (p.loaded / (1024 * 1024)).toFixed(1);
+      const totalMB = (p.total / (1024 * 1024)).toFixed(1);
+      const subtitle = document.querySelector('.loading-subtitle');
+      if (subtitle) subtitle.textContent = `Đang tải: ${loadedMB}MB / ${totalMB}MB`;
     }
   };
 
   const onError = (err) => {
     console.error('Model load error:', err);
-    // Try with full absolute URL as fallback
     const absUrl = window.location.origin + modelPath;
     console.log('Retrying with absolute URL:', absUrl);
     
@@ -1524,7 +1651,7 @@ function loadModel() {
         hideLoading();
       });
     } else {
-      new THREE.GLTFLoader().load(absUrl, gltf => {
+      createGLTFLoader().load(absUrl, gltf => {
         processLoadedModel(gltf.scene, gltf.animations || []);
       }, onProgress, (err2) => {
         console.error('Model load failed completely:', err2);
@@ -1533,22 +1660,120 @@ function loadModel() {
     }
   };
 
-  console.log('Loading model from:', fullUrl);
+  console.log('Loading model from:', fullUrl, 
+    assetData?.isOptimized ? '(optimized)' : '(original)',
+    assetData?.modelSize ? `(${(assetData.modelSize / (1024*1024)).toFixed(1)}MB)` : '');
 
   if (isFBX) {
     new THREE.FBXLoader().load(fullUrl, fbx => {
       processLoadedModel(fbx, fbx.animations || []);
     }, onProgress, onError);
+  } else if (isGLB) {
+    // Try cache first for GLB files
+    loadGLBWithCache(fullUrl, onProgress, onError);
   } else {
-    new THREE.GLTFLoader().load(fullUrl, gltf => {
+    createGLTFLoader().load(fullUrl, gltf => {
       processLoadedModel(gltf.scene, gltf.animations || []);
     }, onProgress, onError);
   }
 }
 
+// Create GLTF loader with Draco support
+function createGLTFLoader() {
+  const loader = new THREE.GLTFLoader();
+  
+  // Setup DRACOLoader for compressed models
+  try {
+    const dracoLoader = new THREE.DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    dracoLoader.setDecoderConfig({ type: 'js' }); // JS decoder works everywhere
+    dracoLoader.preload();
+    loader.setDRACOLoader(dracoLoader);
+    console.log('🗜 DRACOLoader configured');
+  } catch (e) {
+    console.log('DRACOLoader not available:', e.message);
+  }
+  
+  return loader;
+}
+
+// Load GLB with Cache API for instant reload
+async function loadGLBWithCache(url, onProgress, onError) {
+  const absoluteUrl = new URL(url, window.location.origin).href;
+  
+  // Step 1: Check cache
+  const cachedBuffer = await ModelCache.get(absoluteUrl);
+  if (cachedBuffer) {
+    console.log('⚡ Loading from cache (instant!)');
+    setLoadingProgress(80);
+    
+    const subtitle = document.querySelector('.loading-subtitle');
+    if (subtitle) subtitle.textContent = 'Đang triệu hồn từ bộ nhớ...';
+    
+    try {
+      const loader = createGLTFLoader();
+      loader.parse(cachedBuffer, '', (gltf) => {
+        processLoadedModel(gltf.scene, gltf.animations || []);
+      }, onError);
+      return;
+    } catch (e) {
+      console.log('Cache parse failed, downloading fresh:', e.message);
+    }
+  }
+  
+  // Step 2: Download with XMLHttpRequest for progress + caching
+  console.log('📥 Downloading model...');
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', absoluteUrl, true);
+  xhr.responseType = 'arraybuffer';
+  
+  xhr.onprogress = (e) => {
+    if (e.lengthComputable) {
+      onProgress({ loaded: e.loaded, total: e.total });
+    }
+  };
+  
+  xhr.onload = function() {
+    if (xhr.status === 200 || xhr.status === 206) {
+      const buffer = xhr.response;
+      console.log(`📦 Downloaded: ${(buffer.byteLength / (1024*1024)).toFixed(1)}MB`);
+      
+      // Cache for next time - but NOT on iOS (save memory)
+      if (!IS_IOS) {
+        ModelCache.put(absoluteUrl, buffer.slice(0));
+      }
+      
+      // Parse the model
+      try {
+        const loader = createGLTFLoader();
+        loader.parse(buffer, '', (gltf) => {
+          processLoadedModel(gltf.scene, gltf.animations || []);
+        }, onError);
+      } catch (e) {
+        onError(e);
+      }
+    } else {
+      onError(new Error(`HTTP ${xhr.status}`));
+    }
+  };
+  
+  xhr.onerror = () => onError(new Error('Network error'));
+  xhr.ontimeout = () => onError(new Error('Download timeout'));
+  
+  // Timeout: 5 minutes for large files
+  xhr.timeout = 300000;
+  xhr.send();
+}
+
 function processLoadedModel(loadedModel, animations = []) {
   try {
   scene.add(loadedModel);
+
+  // ═══════════════════════════════════════════════════════════════
+  // iOS MEMORY MANAGEMENT: Downscale large textures at runtime
+  // ═══════════════════════════════════════════════════════════════
+  const MAX_TEX_SIZE_MOBILE = 1024;
+  const MAX_TEX_SIZE_IOS = 512; // Very aggressive for iOS to prevent crashes
 
   // ═══════════════════════════════════════════════════════════════
   // AUTO-RESIZE TO REAL LIFE SIZE
@@ -1562,24 +1787,36 @@ function processLoadedModel(loadedModel, animations = []) {
   if (slider) slider.value = targetHeightCM;
   if (scaleVal) scaleVal.textContent = targetHeightCM + 'cm';
 
-  // Enable shadows (skip on iOS)
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // Enable shadows (skip on mobile for performance)
+  // iOS: aggressively downscale textures and reduce geometry
+  let meshCount = 0;
+  let vertexCount = 0;
   loadedModel.traverse(child => {
     if (child.isMesh) {
-      if (!isIOS) {
+      meshCount++;
+      if (child.geometry) vertexCount += child.geometry.attributes.position?.count || 0;
+      
+      if (!IS_MOBILE) {
         child.castShadow = true;
         child.receiveShadow = true;
       }
-      // Fix for Safari: ensure materials are properly initialized
+      // Downscale textures on ALL mobile devices (iOS especially)
       if (child.material) {
         if (Array.isArray(child.material)) {
-          child.material.forEach(m => { m.needsUpdate = true; });
+          child.material.forEach(m => { 
+            m.needsUpdate = true;
+            if (IS_MOBILE) downscaleMaterialTextures(m);
+          });
         } else {
           child.material.needsUpdate = true;
+          if (IS_MOBILE) downscaleMaterialTextures(child.material);
         }
       }
+      // iOS: Disable frustum culling computation overhead for simple scenes  
+      if (IS_IOS) child.frustumCulled = false;
     }
   });
+  console.log(`📊 Model: ${meshCount} meshes, ${vertexCount} vertices`);
 
   model = loadedModel;
 
@@ -1645,6 +1882,12 @@ function createSummonParticles() {
 }
 
 function playSummonEffect(callback) {
+  // On iOS: skip heavy summon effect to prevent memory spike
+  if (IS_IOS) {
+    if (callback) setTimeout(callback, 300);
+    return;
+  }
+  
   const el = document.getElementById('summonEffect');
   const txt = document.getElementById('summonText');
   const era = document.getElementById('summonEra');
@@ -1687,10 +1930,17 @@ function updateCharacterHUD(data) {
 // ══════════════════════════════════════════════════════════════════════════════
 function animate() {
   requestAnimationFrame(animate);
+  if (!isRendering || !renderer) return; // Skip render when paused or context lost
   const dt = clock.getDelta();
   if (mixer) mixer.update(dt);
   controls.update();
-  renderer.render(scene, camera);
+  try {
+    renderer.render(scene, camera);
+  } catch (e) {
+    // WebGL context lost - stop rendering
+    isRendering = false;
+    console.warn('Render error:', e.message);
+  }
 }
 
 function onResize() {
@@ -1769,10 +2019,14 @@ function takePhoto() {
   flash.style.opacity = '1';
   setTimeout(() => flash.style.opacity = '0', 150);
 
+  // Must render RIGHT BEFORE reading pixels (preserveDrawingBuffer is false)
+  renderer.render(scene, camera);
+
   // Composite camera + 3D
   const compCanvas = document.createElement('canvas');
-  compCanvas.width = window.innerWidth * 2;
-  compCanvas.height = window.innerHeight * 2;
+  const scale = IS_IOS ? 1 : 2; // Lower resolution screenshot on iOS
+  compCanvas.width = window.innerWidth * scale;
+  compCanvas.height = window.innerHeight * scale;
   const ctx = compCanvas.getContext('2d');
 
   // Draw camera feed
@@ -1784,8 +2038,7 @@ function takePhoto() {
     ctx.fillRect(0, 0, compCanvas.width, compCanvas.height);
   }
 
-  // Draw 3D canvas
-  renderer.render(scene, camera);
+  // Draw 3D canvas (must be immediately after render call)
   ctx.drawImage(renderer.domElement, 0, 0, compCanvas.width, compCanvas.height);
 
   // Add watermark
@@ -2048,6 +2301,46 @@ function openCollection() {
 
 function closeCollection() {
   document.getElementById('collectionOverlay').classList.remove('active');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// iOS SAFARI CRASH PREVENTION
+// ══════════════════════════════════════════════════════════════════════════════
+// Pause rendering when page is hidden (saves memory without destroying renderer)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    isRendering = false;
+    // Stop camera to free memory
+    const video = document.getElementById('cameraVideo');
+    if (video && video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+      arMode = false;
+    }
+    console.log('⏸ Paused (page hidden)');
+  } else {
+    isRendering = true;
+    console.log('▶️ Resumed (page visible)');
+  }
+});
+
+// On page unload, properly cleanup
+window.addEventListener('beforeunload', () => {
+  if (renderer) {
+    renderer.dispose();
+    renderer.forceContextLoss();
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SERVICE WORKER - Cache for instant reload (skip on iOS to save memory)
+// ══════════════════════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator && !IS_IOS) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('📦 Service Worker registered');
+  }).catch(err => {
+    console.log('SW registration failed:', err.message);
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
