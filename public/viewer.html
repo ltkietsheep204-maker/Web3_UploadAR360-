@@ -1258,7 +1258,7 @@ class ProceduralAnimator {
 // iOS MEMORY OPTIMIZATION: Downscale textures to prevent Safari crashes
 // ══════════════════════════════════════════════════════════════════════════════
 function downscaleMaterialTextures(material) {
-  const maxSize = IS_IOS ? 256 : (IS_MOBILE ? 512 : 1024);
+  const maxSize = IS_IOS ? 512 : (IS_MOBILE ? 1024 : 2048);
   const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap'];
   
   textureProps.forEach(prop => {
@@ -1465,7 +1465,7 @@ async function init() {
   // Renderer - iOS Safari compatible (DO NOT create separate WebGL context first!)
   renderer = new THREE.WebGLRenderer({ 
     canvas, 
-    antialias: false, // Disable on all - saves significant GPU memory
+    antialias: !IS_IOS, // Enable on non-iOS for sharper edges
     alpha: true,
     preserveDrawingBuffer: false, // CRITICAL: true doubles GPU memory, causes iOS crash
     powerPreference: IS_MOBILE ? 'low-power' : 'high-performance',
@@ -1481,7 +1481,7 @@ async function init() {
 
   renderer.setSize(window.innerWidth, window.innerHeight);
   // iOS: pixel ratio 1.0 to prevent memory overflow
-  renderer.setPixelRatio(IS_IOS ? 1 : Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
+  renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, IS_MOBILE ? 2 : 2));
   renderer.shadowMap.enabled = !IS_MOBILE;
   if (renderer.shadowMap.enabled) {
     renderer.shadowMap.type = THREE.BasicShadowMap;
@@ -1501,7 +1501,7 @@ async function init() {
     isRendering = true;
     // Re-setup renderer state
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(IS_IOS ? 1 : Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
+    renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 2));
   }, false);
 
   // Controls
@@ -1608,13 +1608,12 @@ async function init() {
   // Setup UI
   setupUI();
 
-  // AR camera - load AFTER model finishes on iOS, or after delay on others
-  // On iOS: DON'T auto-start camera - let user tap camera button to save memory
-  if (!IS_IOS) {
-    setTimeout(() => {
-      initARCamera().then(() => setLoadingProgress(50));
-    }, 500);
-  }
+  // AR camera - auto-request on ALL devices (including iOS)
+  setTimeout(() => {
+    initARCamera().then((ok) => {
+      if (ok) setLoadingProgress(50);
+    });
+  }, 300);
 
   // Load environment images lazily (low priority) - skip on iOS to save memory
   if (!IS_IOS) {
@@ -1816,8 +1815,8 @@ function processLoadedModel(loadedModel, animations = []) {
   // ═══════════════════════════════════════════════════════════════
   // iOS MEMORY MANAGEMENT: Downscale large textures at runtime
   // ═══════════════════════════════════════════════════════════════
-  const MAX_TEX_SIZE_MOBILE = 1024;
-  const MAX_TEX_SIZE_IOS = 512; // Very aggressive for iOS to prevent crashes
+  const MAX_TEX_SIZE_MOBILE = 2048;
+  const MAX_TEX_SIZE_IOS = 1024; // Balance quality vs memory on iOS
 
   // ═══════════════════════════════════════════════════════════════
   // AUTO-RESIZE TO REAL LIFE SIZE
