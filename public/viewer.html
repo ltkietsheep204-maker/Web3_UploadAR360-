@@ -988,14 +988,20 @@
   <!-- Flash for photo -->
   <div id="flashOverlay"></div>
 
-  <!-- Three.js r150 (better performance + DRACOLoader support) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/DRACOLoader.js"></script>
+  <!-- Three.js r150 with fallback CDNs for iOS Safari reliability -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"
+    onerror="this.onerror=null;this.src='https://unpkg.com/three@0.150.1/build/three.min.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"
+    onerror="this.onerror=null;this.src='https://unpkg.com/three@0.150.1/examples/js/controls/OrbitControls.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"
+    onerror="this.onerror=null;this.src='https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/DRACOLoader.js"
+    onerror="this.onerror=null;this.src='https://unpkg.com/three@0.150.1/examples/js/loaders/DRACOLoader.js'"></script>
   <!-- fflate MUST load before FBXLoader -->
-  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.min.js"
+    onerror="this.onerror=null;this.src='https://unpkg.com/fflate@0.8.0/umd/index.min.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/FBXLoader.js"
+    onerror="this.onerror=null;this.src='https://unpkg.com/three@0.150.1/examples/js/loaders/FBXLoader.js'"></script>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1018,6 +1024,29 @@ const DEFAULT_HUMAN_HEIGHT_CM = 170;
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIBRARY VALIDATION - Ensure all Three.js addons loaded correctly
+// ══════════════════════════════════════════════════════════════════════════════
+(function validateLibraries() {
+  const missing = [];
+  if (typeof THREE === 'undefined') { missing.push('Three.js core'); }
+  else {
+    if (!THREE.OrbitControls) missing.push('OrbitControls');
+    if (!THREE.GLTFLoader) missing.push('GLTFLoader');
+  }
+  if (missing.length > 0) {
+    console.error('Missing libraries:', missing.join(', '));
+    // Show user-friendly error instead of cryptic crash
+    const ls = document.getElementById('loadingScreen');
+    if (ls) {
+      const statusEl = ls.querySelector('.loading-status') || ls;
+      statusEl.innerHTML = '<p style="color:#ff6b6b;font-size:16px;padding:20px;text-align:center;">' +
+        '⚠️ Lỗi tải thư viện 3D.<br>Vui lòng tải lại trang.<br>' +
+        '<button onclick="location.reload()" style="margin-top:15px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:16px;cursor:pointer;">🔄 Tải lại</button></p>';
+    }
+  }
+})();
 const MODEL_CACHE_NAME = 'webar-model-cache-v1';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1464,8 +1493,46 @@ async function init() {
     renderer.setPixelRatio(IS_IOS ? 1 : Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
   }, false);
 
-  // Controls
-  controls = new THREE.OrbitControls(camera, canvas);
+  // Controls - with safety check for iOS CDN loading issues
+  if (THREE.OrbitControls) {
+    controls = new THREE.OrbitControls(camera, canvas);
+  } else {
+    console.warn('OrbitControls not loaded, using fallback touch/mouse controls');
+    // Minimal fallback: allow basic rotation via touch/mouse
+    controls = {
+      target: new THREE.Vector3(0, 0.85, 0),
+      enableDamping: true,
+      dampingFactor: 0.08,
+      minDistance: 0.5,
+      maxDistance: 20,
+      enabled: true,
+      update() {},
+      dispose() {},
+      _isDummy: true
+    };
+    // Implement basic touch rotation fallback
+    let _rotY = 0, _rotX = 0, _touchStartX = 0, _touchStartY = 0, _isTouching = false;
+    canvas.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        _isTouching = true;
+        _touchStartX = e.touches[0].clientX;
+        _touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', function(e) {
+      if (_isTouching && e.touches.length === 1 && model) {
+        const dx = e.touches[0].clientX - _touchStartX;
+        const dy = e.touches[0].clientY - _touchStartY;
+        _rotY += dx * 0.01;
+        _rotX += dy * 0.005;
+        _rotX = Math.max(-0.5, Math.min(0.5, _rotX));
+        model.rotation.y = _rotY;
+        _touchStartX = e.touches[0].clientX;
+        _touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchend', function() { _isTouching = false; }, { passive: true });
+  }
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.target.set(0, 0.85, 0); // Look at chest height
