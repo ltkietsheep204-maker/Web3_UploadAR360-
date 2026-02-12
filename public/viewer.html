@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>WEBAR - AR Viewer</title>
   <!-- Preload critical scripts -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js" as="script" crossorigin>
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #8B0000;
@@ -70,7 +68,7 @@
     }
 
     .loading-title {
-      font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700;
+      font-family: 'Be Vietnam Pro', sans-serif; font-size: 2rem; font-weight: 800;
       background: linear-gradient(to right, #FFD700, #FDB931);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -107,7 +105,7 @@
     }
 
     .title-main {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       font-size: 2.5rem; font-weight: 800;
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -248,7 +246,7 @@
     .summon-text {
       position: absolute; top: 25%; left: 50%;
       transform: translateX(-50%);
-      font-family: 'Playfair Display', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       font-size: 2.2rem; font-weight: 800;
       color: var(--accent);
       text-shadow: 0 0 30px rgba(255,215,0,0.9), 
@@ -393,7 +391,7 @@
     }
     .bio-title-area { flex: 1; }
     .bio-name {
-      font-family: 'Playfair Display', serif; font-weight: 700;
+      font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700;
       color: var(--accent); font-size: 1.1rem;
     }
     .bio-era { font-size: 0.75rem; color: #999; }
@@ -429,9 +427,9 @@
       cursor: pointer;
     }
     .discovery-title {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       color: var(--accent); font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 1px;
     }
 
@@ -521,7 +519,7 @@
     .nearby-card .nc-icon { font-size: 28px; }
     .nearby-card .nc-name {
       font-size: 0.75rem; color: var(--accent);
-      font-family: 'Playfair Display', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       font-weight: 600;
       margin-top: 4px;
     }
@@ -567,7 +565,7 @@
 
     .challenge-icon { font-size: 50px; margin-bottom: 15px; }
     .challenge-title {
-      font-family: 'Playfair Display', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       font-size: 1.2rem; color: var(--accent);
       font-weight: 700;
       margin-bottom: 8px;
@@ -640,7 +638,7 @@
       display: flex; align-items: center; gap: 12px;
     }
     .collection-title {
-      flex: 1; font-family: 'Playfair Display', serif;
+      flex: 1; font-family: 'Be Vietnam Pro', sans-serif;
       color: var(--accent); font-size: 1rem;
       font-weight: 600;
     }
@@ -674,7 +672,7 @@
     .collect-icon { font-size: 36px; margin-bottom: 6px; }
     .collect-name {
       font-size: 0.75rem; color: var(--accent);
-      font-family: 'Playfair Display', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       font-weight: 600;
     }
     .collect-lock {
@@ -775,7 +773,7 @@
       padding: 8px 20px;
       border-radius: 20px;
       color: var(--accent);
-      font-family: 'Cinzel', serif;
+      font-family: 'Be Vietnam Pro', sans-serif;
       font-size: 0.8rem;
       max-width: 80%;
       text-align: center;
@@ -948,7 +946,7 @@
       </div>
     </div>
     <div class="discovery-bottom">
-      <div style="color: var(--accent); font-family: 'Cinzel', serif; font-size: 0.8rem; margin-bottom: 8px;">
+      <div style="color: var(--accent); font-family: 'Be Vietnam Pro', sans-serif; font-size: 0.8rem; margin-bottom: 8px;">
         VỊ TƯỚNG GẦN ĐÂY
       </div>
       <div class="nearby-generals" id="nearbyGenerals"></div>
@@ -1891,11 +1889,19 @@ function processLoadedModel(loadedModel, animations = []) {
     document.getElementById('characterTitle').style.display = 'block';
   });
 
-  // Adjust camera for the model
+  // Adjust camera for the model - center it properly
   const finalBox = new THREE.Box3().setFromObject(loadedModel);
   const fHeight = finalBox.max.y - finalBox.min.y;
-  camera.position.set(0, fHeight * 0.5, fHeight * 1.8);
-  controls.target.set(0, fHeight * 0.45, 0);
+  const fCenter = new THREE.Vector3();
+  finalBox.getCenter(fCenter);
+  
+  // Center model at origin
+  loadedModel.position.x = -fCenter.x;
+  loadedModel.position.z = -fCenter.z;
+  
+  // Camera looks at model center, distance = 2.5x height for comfortable view
+  camera.position.set(0, fHeight * 0.45, fHeight * 2.5);
+  controls.target.set(0, fHeight * 0.4, 0);
   controls.update();
 
   // Save to collection
@@ -2086,7 +2092,7 @@ function takePhoto() {
 
   // Add watermark
   ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-  ctx.font = `${compCanvas.width * 0.02}px 'Playfair Display', serif`;
+  ctx.font = `${compCanvas.width * 0.02}px 'Be Vietnam Pro', sans-serif`;
   ctx.textAlign = 'right';
   ctx.fillText('WEBAR - Boardgame Lịch Sử', compCanvas.width - 20, compCanvas.height - 20);
 
