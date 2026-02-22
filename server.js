@@ -7,14 +7,15 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Compression & Caching
 // ═══════════════════════════════════════════════════════════════════
 let compression;
-try { 
-  compression = require('compression'); 
+try {
+  compression = require('compression');
   app.use(compression({
     level: 6,
     threshold: 1024,
@@ -23,8 +24,8 @@ try {
       if (req.path.match(/\.(glb|gltf|fbx|json)$/i)) return true;
       return compression.filter(req, res);
     }
-  })); 
-} catch(e) {
+  }));
+} catch (e) {
   console.log('compression module not found, skipping');
 }
 
@@ -68,7 +69,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB max
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB max
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -76,27 +77,27 @@ const upload = multer({
 // ═══════════════════════════════════════════════════════════════════
 app.get('/uploads/:filename', (req, res, next) => {
   const filename = req.params.filename;
-  
+
   // Only intercept model files
   if (!filename.match(/\.(glb|gltf)$/i)) return next();
-  
+
   // Check for optimized version first
   const optimizedPath = path.join(OPTIMIZED_DIR, filename);
   const originalPath = path.join(UPLOADS_DIR, filename);
-  
+
   const filePath = fs.existsSync(optimizedPath) ? optimizedPath : originalPath;
-  
+
   if (!fs.existsSync(filePath)) return next();
-  
+
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
-  
+
   // Set aggressive cache headers
   res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 days
   res.setHeader('Content-Type', filename.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json');
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('X-Optimized', fs.existsSync(optimizedPath) ? 'true' : 'false');
-  
+
   // Support Range requests for streaming/resume
   const range = req.headers.range;
   if (range) {
@@ -104,12 +105,12 @@ app.get('/uploads/:filename', (req, res, next) => {
     const start = parseInt(parts[0], 10);
     const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
     const chunkSize = (end - start) + 1;
-    
+
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Content-Length': chunkSize,
     });
-    
+
     fs.createReadStream(filePath, { start, end }).pipe(res);
   } else {
     res.setHeader('Content-Length', fileSize);
@@ -158,7 +159,7 @@ app.post('/upload', (req, res, next) => {
     if (!modelFile) return res.status(400).json({ error: 'Model file is required (glb/gltf).' });
 
     const db = getDB();
-    
+
     // Parse animations safely
     let animations = [];
     if (req.body.animations) {
@@ -171,7 +172,7 @@ app.post('/upload', (req, res, next) => {
         console.log('Could not parse animations:', req.body.animations);
       }
     }
-    
+
     // Parse effects safely
     let effects = [];
     if (req.body.effects) {
@@ -184,7 +185,7 @@ app.post('/upload', (req, res, next) => {
         console.log('Could not parse effects:', req.body.effects);
       }
     }
-    
+
     db[id] = {
       id,
       model: `/uploads/${modelFile}`,
@@ -210,27 +211,35 @@ app.post('/upload', (req, res, next) => {
     saveDB(db);
 
     // Auto-optimize GLB models in background (truly async, doesn't block event loop)
+    // Skip optimization for files >50MB to prevent OOM crash
     if (modelFile && modelFile.endsWith('.glb')) {
       const modelFullPath = path.join(UPLOADS_DIR, modelFile);
-      const { spawn } = require('child_process');
-      console.log(`🔧 Auto-optimizing ${modelFile} (background)...`);
-      const child = spawn('node', ['optimize_models.mjs', modelFullPath], {
-        cwd: __dirname,
-        stdio: 'inherit',
-        detached: false
-      });
-      child.on('close', (code) => {
-        if (code === 0) {
-          console.log(`✅ Optimized ${modelFile} successfully`);
-        } else {
-          console.log(`⚠️ Optimize ${modelFile} exited with code ${code} (will use original)`);
-        }
-      });
-      child.on('error', (err) => {
-        console.log('Auto-optimize failed (will use original):', err.message);
-      });
-      // Unref so it doesn't prevent server shutdown
-      child.unref();
+      const modelStat = fs.statSync(modelFullPath);
+      const modelSizeMB = modelStat.size / (1024 * 1024);
+
+      if (modelSizeMB > 200) {
+        console.log(`⏭️ Skipping auto-optimize for ${modelFile} (${modelSizeMB.toFixed(1)}MB > 200MB limit) — will serve original`);
+      } else {
+        const { spawn } = require('child_process');
+        console.log(`🔧 Auto-optimizing ${modelFile} (${modelSizeMB.toFixed(1)}MB, background)...`);
+        const child = spawn('node', ['optimize_models.mjs', modelFullPath], {
+          cwd: __dirname,
+          stdio: 'inherit',
+          detached: false
+        });
+        child.on('close', (code) => {
+          if (code === 0) {
+            console.log(`✅ Optimized ${modelFile} successfully`);
+          } else {
+            console.log(`⚠️ Optimize ${modelFile} exited with code ${code} (will use original)`);
+          }
+        });
+        child.on('error', (err) => {
+          console.log('Auto-optimize failed (will use original):', err.message);
+        });
+        // Unref so it doesn't prevent server shutdown
+        child.unref();
+      }
     }
 
     const url = `${req.protocol}://${req.get('host')}/view/${id}`;
@@ -241,20 +250,47 @@ app.post('/upload', (req, res, next) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// MULTER ERROR HANDLER — Catches file-too-large and other multer errors
+// Without this middleware, multer errors crash the Express process!
+// ═══════════════════════════════════════════════════════════════════
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    console.warn(`⚠️ Multer error: ${err.code} — ${err.message}`);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        error: 'File quá lớn! Giới hạn tối đa là 500MB. Vui lòng nén file hoặc giảm chất lượng texture trước khi upload.'
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ error: 'Quá nhiều file! Tối đa 20 props.' });
+    }
+    return res.status(400).json({ error: `Lỗi upload: ${err.message}` });
+  }
+
+  // Handle other errors (e.g. invalid file type)
+  if (err) {
+    console.error('Unexpected error:', err);
+    return res.status(500).json({ error: err.message || 'Đã xảy ra lỗi không xác định' });
+  }
+
+  next();
+});
+
 app.get('/api/asset/:id', (req, res) => {
   const db = getDB();
   const asset = db[req.params.id];
   if (!asset) return res.status(404).json({ error: 'Not found' });
-  
+
   // Include optimized model path info
   const modelFile = asset.model ? path.basename(asset.model) : null;
   let modelSize = 0;
   let isOptimized = false;
-  
+
   if (modelFile) {
     const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
     const originalPath = path.join(UPLOADS_DIR, modelFile);
-    
+
     if (modelFile.endsWith('.glb') && fs.existsSync(optimizedPath)) {
       modelSize = fs.statSync(optimizedPath).size;
       isOptimized = true;
@@ -262,13 +298,13 @@ app.get('/api/asset/:id', (req, res) => {
       modelSize = fs.statSync(originalPath).size;
     }
   }
-  
-  res.json({ 
-    ...asset, 
+
+  res.json({
+    ...asset,
     modelSize,
     isOptimized,
     // Tell client if Draco decoding is needed
-    needsDraco: isOptimized 
+    needsDraco: isOptimized
   });
 });
 
@@ -309,26 +345,43 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 app.get('/api/nearby', (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
-  
+
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
-  
+
   const nearby = HISTORICAL_SITES.map(site => {
     const dist = haversineDistance(userLat, userLng, site.lat, site.lng);
     return { ...site, distance: Math.round(dist), isNear: dist <= site.radius };
   }).sort((a, b) => a.distance - b.distance);
-  
+
   res.json(nearby);
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// PROCESS-LEVEL ERROR HANDLERS — Keep server alive on unexpected errors
+// ═══════════════════════════════════════════════════════════════════
+process.on('uncaughtException', (err) => {
+  console.error('🔥 Uncaught Exception (server still running):', err.message);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🔥 Unhandled Rejection (server still running):', reason);
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+// Set server timeout to 10 minutes for large 3D model uploads
+server.timeout = 10 * 60 * 1000; // 10 minutes
+server.keepAliveTimeout = 120 * 1000; // 2 minutes
+server.headersTimeout = 10 * 60 * 1000 + 1000; // slightly more than server.timeout

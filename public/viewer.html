@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>WEBAR - AR Viewer</title>
   <!-- Preload critical scripts -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Noto+Serif+Display:wght@400;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --primary: #8B0000;
@@ -19,7 +22,12 @@
       --mana-blue: #3498db;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Be Vietnam Pro', sans-serif;
       background: #000;
@@ -31,63 +39,107 @@
       user-select: none;
     }
 
-    #container { width: 100%; height: 100%; position: relative; }
+    #container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
 
     #canvas3d {
-      width: 100%; height: 100%;
-      display: block; position: absolute;
-      top: 0; left: 0; z-index: 2;
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
     }
 
     #cameraVideo {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      object-fit: cover; z-index: 1;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
     }
 
     /* ══════════════════════════════════════════════════════════════════
        LOADING SCREEN - Cinematic
     ══════════════════════════════════════════════════════════════════ */
     #loadingScreen {
-      position: fixed; inset: 0; z-index: 9999;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
       background: radial-gradient(ellipse at center, #1a0a0a 0%, #000 100%);
-      display: flex; flex-direction: column;
-      justify-content: center; align-items: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       transition: opacity 0.8s ease;
     }
-    #loadingScreen.fade-out { opacity: 0; pointer-events: none; }
+
+    #loadingScreen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
 
     .loading-dragon {
-      width: 100px; height: 100px;
+      width: 100px;
+      height: 100px;
       animation: pulse 2s ease-in-out infinite;
       filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.6));
     }
+
     @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 0.8; }
-      50% { transform: scale(1.1); opacity: 1; }
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      50% {
+        transform: scale(1.1);
+        opacity: 1;
+      }
     }
 
     .loading-title {
-      font-family: 'Be Vietnam Pro', sans-serif; font-size: 2rem; font-weight: 800;
-      background: linear-gradient(to right, #FFD700, #FDB931);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-family: 'Noto Serif Display', 'Be Vietnam Pro', serif;
+      font-size: 2rem;
+      font-weight: 900;
+      background: linear-gradient(to right, #FFD700, #FDB931, #B8860B);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-top: 20px; letter-spacing: 4px;
+      margin-top: 20px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
     }
 
     .loading-subtitle {
-      color: #888; font-size: 0.9rem; margin-top: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      color: #999;
+      font-size: 1rem;
+      font-style: italic;
+      margin-top: 10px;
       letter-spacing: 2px;
     }
 
     .loading-bar-container {
-      width: 200px; height: 3px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 2px; margin-top: 30px;
+      width: 200px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      margin-top: 30px;
       overflow: hidden;
     }
+
     .loading-bar {
-      height: 100%; width: 0%;
+      height: 100%;
+      width: 0%;
       background: linear-gradient(90deg, #FFD700, #ff6b35);
       border-radius: 2px;
       transition: width 0.3s;
@@ -97,31 +149,46 @@
        CHARACTER TITLE - Center Top
     ══════════════════════════════════════════════════════════════════ */
     #characterTitle {
-      position: fixed; top: 30px; left: 50%;
+      position: fixed;
+      top: 20px;
+      left: 50%;
       transform: translateX(-50%);
-      z-index: 50; pointer-events: none;
+      z-index: 50;
+      pointer-events: none;
       text-align: center;
       display: none;
+      /* Dark backdrop so text is always readable on camera */
+      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+      padding: 15px 40px 12px;
+      border-radius: 16px;
     }
 
     .title-main {
-      font-family: 'Be Vietnam Pro', sans-serif;
-      font-size: 2.5rem; font-weight: 800;
+      font-family: 'Noto Serif Display', serif;
+      font-size: 2.5rem;
+      font-weight: 900;
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
       background-clip: text;
       text-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
-      letter-spacing: 3px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
       margin-bottom: 8px;
       filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
     }
 
     .title-era {
-      font-family: 'Be Vietnam Pro', sans-serif;
-      font-size: 0.9rem; font-weight: 500;
-      color: rgba(255, 255, 255, 0.8);
-      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-      letter-spacing: 2px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      font-style: italic;
+      color: #FFD700;
+      text-shadow:
+        0 0 10px rgba(255, 215, 0, 0.6),
+        0 2px 4px rgba(0, 0, 0, 1),
+        0 0 20px rgba(0, 0, 0, 0.8);
+      letter-spacing: 4px;
       text-transform: uppercase;
     }
 
@@ -136,199 +203,350 @@
        EPIC SUMMON EFFECT - When character appears
     ══════════════════════════════════════════════════════════════════ */
     #summonEffect {
-      position: fixed; inset: 0; z-index: 40;
-      pointer-events: none; opacity: 0;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      pointer-events: none;
+      opacity: 0;
       transition: opacity 0.3s;
       overflow: hidden;
     }
-    #summonEffect.active { opacity: 1; }
+
+    #summonEffect.active {
+      opacity: 1;
+    }
 
     /* Main magic circle */
     .summon-circle {
       position: absolute;
-      bottom: 15%; left: 50%;
+      bottom: 15%;
+      left: 50%;
       transform: translateX(-50%);
-      width: 280px; height: 280px;
+      width: 280px;
+      height: 280px;
       border-radius: 50%;
       border: 3px solid var(--accent);
       box-shadow: 0 0 60px rgba(255, 215, 0, 0.6),
-                  0 0 120px rgba(255, 215, 0, 0.3),
-                  inset 0 0 60px rgba(255, 215, 0, 0.3);
+        0 0 120px rgba(255, 215, 0, 0.3),
+        inset 0 0 60px rgba(255, 215, 0, 0.3);
       animation: summonSpin 3s linear infinite;
     }
+
     .summon-circle::before {
       content: '';
-      position: absolute; inset: 15px;
+      position: absolute;
+      inset: 15px;
       border: 2px solid rgba(255, 215, 0, 0.6);
       border-radius: 50%;
       animation: summonSpin 2s linear infinite reverse;
     }
+
     .summon-circle::after {
       content: '';
-      position: absolute; inset: 35px;
+      position: absolute;
+      inset: 35px;
       border: 1px solid rgba(255, 215, 0, 0.4);
       border-radius: 50%;
       animation: summonSpin 4s linear infinite;
     }
+
     @keyframes summonSpin {
-      from { transform: translateX(-50%) rotate(0deg); }
-      to { transform: translateX(-50%) rotate(360deg); }
+      from {
+        transform: translateX(-50%) rotate(0deg);
+      }
+
+      to {
+        transform: translateX(-50%) rotate(360deg);
+      }
     }
 
     /* Rising particles */
     .summon-particles {
-      position: absolute; bottom: 10%; left: 50%;
+      position: absolute;
+      bottom: 10%;
+      left: 50%;
       transform: translateX(-50%);
-      width: 300px; height: 400px;
+      width: 300px;
+      height: 400px;
     }
+
     .particle {
-      position: absolute; bottom: 0;
-      width: 4px; height: 4px;
+      position: absolute;
+      bottom: 0;
+      width: 4px;
+      height: 4px;
       background: var(--accent);
       border-radius: 50%;
       box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent);
       animation: particleRise 2s ease-out infinite;
     }
+
     @keyframes particleRise {
-      0% { transform: translateY(0) scale(1); opacity: 1; }
-      100% { transform: translateY(-400px) scale(0); opacity: 0; }
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(-400px) scale(0);
+        opacity: 0;
+      }
     }
 
     /* Energy beam */
     .summon-beam {
-      position: absolute; bottom: 0; left: 50%;
+      position: absolute;
+      bottom: 0;
+      left: 50%;
       transform: translateX(-50%);
-      width: 120px; height: 100vh;
-      background: linear-gradient(to top, 
-        rgba(255, 215, 0, 0.8) 0%,
-        rgba(255, 215, 0, 0.4) 20%,
-        rgba(255, 215, 0, 0.1) 50%,
-        transparent 100%);
+      width: 120px;
+      height: 100vh;
+      background: linear-gradient(to top,
+          rgba(255, 215, 0, 0.8) 0%,
+          rgba(255, 215, 0, 0.4) 20%,
+          rgba(255, 215, 0, 0.1) 50%,
+          transparent 100%);
       animation: beamPulse 0.8s ease-out;
       filter: blur(3px);
     }
+
     @keyframes beamPulse {
-      0% { opacity: 0; transform: translateX(-50%) scaleY(0); }
-      30% { opacity: 1; transform: translateX(-50%) scaleY(1.2); }
-      100% { opacity: 0; transform: translateX(-50%) scaleY(1); }
+      0% {
+        opacity: 0;
+        transform: translateX(-50%) scaleY(0);
+      }
+
+      30% {
+        opacity: 1;
+        transform: translateX(-50%) scaleY(1.2);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateX(-50%) scaleY(1);
+      }
     }
 
     /* Flash effect */
     .summon-flash {
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse at center bottom, 
-        rgba(255,215,0,0.5) 0%, 
-        rgba(255,215,0,0.2) 30%,
-        transparent 70%);
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center bottom,
+          rgba(255, 215, 0, 0.5) 0%,
+          rgba(255, 215, 0, 0.2) 30%,
+          transparent 70%);
       animation: summonFlash 0.6s ease-out;
     }
+
     @keyframes summonFlash {
-      0% { opacity: 0; transform: scale(0.3); }
-      30% { opacity: 1; }
-      100% { opacity: 0; transform: scale(2); }
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+
+      30% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(2);
+      }
     }
 
     /* Outer ring explosion */
     .summon-ring {
-      position: absolute; bottom: 25%; left: 50%;
+      position: absolute;
+      bottom: 25%;
+      left: 50%;
       transform: translate(-50%, 50%);
-      width: 50px; height: 50px;
+      width: 50px;
+      height: 50px;
       border: 3px solid var(--accent);
       border-radius: 50%;
       animation: ringExpand 1.5s ease-out;
     }
+
     @keyframes ringExpand {
-      0% { width: 50px; height: 50px; opacity: 1; border-width: 3px; }
-      100% { width: 500px; height: 500px; opacity: 0; border-width: 1px; }
+      0% {
+        width: 50px;
+        height: 50px;
+        opacity: 1;
+        border-width: 3px;
+      }
+
+      100% {
+        width: 500px;
+        height: 500px;
+        opacity: 0;
+        border-width: 1px;
+      }
     }
 
     /* Character name reveal */
     .summon-text {
-      position: absolute; top: 25%; left: 50%;
+      position: absolute;
+      top: 25%;
+      left: 50%;
       transform: translateX(-50%);
-      font-family: 'Be Vietnam Pro', sans-serif;
-      font-size: 2.2rem; font-weight: 800;
+      font-family: 'Noto Serif Display', serif;
+      font-size: 2.4rem;
+      font-weight: 900;
       color: var(--accent);
-      text-shadow: 0 0 30px rgba(255,215,0,0.9), 
-                   0 0 60px rgba(255,215,0,0.5),
-                   0 4px 15px rgba(0,0,0,0.9);
+      text-shadow: 0 0 30px rgba(255, 215, 0, 0.9),
+        0 0 60px rgba(255, 215, 0, 0.5),
+        0 4px 15px rgba(0, 0, 0, 0.9);
       animation: summonTextAnim 2s ease-out forwards;
       white-space: nowrap;
-      letter-spacing: 3px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
     }
+
     @keyframes summonTextAnim {
-      0% { opacity: 0; transform: translateX(-50%) scale(0.3) translateY(50px); letter-spacing: 20px; }
-      40% { opacity: 1; transform: translateX(-50%) scale(1.15) translateY(0); letter-spacing: 5px; }
-      60% { transform: translateX(-50%) scale(1) translateY(0); letter-spacing: 3px; }
-      100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-40px); }
+      0% {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.3) translateY(50px);
+        letter-spacing: 20px;
+      }
+
+      40% {
+        opacity: 1;
+        transform: translateX(-50%) scale(1.15) translateY(0);
+        letter-spacing: 5px;
+      }
+
+      60% {
+        transform: translateX(-50%) scale(1) translateY(0);
+        letter-spacing: 3px;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateX(-50%) scale(1) translateY(-40px);
+      }
     }
 
     /* Era subtitle */
     .summon-era {
-      position: absolute; top: 35%; left: 50%;
+      position: absolute;
+      top: 35%;
+      left: 50%;
       transform: translateX(-50%);
-      font-family: 'Be Vietnam Pro', sans-serif;
-      font-size: 0.9rem; font-weight: 500;
-      color: rgba(255, 255, 255, 0.8);
-      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      font-style: italic;
+      color: #FFD700;
+      text-shadow:
+        0 0 10px rgba(255, 215, 0, 0.6),
+        0 2px 4px rgba(0, 0, 0, 1),
+        0 0 20px rgba(0, 0, 0, 0.8);
       animation: summonEraAnim 2s ease-out forwards;
       animation-delay: 0.3s;
       opacity: 0;
-      letter-spacing: 2px;
+      letter-spacing: 4px;
     }
+
     @keyframes summonEraAnim {
-      0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
-      30% { opacity: 1; transform: translateX(-50%) translateY(0); }
-      80% { opacity: 1; }
-      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+      0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+
+      30% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      80% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
     }
 
     /* Dragon silhouette */
     .summon-dragon {
-      position: absolute; top: 10%; left: 50%;
+      position: absolute;
+      top: 10%;
+      left: 50%;
       transform: translateX(-50%);
       font-size: 80px;
       filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
       animation: dragonAppear 2s ease-out forwards;
       opacity: 0;
     }
+
     @keyframes dragonAppear {
-      0% { opacity: 0; transform: translateX(-50%) scale(0.5) rotate(-10deg); }
-      30% { opacity: 0.8; transform: translateX(-50%) scale(1.1) rotate(5deg); }
-      50% { opacity: 0.6; transform: translateX(-50%) scale(1) rotate(0deg); }
-      100% { opacity: 0; transform: translateX(-50%) scale(1.2) translateY(-30px); }
+      0% {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.5) rotate(-10deg);
+      }
+
+      30% {
+        opacity: 0.8;
+        transform: translateX(-50%) scale(1.1) rotate(5deg);
+      }
+
+      50% {
+        opacity: 0.6;
+        transform: translateX(-50%) scale(1) rotate(0deg);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateX(-50%) scale(1.2) translateY(-30px);
+      }
     }
 
     /* ══════════════════════════════════════════════════════════════════
        BOTTOM ACTION BAR - Pokemon Go style
     ══════════════════════════════════════════════════════════════════ */
     #actionBar {
-      position: fixed; bottom: 0; left: 0; right: 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
       z-index: 50;
       padding: 10px 15px 25px;
-      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
-      display: flex; flex-direction: column; gap: 8px;
+      background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .action-buttons {
-      display: flex; justify-content: center;
-      align-items: center; gap: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
     }
 
     .action-btn-round {
-      width: 50px; height: 50px;
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.2);
-      background: rgba(0,0,0,0.6);
-      color: #fff; font-size: 20px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.2s;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
       backdrop-filter: blur(10px);
     }
-    .action-btn-round:hover, .action-btn-round:active {
+
+    .action-btn-round:hover,
+    .action-btn-round:active {
       transform: scale(1.1);
       border-color: var(--accent);
     }
+
     .action-btn-round.active {
       border-color: var(--accent);
       background: rgba(255, 215, 0, 0.2);
@@ -337,33 +555,56 @@
 
     /* Main capture/summon button */
     .btn-summon {
-      width: 70px; height: 70px;
+      width: 70px;
+      height: 70px;
       border-radius: 50%;
       border: 3px solid var(--accent);
       background: linear-gradient(135deg, #8B0000 0%, #c0392b 100%);
-      color: #fff; font-size: 28px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.2s;
+      color: #fff;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
       box-shadow: 0 0 20px rgba(139, 0, 0, 0.5),
-                  0 0 40px rgba(255, 215, 0, 0.2);
+        0 0 40px rgba(255, 215, 0, 0.2);
       position: relative;
     }
-    .btn-summon:active { transform: scale(0.95); }
+
+    .btn-summon:active {
+      transform: scale(0.95);
+    }
+
     .btn-summon::after {
       content: '';
-      position: absolute; inset: -6px;
+      position: absolute;
+      inset: -6px;
       border: 2px solid rgba(255, 215, 0, 0.3);
       border-radius: 50%;
       animation: summonPulse 2s ease-in-out infinite;
     }
+
     @keyframes summonPulse {
-      0%, 100% { transform: scale(1); opacity: 0.5; }
-      50% { transform: scale(1.1); opacity: 1; }
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+
+      50% {
+        transform: scale(1.1);
+        opacity: 1;
+      }
     }
 
     /* Bio popup */
     #bioPopup {
-      position: fixed; bottom: 100px; left: 15px; right: 15px;
+      position: fixed;
+      bottom: 100px;
+      left: 15px;
+      right: 15px;
       z-index: 55;
       background: var(--bg-panel);
       border: 1px solid rgba(255, 215, 0, 0.3);
@@ -376,31 +617,58 @@
       max-height: 50vh;
       overflow-y: auto;
     }
-    #bioPopup.show { transform: translateY(0); }
+
+    #bioPopup.show {
+      transform: translateY(0);
+    }
 
     .bio-header {
-      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
     }
+
     .bio-avatar {
-      width: 45px; height: 45px;
+      width: 45px;
+      height: 45px;
       border-radius: 50%;
       border: 2px solid var(--accent);
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 20px;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0, 0, 0, 0.5);
     }
-    .bio-title-area { flex: 1; }
+
+    .bio-title-area {
+      flex: 1;
+    }
+
     .bio-name {
-      font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700;
-      color: var(--accent); font-size: 1.1rem;
+      font-family: 'Noto Serif Display', serif;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.1rem;
     }
-    .bio-era { font-size: 0.75rem; color: #999; }
+
+    .bio-era {
+      font-size: 0.75rem;
+      color: #999;
+    }
+
     .bio-close {
-      background: none; border: none; color: #666;
-      font-size: 20px; cursor: pointer;
+      background: none;
+      border: none;
+      color: #666;
+      font-size: 20px;
+      cursor: pointer;
     }
+
     .bio-text {
-      color: #ccc; font-size: 0.85rem; line-height: 1.7;
+      color: #ccc;
+      font-size: 0.85rem;
+      line-height: 1.7;
       margin-top: 8px;
     }
 
@@ -409,66 +677,108 @@
        POKEMON GO STYLE - Location Discovery Mode
     ══════════════════════════════════════════════════════════════════ */
     #discoveryMode {
-      position: fixed; inset: 0; z-index: 200;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
       background: #000;
       display: none;
     }
-    #discoveryMode.active { display: flex; flex-direction: column; }
+
+    #discoveryMode.active {
+      display: flex;
+      flex-direction: column;
+    }
 
     .discovery-header {
       padding: 15px 20px;
       background: linear-gradient(135deg, #1a0a0a 0%, #2a0a0a 100%);
       border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-      display: flex; align-items: center; gap: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
+
     .discovery-back {
-      background: none; border: none;
-      color: var(--accent); font-size: 20px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 20px;
       cursor: pointer;
     }
+
     .discovery-title {
-      font-family: 'Be Vietnam Pro', sans-serif;
-      color: var(--accent); font-size: 1rem;
+      font-family: 'Noto Serif Display', serif;
+      color: var(--accent);
+      font-size: 1rem;
       font-weight: 700;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
     }
 
     .discovery-map {
-      flex: 1; position: relative; overflow: hidden;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
       background: #0a0a0a;
     }
 
     .discovery-radar {
       position: absolute;
-      top: 50%; left: 50%;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -50%);
-      width: 280px; height: 280px;
+      width: 280px;
+      height: 280px;
     }
+
     .radar-circle {
-      position: absolute; top: 50%; left: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
       border: 1px solid rgba(255, 215, 0, 0.15);
       border-radius: 50%;
       transform: translate(-50%, -50%);
     }
-    .radar-c1 { width: 100%; height: 100%; }
-    .radar-c2 { width: 66%; height: 66%; }
-    .radar-c3 { width: 33%; height: 33%; }
+
+    .radar-c1 {
+      width: 100%;
+      height: 100%;
+    }
+
+    .radar-c2 {
+      width: 66%;
+      height: 66%;
+    }
+
+    .radar-c3 {
+      width: 33%;
+      height: 33%;
+    }
 
     .radar-sweep {
-      position: absolute; top: 50%; left: 50%;
-      width: 50%; height: 2px;
-      background: linear-gradient(90deg, rgba(255,215,0,0.6), transparent);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), transparent);
       transform-origin: left center;
       animation: radarSweep 3s linear infinite;
     }
+
     @keyframes radarSweep {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .radar-dot {
       position: absolute;
-      width: 12px; height: 12px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: var(--accent);
       box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
@@ -476,15 +786,28 @@
       animation: radarBlink 1.5s ease-in-out infinite;
       cursor: pointer;
     }
+
     @keyframes radarBlink {
-      0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.8); }
-      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+
+      0%,
+      100% {
+        opacity: 0.5;
+        transform: translate(-50%, -50%) scale(0.8);
+      }
+
+      50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+      }
     }
 
     .radar-player {
-      position: absolute; top: 50%; left: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -50%);
-      width: 16px; height: 16px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: #3498db;
       border: 2px solid #fff;
@@ -499,43 +822,63 @@
     }
 
     .nearby-generals {
-      display: flex; gap: 10px; overflow-x: auto;
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
       padding: 5px 0;
     }
-    .nearby-generals::-webkit-scrollbar { display: none; }
+
+    .nearby-generals::-webkit-scrollbar {
+      display: none;
+    }
 
     .nearby-card {
       min-width: 120px;
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 215, 0, 0.2);
-      border-radius: 12px; padding: 10px;
-      text-align: center; cursor: pointer;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
       transition: all 0.2s;
     }
+
     .nearby-card:active {
       transform: scale(0.95);
       border-color: var(--accent);
     }
-    .nearby-card .nc-icon { font-size: 28px; }
+
+    .nearby-card .nc-icon {
+      font-size: 28px;
+    }
+
     .nearby-card .nc-name {
-      font-size: 0.75rem; color: var(--accent);
+      font-size: 0.75rem;
+      color: var(--accent);
       font-family: 'Be Vietnam Pro', sans-serif;
       font-weight: 600;
       margin-top: 4px;
     }
+
     .nearby-card .nc-dist {
-      font-size: 0.6rem; color: #888;
+      font-size: 0.6rem;
+      color: #888;
       margin-top: 2px;
     }
+
     .nearby-card .nc-status {
-      font-size: 0.55rem; padding: 2px 6px;
-      border-radius: 4px; margin-top: 4px;
+      font-size: 0.55rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
       display: inline-block;
     }
+
     .nc-status.locked {
       background: rgba(231, 76, 60, 0.2);
       color: #e74c3c;
     }
+
     .nc-status.available {
       background: rgba(46, 204, 113, 0.2);
       color: #2ecc71;
@@ -545,79 +888,121 @@
        CHALLENGE MODE - At historical sites
     ══════════════════════════════════════════════════════════════════ */
     #challengeOverlay {
-      position: fixed; inset: 0; z-index: 300;
-      background: rgba(0,0,0,0.95);
-      display: none; flex-direction: column;
-      justify-content: center; align-items: center;
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       padding: 20px;
     }
-    #challengeOverlay.active { display: flex; }
+
+    #challengeOverlay.active {
+      display: flex;
+    }
 
     .challenge-card {
       background: linear-gradient(135deg, #1a0a0a 0%, #0a0a1a 100%);
       border: 1px solid var(--accent);
       border-radius: 20px;
       padding: 25px;
-      max-width: 380px; width: 100%;
+      max-width: 380px;
+      width: 100%;
       text-align: center;
       box-shadow: 0 0 40px rgba(255, 215, 0, 0.15);
     }
 
-    .challenge-icon { font-size: 50px; margin-bottom: 15px; }
+    .challenge-icon {
+      font-size: 50px;
+      margin-bottom: 15px;
+    }
+
     .challenge-title {
       font-family: 'Be Vietnam Pro', sans-serif;
-      font-size: 1.2rem; color: var(--accent);
+      font-size: 1.2rem;
+      color: var(--accent);
       font-weight: 700;
       margin-bottom: 8px;
     }
+
     .challenge-desc {
-      color: #aaa; font-size: 0.85rem; line-height: 1.6;
+      color: #aaa;
+      font-size: 0.85rem;
+      line-height: 1.6;
       margin-bottom: 20px;
     }
+
     .challenge-question {
-      background: rgba(0,0,0,0.4);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px; padding: 15px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 15px;
       margin-bottom: 15px;
     }
+
     .challenge-q-text {
-      color: #fff; font-size: 0.95rem; line-height: 1.5;
+      color: #fff;
+      font-size: 0.95rem;
+      line-height: 1.5;
       font-weight: 600;
     }
+
     .challenge-options {
-      display: flex; flex-direction: column; gap: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
+
     .challenge-opt {
       padding: 12px 15px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 10px;
-      color: #ddd; font-size: 0.85rem;
-      cursor: pointer; transition: all 0.2s;
+      color: #ddd;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
       text-align: left;
     }
-    .challenge-opt:active { transform: scale(0.98); }
+
+    .challenge-opt:active {
+      transform: scale(0.98);
+    }
+
     .challenge-opt.correct {
-      border-color: #2ecc71; background: rgba(46,204,113,0.2);
+      border-color: #2ecc71;
+      background: rgba(46, 204, 113, 0.2);
       color: #2ecc71;
     }
+
     .challenge-opt.wrong {
-      border-color: #e74c3c; background: rgba(231,76,60,0.2);
+      border-color: #e74c3c;
+      background: rgba(231, 76, 60, 0.2);
       color: #e74c3c;
     }
+
     .challenge-reward {
-      margin-top: 15px; padding: 12px;
+      margin-top: 15px;
+      padding: 12px;
       background: rgba(255, 215, 0, 0.1);
       border: 1px solid rgba(255, 215, 0, 0.3);
       border-radius: 10px;
-      color: var(--accent); font-size: 0.85rem;
+      color: var(--accent);
+      font-size: 0.85rem;
       display: none;
     }
+
     .challenge-close {
-      margin-top: 15px; padding: 10px 25px;
-      background: var(--accent); color: #000;
-      border: none; border-radius: 8px;
-      font-weight: 700; cursor: pointer;
+      margin-top: 15px;
+      padding: 10px 25px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
       display: none;
     }
 
@@ -625,33 +1010,51 @@
        COLLECTION BOOK
     ══════════════════════════════════════════════════════════════════ */
     #collectionOverlay {
-      position: fixed; inset: 0; z-index: 250;
-      background: rgba(0,0,0,0.95);
-      display: none; flex-direction: column;
+      position: fixed;
+      inset: 0;
+      z-index: 250;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      flex-direction: column;
     }
-    #collectionOverlay.active { display: flex; }
+
+    #collectionOverlay.active {
+      display: flex;
+    }
 
     .collection-header {
       padding: 15px 20px;
       background: linear-gradient(135deg, #1a0a0a 0%, #0a0a1a 100%);
       border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-      display: flex; align-items: center; gap: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
+
     .collection-title {
-      flex: 1; font-family: 'Be Vietnam Pro', sans-serif;
-      color: var(--accent); font-size: 1rem;
+      flex: 1;
+      font-family: 'Be Vietnam Pro', sans-serif;
+      color: var(--accent);
+      font-size: 1rem;
       font-weight: 600;
     }
+
     .collection-count {
-      color: #888; font-size: 0.8rem;
+      color: #888;
+      font-size: 0.8rem;
     }
+
     .collection-close-btn {
-      background: none; border: none;
-      color: #888; font-size: 22px; cursor: pointer;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 22px;
+      cursor: pointer;
     }
 
     .collection-grid {
-      flex: 1; overflow-y: auto;
+      flex: 1;
+      overflow-y: auto;
       padding: 15px;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -659,24 +1062,39 @@
     }
 
     .collect-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px; padding: 12px;
-      text-align: center; transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      transition: all 0.2s;
     }
+
     .collect-card.unlocked {
       border-color: rgba(255, 215, 0, 0.3);
       background: rgba(255, 215, 0, 0.05);
     }
-    .collect-card.locked { opacity: 0.4; }
-    .collect-icon { font-size: 36px; margin-bottom: 6px; }
+
+    .collect-card.locked {
+      opacity: 0.4;
+    }
+
+    .collect-icon {
+      font-size: 36px;
+      margin-bottom: 6px;
+    }
+
     .collect-name {
-      font-size: 0.75rem; color: var(--accent);
+      font-size: 0.75rem;
+      color: var(--accent);
       font-family: 'Be Vietnam Pro', sans-serif;
       font-weight: 600;
     }
+
     .collect-lock {
-      font-size: 0.6rem; color: #666; margin-top: 2px;
+      font-size: 0.6rem;
+      color: #666;
+      margin-top: 2px;
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -690,26 +1108,37 @@
        SIDE PANEL - Compact controls
     ══════════════════════════════════════════════════════════════════ */
     #sidePanel {
-      position: fixed; top: 80px; right: 10px;
-      width: 52px; z-index: 60;
-      display: flex; flex-direction: column;
+      position: fixed;
+      top: 80px;
+      right: 10px;
+      width: 52px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
       gap: 8px;
     }
 
     .side-btn {
-      width: 44px; height: 44px;
+      width: 44px;
+      height: 44px;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       background: var(--bg-panel);
       backdrop-filter: blur(10px);
-      color: #fff; font-size: 18px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.2s;
+      color: #fff;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
     }
+
     .side-btn:active {
       transform: scale(0.9);
       border-color: var(--accent);
     }
+
     .side-btn.active {
       border-color: var(--accent);
       background: rgba(255, 215, 0, 0.15);
@@ -719,55 +1148,90 @@
        SIZE INDICATOR
     ══════════════════════════════════════════════════════════════════ */
     #sizeIndicator {
-      position: fixed; left: 10px; bottom: 100px;
-      z-index: 50; pointer-events: none;
+      position: fixed;
+      left: 10px;
+      bottom: 100px;
+      z-index: 50;
+      pointer-events: none;
     }
+
     .size-ruler {
-      width: 3px; background: rgba(255,255,255,0.3);
-      position: relative; border-radius: 2px;
+      width: 3px;
+      background: rgba(255, 255, 255, 0.3);
+      position: relative;
+      border-radius: 2px;
     }
+
     .size-label {
-      position: absolute; left: 10px; top: 50%;
+      position: absolute;
+      left: 10px;
+      top: 50%;
       transform: translateY(-50%);
-      background: rgba(0,0,0,0.6);
-      padding: 2px 8px; border-radius: 4px;
-      font-size: 0.7rem; color: var(--accent);
+      background: rgba(0, 0, 0, 0.6);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--accent);
       white-space: nowrap;
       border: 1px solid rgba(255, 215, 0, 0.3);
     }
-    .size-notch-top, .size-notch-bottom {
-      position: absolute; left: -3px;
-      width: 9px; height: 2px;
-      background: rgba(255,255,255,0.5);
+
+    .size-notch-top,
+    .size-notch-bottom {
+      position: absolute;
+      left: -3px;
+      width: 9px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.5);
     }
-    .size-notch-top { top: 0; }
-    .size-notch-bottom { bottom: 0; }
+
+    .size-notch-top {
+      top: 0;
+    }
+
+    .size-notch-bottom {
+      bottom: 0;
+    }
 
     /* AR placement indicator */
     #arPlacement {
-      position: fixed; bottom: 130px; left: 50%;
+      position: fixed;
+      bottom: 130px;
+      left: 50%;
       transform: translateX(-50%);
-      z-index: 45; pointer-events: none;
-      color: #fff; font-size: 0.8rem;
+      z-index: 45;
+      pointer-events: none;
+      color: #fff;
+      font-size: 0.8rem;
       text-align: center;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-      opacity: 0; transition: opacity 0.3s;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
-    #arPlacement.show { opacity: 1; }
+
+    #arPlacement.show {
+      opacity: 1;
+    }
 
     /* Photo mode flash */
     #flashOverlay {
-      position: fixed; inset: 0; z-index: 999;
-      background: #fff; pointer-events: none;
-      opacity: 0; transition: opacity 0.1s;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: #fff;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
     }
 
     /* Caption display */
     #captionDisplay {
-      position: fixed; bottom: 90px; left: 50%;
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
       transform: translateX(-50%);
       z-index: 48;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 215, 0, 0.2);
       padding: 8px 20px;
@@ -782,54 +1246,88 @@
 
     /* Scale mode slider */
     #scaleControl {
-      position: fixed; left: 15px;
-      top: 50%; transform: translateY(-50%);
-      z-index: 55; display: none;
-      flex-direction: column; align-items: center; gap: 5px;
+      position: fixed;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 55;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
     }
-    #scaleControl.show { display: flex; }
+
+    #scaleControl.show {
+      display: flex;
+    }
+
     .scale-label {
-      color: var(--accent); font-size: 0.65rem;
+      color: var(--accent);
+      font-size: 0.65rem;
       writing-mode: vertical-lr;
       transform: rotate(180deg);
       letter-spacing: 1px;
     }
+
     #scaleSlider {
       -webkit-appearance: none;
-      width: 120px; height: 4px;
+      width: 120px;
+      height: 4px;
       transform: rotate(-90deg);
-      background: rgba(255,255,255,0.15);
+      background: rgba(255, 255, 255, 0.15);
       border-radius: 2px;
       outline: none;
       margin: 50px 0;
     }
+
     #scaleSlider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 20px; height: 20px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
       box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
     }
+
     .scale-value {
-      color: #fff; font-size: 0.7rem;
-      background: rgba(0,0,0,0.6);
-      padding: 3px 8px; border-radius: 4px;
+      color: #fff;
+      font-size: 0.7rem;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 3px 8px;
+      border-radius: 4px;
     }
 
     @media (max-width: 500px) {
-      .hud-name { font-size: 0.85rem; }
-      .stat-badge { padding: 3px 5px; font-size: 0.6rem; }
-      .btn-summon { width: 60px; height: 60px; font-size: 24px; }
-      .action-btn-round { width: 42px; height: 42px; font-size: 16px; }
+      .hud-name {
+        font-size: 0.85rem;
+      }
+
+      .stat-badge {
+        padding: 3px 5px;
+        font-size: 0.6rem;
+      }
+
+      .btn-summon {
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
+      }
+
+      .action-btn-round {
+        width: 42px;
+        height: 42px;
+        font-size: 16px;
+      }
     }
   </style>
 </head>
+
 <body>
   <!-- Loading Screen -->
   <div id="loadingScreen">
     <img src="/7e170b92-fab9-464b-8673-2c1fbe370e2c.png" class="loading-dragon" alt="Loading"
-         onerror="this.style.display='none'">
+      onerror="this.style.display='none'">
     <div class="loading-title">TRIỆU HỒN TƯỚNG</div>
     <div class="loading-subtitle">Đang tải mô hình 3D...</div>
     <div class="loading-bar-container">
@@ -946,7 +1444,8 @@
       </div>
     </div>
     <div class="discovery-bottom">
-      <div style="color: var(--accent); font-family: 'Be Vietnam Pro', sans-serif; font-size: 0.8rem; margin-bottom: 8px;">
+      <div
+        style="color: var(--accent); font-family: 'Be Vietnam Pro', sans-serif; font-size: 0.8rem; margin-bottom: 8px;">
         VỊ TƯỚNG GẦN ĐÂY
       </div>
       <div class="nearby-generals" id="nearbyGenerals"></div>
@@ -996,1422 +1495,1452 @@
   <script src="/lib/fflate.min.js"></script>
   <script src="/lib/FBXLoader.js"></script>
 
-<script>
-// ══════════════════════════════════════════════════════════════════════════════
-// GLOBALS
-// ══════════════════════════════════════════════════════════════════════════════
-let scene, camera, renderer, controls, clock;
-let model, mixer, skeletonHelper;
-let proceduralAnimator = null;
-let environmentDome = null;
-let assetData = null;
-let ground, grid;
-let arMode = false;
-let currentAnimAction = null;
+  <script>
+    // ══════════════════════════════════════════════════════════════════════════════
+    // GLOBALS
+    // ══════════════════════════════════════════════════════════════════════════════
+    let scene, camera, renderer, controls, clock;
+    let model, mixer, skeletonHelper;
+    let proceduralAnimator = null;
+    let environmentDome = null;
+    let assetData = null;
+    let ground, grid;
+    let arMode = false;
+    let currentAnimAction = null;
 
-// Real-world scale: 1 Three.js unit = 1 meter
-const REAL_WORLD_SCALE = true;
-const DEFAULT_HUMAN_HEIGHT_CM = 170;
+    // Real-world scale: 1 Three.js unit = 1 meter
+    const REAL_WORLD_SCALE = true;
+    const DEFAULT_HUMAN_HEIGHT_CM = 170;
 
-// Device detection
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
+    // Device detection
+    const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// LIBRARY VALIDATION - Ensure all Three.js addons loaded correctly
-// ══════════════════════════════════════════════════════════════════════════════
-// Track if a fatal error occurred to prevent subsequent null crashes
-let _fatalError = false;
+    // ══════════════════════════════════════════════════════════════════════════════
+    // LIBRARY VALIDATION - Ensure all Three.js addons loaded correctly
+    // ══════════════════════════════════════════════════════════════════════════════
+    // Track if a fatal error occurred to prevent subsequent null crashes
+    let _fatalError = false;
 
-(function validateLibraries() {
-  const missing = [];
-  if (typeof THREE === 'undefined') { missing.push('Three.js core'); }
-  else {
-    if (!THREE.OrbitControls) missing.push('OrbitControls');
-    if (!THREE.GLTFLoader) missing.push('GLTFLoader');
-  }
-  if (missing.length > 0) {
-    console.error('Missing libraries:', missing.join(', '));
-    _fatalError = true;
-    // Show error in the status area WITHOUT destroying loadingBar
-    const statusEl = document.getElementById('loadingStatus');
-    if (statusEl) {
-      statusEl.style.display = 'block';
-      statusEl.innerHTML = '<p style="color:#ff6b6b;font-size:16px;padding:20px;text-align:center;">' +
-        '⚠️ Lỗi tải thư viện 3D.<br>Vui lòng tải lại trang.<br>' +
-        '<button onclick="location.reload()" style="margin-top:15px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:16px;cursor:pointer;">🔄 Tải lại</button></p>';
-    }
-    // Also update subtitle to show error
-    const subtitle = document.querySelector('.loading-subtitle');
-    if (subtitle) subtitle.textContent = 'Lỗi tải thư viện...';
-  }
-})();
-const MODEL_CACHE_NAME = 'webar-model-cache-v1';
-
-// ══════════════════════════════════════════════════════════════════════════════
-// MODEL CACHE - Cache models in browser for instant reload
-// ══════════════════════════════════════════════════════════════════════════════
-const ModelCache = {
-  async get(url) {
-    try {
-      if (!('caches' in window)) return null;
-      const cache = await caches.open(MODEL_CACHE_NAME);
-      const response = await cache.match(url);
-      if (response) {
-        console.log('⚡ Model loaded from cache!');
-        return await response.arrayBuffer();
+    (function validateLibraries() {
+      const missing = [];
+      if (typeof THREE === 'undefined') { missing.push('Three.js core'); }
+      else {
+        if (!THREE.OrbitControls) missing.push('OrbitControls');
+        if (!THREE.GLTFLoader) missing.push('GLTFLoader');
       }
-    } catch (e) { console.log('Cache miss:', e.message); }
-    return null;
-  },
+      if (missing.length > 0) {
+        console.error('Missing libraries:', missing.join(', '));
+        _fatalError = true;
+        // Show error in the status area WITHOUT destroying loadingBar
+        const statusEl = document.getElementById('loadingStatus');
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.innerHTML = '<p style="color:#ff6b6b;font-size:16px;padding:20px;text-align:center;">' +
+            '⚠️ Lỗi tải thư viện 3D.<br>Vui lòng tải lại trang.<br>' +
+            '<button onclick="location.reload()" style="margin-top:15px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:16px;cursor:pointer;">🔄 Tải lại</button></p>';
+        }
+        // Also update subtitle to show error
+        const subtitle = document.querySelector('.loading-subtitle');
+        if (subtitle) subtitle.textContent = 'Lỗi tải thư viện...';
+      }
+    })();
+    const MODEL_CACHE_NAME = 'webar-model-cache-v1';
 
-  async put(url, arrayBuffer) {
-    try {
-      if (!('caches' in window)) return;
-      const cache = await caches.open(MODEL_CACHE_NAME);
-      const response = new Response(arrayBuffer, {
-        headers: { 'Content-Type': 'model/gltf-binary', 'X-Cached-At': Date.now().toString() }
-      });
-      await cache.put(url, response);
-      console.log('💾 Model cached for next visit');
-    } catch (e) { console.log('Cache write failed:', e.message); }
-  },
+    // ══════════════════════════════════════════════════════════════════════════════
+    // MODEL CACHE - Cache models in browser for instant reload
+    // ══════════════════════════════════════════════════════════════════════════════
+    const ModelCache = {
+      async get(url) {
+        try {
+          if (!('caches' in window)) return null;
+          const cache = await caches.open(MODEL_CACHE_NAME);
+          const response = await cache.match(url);
+          if (response) {
+            console.log('⚡ Model loaded from cache!');
+            return await response.arrayBuffer();
+          }
+        } catch (e) { console.log('Cache miss:', e.message); }
+        return null;
+      },
 
-  async clear() {
-    try { await caches.delete(MODEL_CACHE_NAME); } catch {}
-  }
-};
+      async put(url, arrayBuffer) {
+        try {
+          if (!('caches' in window)) return;
+          const cache = await caches.open(MODEL_CACHE_NAME);
+          const response = new Response(arrayBuffer, {
+            headers: { 'Content-Type': 'model/gltf-binary', 'X-Cached-At': Date.now().toString() }
+          });
+          await cache.put(url, response);
+          console.log('💾 Model cached for next visit');
+        } catch (e) { console.log('Cache write failed:', e.message); }
+      },
 
-// ══════════════════════════════════════════════════════════════════════════════
-// TOAST & STATUS
-// ══════════════════════════════════════════════════════════════════════════════
-function showToast(title, msg, duration = 3000) {
-  const el = document.getElementById('toast');
-  const titleEl = document.getElementById('toastTitle');
-  const msgEl = document.getElementById('toastMsg');
-  if (!el || !titleEl) return;
-  titleEl.textContent = title;
-  if (msgEl) msgEl.textContent = msg || '';
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), duration);
-}
-
-function setLoadingProgress(percent) {
-  const bar = document.getElementById('loadingBar');
-  if (bar) bar.style.width = percent + '%';
-}
-
-function hideLoading() {
-  const ls = document.getElementById('loadingScreen');
-  if (!ls) return;
-  ls.classList.add('fade-out');
-  setTimeout(() => ls.style.display = 'none', 800);
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// PROCEDURAL ANIMATOR (Bone-based animations)
-// ══════════════════════════════════════════════════════════════════════════════
-class ProceduralAnimator {
-  constructor(mdl) {
-    this.model = mdl;
-    this.bones = {};
-    this.isPlaying = false;
-    this.animType = null;
-    this.time = 0;
-    this.animId = null;
-    this.originalRotations = {};
-
-    this.boneNameMap = {
-      hips: ['Hip','hips','pelvis','Hips','Pelvis'],
-      spine: ['Waist','waist','spine','Spine'],
-      spine1: ['Spine01','spine01','spine1'],
-      spine2: ['Spine02','spine02','spine2','chest'],
-      neck: ['NeckTwist01','neck','Neck'],
-      head: ['Head','head'],
-      leftUpLeg: ['L_Thigh','LeftUpLeg','leftThigh'],
-      leftLeg: ['L_Calf','LeftLeg','leftShin'],
-      leftFoot: ['L_Foot','LeftFoot','leftFoot'],
-      rightUpLeg: ['R_Thigh','RightUpLeg','rightThigh'],
-      rightLeg: ['R_Calf','RightLeg','rightShin'],
-      rightFoot: ['R_Foot','RightFoot','rightFoot'],
-      leftShoulder: ['L_Clavicle','LeftShoulder'],
-      leftArm: ['L_Upperarm','LeftArm','leftArm'],
-      leftForeArm: ['L_Forearm','LeftForeArm','leftForeArm'],
-      leftHand: ['L_Hand','LeftHand','leftHand'],
-      rightShoulder: ['R_Clavicle','RightShoulder'],
-      rightArm: ['R_Upperarm','RightArm','rightArm'],
-      rightForeArm: ['R_Forearm','RightForeArm','rightForeArm'],
-      rightHand: ['R_Hand','RightHand','rightHand']
+      async clear() {
+        try { await caches.delete(MODEL_CACHE_NAME); } catch { }
+      }
     };
-    this.detectBones();
-  }
 
-  detectBones() {
-    this.model.traverse(child => {
-      if (child.isBone || child.type === 'Bone') {
-        for (const [stdName, aliases] of Object.entries(this.boneNameMap)) {
-          if (this.bones[stdName]) continue;
-          for (const alias of aliases) {
-            if (child.name === alias || child.name.toLowerCase().includes(alias.toLowerCase())) {
-              this.bones[stdName] = child;
-              break;
+    // ══════════════════════════════════════════════════════════════════════════════
+    // TOAST & STATUS
+    // ══════════════════════════════════════════════════════════════════════════════
+    function showToast(title, msg, duration = 3000) {
+      const el = document.getElementById('toast');
+      const titleEl = document.getElementById('toastTitle');
+      const msgEl = document.getElementById('toastMsg');
+      if (!el || !titleEl) return;
+      titleEl.textContent = title;
+      if (msgEl) msgEl.textContent = msg || '';
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    function setLoadingProgress(percent) {
+      const bar = document.getElementById('loadingBar');
+      if (bar) bar.style.width = percent + '%';
+    }
+
+    function hideLoading() {
+      const ls = document.getElementById('loadingScreen');
+      if (!ls) return;
+      ls.classList.add('fade-out');
+      setTimeout(() => ls.style.display = 'none', 800);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // PROCEDURAL ANIMATOR (Bone-based animations)
+    // ══════════════════════════════════════════════════════════════════════════════
+    class ProceduralAnimator {
+      constructor(mdl) {
+        this.model = mdl;
+        this.bones = {};
+        this.isPlaying = false;
+        this.animType = null;
+        this.time = 0;
+        this.animId = null;
+        this.originalRotations = {};
+
+        this.boneNameMap = {
+          hips: ['Hip', 'hips', 'pelvis', 'Hips', 'Pelvis'],
+          spine: ['Waist', 'waist', 'spine', 'Spine'],
+          spine1: ['Spine01', 'spine01', 'spine1'],
+          spine2: ['Spine02', 'spine02', 'spine2', 'chest'],
+          neck: ['NeckTwist01', 'neck', 'Neck'],
+          head: ['Head', 'head'],
+          leftUpLeg: ['L_Thigh', 'LeftUpLeg', 'leftThigh'],
+          leftLeg: ['L_Calf', 'LeftLeg', 'leftShin'],
+          leftFoot: ['L_Foot', 'LeftFoot', 'leftFoot'],
+          rightUpLeg: ['R_Thigh', 'RightUpLeg', 'rightThigh'],
+          rightLeg: ['R_Calf', 'RightLeg', 'rightShin'],
+          rightFoot: ['R_Foot', 'RightFoot', 'rightFoot'],
+          leftShoulder: ['L_Clavicle', 'LeftShoulder'],
+          leftArm: ['L_Upperarm', 'LeftArm', 'leftArm'],
+          leftForeArm: ['L_Forearm', 'LeftForeArm', 'leftForeArm'],
+          leftHand: ['L_Hand', 'LeftHand', 'leftHand'],
+          rightShoulder: ['R_Clavicle', 'RightShoulder'],
+          rightArm: ['R_Upperarm', 'RightArm', 'rightArm'],
+          rightForeArm: ['R_Forearm', 'RightForeArm', 'rightForeArm'],
+          rightHand: ['R_Hand', 'RightHand', 'rightHand']
+        };
+        this.detectBones();
+      }
+
+      detectBones() {
+        this.model.traverse(child => {
+          if (child.isBone || child.type === 'Bone') {
+            for (const [stdName, aliases] of Object.entries(this.boneNameMap)) {
+              if (this.bones[stdName]) continue;
+              for (const alias of aliases) {
+                if (child.name === alias || child.name.toLowerCase().includes(alias.toLowerCase())) {
+                  this.bones[stdName] = child;
+                  break;
+                }
+              }
             }
           }
+        });
+        this.storeOriginalRotations();
+      }
+
+      storeOriginalRotations() {
+        for (const name of Object.keys(this.bones)) {
+          const b = this.bones[name];
+          if (b) this.originalRotations[name] = { x: b.rotation.x, y: b.rotation.y, z: b.rotation.z };
         }
       }
-    });
-    this.storeOriginalRotations();
-  }
 
-  storeOriginalRotations() {
-    for (const name of Object.keys(this.bones)) {
-      const b = this.bones[name];
-      if (b) this.originalRotations[name] = { x: b.rotation.x, y: b.rotation.y, z: b.rotation.z };
-    }
-  }
-
-  play(type = 'idle') {
-    if (this.isPlaying && this.animType === type) return;
-    this.stop();
-    this.isPlaying = true;
-    this.animType = type;
-    this.time = 0;
-    this.animate();
-  }
-
-  stop() {
-    this.isPlaying = false;
-    this.animType = null;
-    if (this.animId) { cancelAnimationFrame(this.animId); this.animId = null; }
-    this.resetPose();
-  }
-
-  resetPose() {
-    for (const name of Object.keys(this.bones)) {
-      const b = this.bones[name];
-      const o = this.originalRotations[name];
-      if (b && o) { b.rotation.x = o.x; b.rotation.y = o.y; b.rotation.z = o.z; }
-    }
-  }
-
-  animate() {
-    if (!this.isPlaying) return;
-    this.time += 0.016;
-    if (this.animType === 'walk') this.animateWalk();
-    else if (this.animType === 'idle') this.animateIdle();
-    else if (this.animType === 'look_around') this.animateLookAround();
-    this.animId = requestAnimationFrame(() => this.animate());
-  }
-
-  orig(name, axis) { return this.originalRotations[name]?.[axis] || 0; }
-
-  animateWalk() {
-    const t = this.time, phase = (t % 1) * Math.PI * 2;
-    const b = this.bones, o = (n,a) => this.orig(n,a);
-    const s = Math.sin, c = Math.cos;
-
-    if(b.hips){ b.hips.rotation.z=o('hips','z')+s(phase)*0.035; b.hips.rotation.y=o('hips','y')+s(phase)*0.06; }
-    if(b.spine){ b.spine.rotation.y=o('spine','y')-s(phase)*0.045; b.spine.rotation.x=o('spine','x')+0.02; }
-    if(b.rightUpLeg){ b.rightUpLeg.rotation.x=o('rightUpLeg','x')+s(phase)*0.38; }
-    if(b.rightLeg){ const bend=Math.max(0,s(phase+0.4)); b.rightLeg.rotation.x=o('rightLeg','x')+bend*bend*0.55; }
-    if(b.rightFoot){ b.rightFoot.rotation.x=o('rightFoot','x')+s(phase-0.6)*0.2; }
-    const lp = phase + Math.PI;
-    if(b.leftUpLeg){ b.leftUpLeg.rotation.x=o('leftUpLeg','x')+s(lp)*0.38; }
-    if(b.leftLeg){ const bend=Math.max(0,s(lp+0.4)); b.leftLeg.rotation.x=o('leftLeg','x')+bend*bend*0.55; }
-    if(b.leftFoot){ b.leftFoot.rotation.x=o('leftFoot','x')+s(lp-0.6)*0.2; }
-    if(b.rightArm){ b.rightArm.rotation.x=o('rightArm','x')+s(lp)*0.4; }
-    if(b.rightForeArm){ b.rightForeArm.rotation.x=o('rightForeArm','x')-Math.max(0,s(lp))*0.35-0.05; }
-    if(b.leftArm){ b.leftArm.rotation.x=o('leftArm','x')+s(phase)*0.4; }
-    if(b.leftForeArm){ b.leftForeArm.rotation.x=o('leftForeArm','x')-Math.max(0,s(phase))*0.35-0.05; }
-    if(b.head){ b.head.rotation.x=o('head','x')+s(phase*2)*0.01; }
-  }
-
-  animateIdle() {
-    const t = this.time, b = this.bones, o = (n,a) => this.orig(n,a);
-    const breath = Math.sin(t*1.2)*0.5+0.5;
-    if(b.spine){ b.spine.rotation.x=o('spine','x')+breath*0.018; }
-    if(b.spine2){ b.spine2.rotation.x=o('spine2','x')+breath*0.009; }
-    if(b.hips){ b.hips.rotation.z=o('hips','z')+Math.sin(t*0.3)*0.012; }
-    if(b.rightArm){ b.rightArm.rotation.z=o('rightArm','z')+Math.sin(t*0.4)*0.015; }
-    if(b.leftArm){ b.leftArm.rotation.z=o('leftArm','z')-Math.sin(t*0.4+0.5)*0.015; }
-    if(b.head){ b.head.rotation.y=o('head','y')+Math.sin(t*0.25)*0.025; }
-  }
-
-  animateLookAround() {
-    const t = this.time, b = this.bones, o = (n,a) => this.orig(n,a);
-    const breath = Math.sin(t*1.0)*0.5+0.5;
-    if(b.spine){ b.spine.rotation.x=o('spine','x')+breath*0.05; b.spine.rotation.z=o('spine','z')+Math.sin(t*0.4)*0.03; }
-    if(b.hips){ b.hips.rotation.z=o('hips','z')+Math.sin(t*0.5)*0.08; b.hips.rotation.y=o('hips','y')+Math.sin(t*0.3)*0.06; }
-    if(b.rightUpLeg){ b.rightUpLeg.rotation.x=o('rightUpLeg','x')+Math.sin(t*0.7)*0.1; }
-    if(b.leftUpLeg){ b.leftUpLeg.rotation.x=o('leftUpLeg','x')+Math.sin(t*0.65+2)*0.1; }
-    if(b.rightArm){ b.rightArm.rotation.z=o('rightArm','z')+Math.sin(t*0.6)*0.1; }
-    if(b.leftArm){ b.leftArm.rotation.z=o('leftArm','z')-Math.sin(t*0.65+0.8)*0.1; }
-    if(b.neck){ b.neck.rotation.y=o('neck','y')+Math.sin(t*0.35)*0.15; }
-    if(b.head){ b.head.rotation.y=o('head','y')+Math.sin(t*0.3)*0.25; b.head.rotation.x=o('head','x')+Math.sin(t*0.4)*0.12; }
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// iOS MEMORY OPTIMIZATION: Downscale textures to prevent Safari crashes
-// ══════════════════════════════════════════════════════════════════════════════
-function downscaleMaterialTextures(material) {
-  const maxSize = IS_IOS ? 512 : (IS_MOBILE ? 1024 : 2048);
-  const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap'];
-  
-  textureProps.forEach(prop => {
-    const tex = material[prop];
-    if (!tex || !tex.image) return;
-    
-    const img = tex.image;
-    const w = img.width || img.naturalWidth || 0;
-    const h = img.height || img.naturalHeight || 0;
-    
-    if (w > maxSize || h > maxSize) {
-      const scale = maxSize / Math.max(w, h);
-      const newW = Math.floor(w * scale);
-      const newH = Math.floor(h * scale);
-      
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = newW;
-        canvas.height = newH;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, newW, newH);
-        
-        tex.image = canvas;
-        tex.needsUpdate = true;
-        
-        // Release original image memory
-        if (img.close) img.close();
-        
-        console.log(`📐 ${prop}: ${w}x${h} → ${newW}x${newH}`);
-      } catch (e) {
-        // Silently fail for non-drawable images
+      play(type = 'idle') {
+        if (this.isPlaying && this.animType === type) return;
+        this.stop();
+        this.isPlaying = true;
+        this.animType = type;
+        this.time = 0;
+        this.animate();
       }
-    }
-  });
-  
-  // On iOS/mobile: drop non-essential texture maps entirely
-  if (IS_IOS) {
-    if (material.aoMap) { material.aoMap.dispose(); material.aoMap = null; material.aoMapIntensity = 0; }
-    if (material.normalMap && material.map) { material.normalMap.dispose(); material.normalMap = null; } // Keep only diffuse
-    if (material.displacementMap) { material.displacementMap.dispose(); material.displacementMap = null; }
-    if (material.bumpMap) { material.bumpMap.dispose(); material.bumpMap = null; }
-  } else if (IS_MOBILE) {
-    if (material.aoMap) { material.aoMap.dispose(); material.aoMap = null; material.aoMapIntensity = 0; }
-    if (material.displacementMap) { material.displacementMap.dispose(); material.displacementMap = null; }
-  }
-}
 
-// ══════════════════════════════════════════════════════════════════════════════
-// AUTO-RESIZE: Scale any model to real-life human height
-// ══════════════════════════════════════════════════════════════════════════════
-function autoResizeToRealLife(loadedModel, targetHeightCM) {
-  // Reset transforms
-  loadedModel.position.set(0, 0, 0);
-  loadedModel.rotation.set(0, 0, 0);
-  loadedModel.scale.set(1, 1, 1);
-  loadedModel.updateMatrixWorld(true);
+      stop() {
+        this.isPlaying = false;
+        this.animType = null;
+        if (this.animId) { cancelAnimationFrame(this.animId); this.animId = null; }
+        this.resetPose();
+      }
 
-  // Measure original bounding box
-  const box = new THREE.Box3().setFromObject(loadedModel);
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-
-  const originalHeightUnits = size.y;
-  if (originalHeightUnits <= 0) {
-    console.warn('Model has zero height, cannot auto-resize');
-    return { scaleFactor: 1, realHeightCM: 0 };
-  }
-
-  // Target: 1 unit = 1 meter in Three.js
-  // So 170cm = 1.7 units
-  const targetHeightUnits = targetHeightCM / 100;
-  const scaleFactor = targetHeightUnits / originalHeightUnits;
-
-  console.log(`📐 Auto-resize: original=${originalHeightUnits.toFixed(3)} units, target=${targetHeightUnits.toFixed(3)} units (${targetHeightCM}cm), scale=${scaleFactor.toFixed(4)}`);
-
-  // Apply scale
-  loadedModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
-  loadedModel.updateMatrixWorld(true);
-
-  // Recalculate after scaling
-  const scaledBox = new THREE.Box3().setFromObject(loadedModel);
-  const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
-
-  // Place feet on ground (Y=0)
-  const yOffset = -scaledBox.min.y;
-  const adminYOffset = assetData?.modelY || 0;
-
-  loadedModel.position.set(
-    -scaledCenter.x,
-    yOffset + adminYOffset,
-    -scaledCenter.z
-  );
-
-  loadedModel.updateMatrixWorld(true);
-
-  // Verify
-  const finalBox = new THREE.Box3().setFromObject(loadedModel);
-  const finalHeight = finalBox.max.y - finalBox.min.y;
-  console.log(`✅ Final height: ${(finalHeight * 100).toFixed(1)}cm (target: ${targetHeightCM}cm). Feet at Y=${finalBox.min.y.toFixed(3)}`);
-
-  return { scaleFactor, realHeightCM: targetHeightCM };
-}
-
-// Dynamic re-scale (for slider)
-function rescaleModel(newHeightCM) {
-  if (!model) return;
-  autoResizeToRealLife(model, newHeightCM);
-  updateSizeIndicator(newHeightCM);
-}
-
-function updateSizeIndicator(heightCM) {
-  const indicator = document.getElementById('sizeIndicator');
-  const ruler = document.getElementById('sizeRuler');
-  const label = document.getElementById('sizeLabel');
-
-  // Show ruler proportional to screen height
-  // Assume at default camera distance, a 170cm person takes ~60% of screen
-  const screenRatio = (heightCM / 170) * 0.6;
-  const rulerPx = Math.min(window.innerHeight * screenRatio, window.innerHeight * 0.8);
-
-  ruler.style.height = rulerPx + 'px';
-  label.textContent = heightCM + 'cm';
-  indicator.style.display = 'block';
-
-  // Auto-hide after 3s
-  clearTimeout(indicator._hideTimer);
-  indicator._hideTimer = setTimeout(() => {
-    indicator.style.display = 'none';
-  }, 3000);
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// AR CAMERA
-// ══════════════════════════════════════════════════════════════════════════════
-async function initARCamera() {
-  try {
-    // Check if mediaDevices is available (requires HTTPS on Safari)
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.log('📷 Camera API not available (needs HTTPS)');
-      arMode = false;
-      return false;
-    }
-    
-    // iOS: use lower camera resolution to save memory (camera + WebGL compete for RAM)
-    const camWidth = IS_IOS ? 640 : (IS_MOBILE ? 960 : 1280);
-    const camHeight = IS_IOS ? 480 : (IS_MOBILE ? 540 : 720);
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: camWidth }, height: { ideal: camHeight } }
-    });
-    const video = document.getElementById('cameraVideo');
-    video.srcObject = stream;
-    
-    // Safari-safe play
-    video.setAttribute('playsinline', '');
-    video.setAttribute('webkit-playsinline', '');
-    video.muted = true;
-    
-    try {
-      await video.play();
-    } catch(playErr) {
-      console.log('📷 Video autoplay blocked, will play on interaction');
-      document.addEventListener('touchstart', function playOnTouch() {
-        video.play().catch(() => {});
-        document.removeEventListener('touchstart', playOnTouch);
-      }, { once: true });
-    }
-    
-    arMode = true;
-
-    // Make scene transparent for AR
-    if (scene) scene.background = null;
-    if (ground) { ground.material.opacity = 0.15; ground.material.transparent = true; }
-    if (grid) grid.visible = false;
-
-    console.log('📷 AR Camera active');
-    return true;
-  } catch (e) {
-    console.log('📷 Camera not available:', e.message);
-    arMode = false;
-    return false;
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// INITIALIZE SCENE
-// ══════════════════════════════════════════════════════════════════════════════
-let isRendering = true; // Controls whether render loop is active
-
-async function init() {
-  if (_fatalError) return; // Don't attempt init if libraries failed to load
-  try {
-  const canvas = document.getElementById('canvas3d');
-  if (!canvas) throw new Error('Canvas element not found');
-  setLoadingProgress(10);
-
-  // Scene
-  scene = new THREE.Scene();
-  scene.background = null;
-
-  // Camera - use shorter far plane on mobile to reduce depth buffer memory
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, IS_MOBILE ? 100 : 500);
-  camera.position.set(0, 0.9, 3.5);
-
-  // Renderer - iOS Safari compatible (DO NOT create separate WebGL context first!)
-  renderer = new THREE.WebGLRenderer({ 
-    canvas, 
-    antialias: !IS_IOS, // Enable on non-iOS for sharper edges
-    alpha: true,
-    preserveDrawingBuffer: false, // CRITICAL: true doubles GPU memory, causes iOS crash
-    powerPreference: IS_MOBILE ? 'low-power' : 'high-performance',
-    failIfMajorPerformanceCaveat: false
-  });
-  
-  if (!renderer.getContext()) {
-    _fatalError = true;
-    const ls = document.getElementById('loadingScreen');
-    if (ls) ls.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;cursor:pointer;">Thử lại</button></div>';
-    return;
-  }
-
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  // iOS: pixel ratio 1.0 to prevent memory overflow
-  renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, IS_MOBILE ? 2 : 2));
-  renderer.shadowMap.enabled = !IS_MOBILE;
-  if (renderer.shadowMap.enabled) {
-    renderer.shadowMap.type = THREE.BasicShadowMap;
-  }
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-
-  // CRITICAL: Handle WebGL context loss (iOS recovers memory by killing contexts)
-  canvas.addEventListener('webglcontextlost', function(e) {
-    e.preventDefault();
-    console.warn('⚠️ WebGL context lost - pausing render');
-    isRendering = false;
-  }, false);
-  canvas.addEventListener('webglcontextrestored', function(e) {
-    console.log('✅ WebGL context restored - resuming');
-    isRendering = true;
-    // Re-setup renderer state
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 2));
-  }, false);
-
-  // Controls
-  controls = new THREE.OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.target.set(0, 0.85, 0); // Look at chest height
-  controls.minDistance = 0.5;
-  controls.maxDistance = 20;
-
-  // Lighting - outdoor natural light
-  const ambientLight = new THREE.AmbientLight(0xffffff, IS_MOBILE ? 0.8 : 0.6);
-  scene.add(ambientLight);
-
-  const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
-  sunLight.position.set(5, 10, 7);
-  if (!IS_MOBILE) {
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 1024;
-    sunLight.shadow.mapSize.height = 1024;
-    sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 30;
-    sunLight.shadow.camera.left = -3;
-    sunLight.shadow.camera.right = 3;
-    sunLight.shadow.camera.top = 3;
-    sunLight.shadow.camera.bottom = -3;
-  }
-  scene.add(sunLight);
-
-  const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
-  fillLight.position.set(-3, 5, -5);
-  scene.add(fillLight);
-
-  // Hemisphere light for outdoor feel
-  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d1b, 0.4);
-  scene.add(hemiLight);
-
-  // Ground - hidden for clean AR view
-  const groundGeo = new THREE.PlaneGeometry(30, 30);
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x333333, roughness: 0.9, transparent: true, opacity: 0
-  });
-  ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  ground.visible = false;
-  scene.add(ground);
-
-  // Grid - hidden
-  grid = new THREE.GridHelper(30, 30, 0x444444, 0x222222);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.3;
-  grid.visible = false;
-  scene.add(grid);
-
-  // Environment dome - skip on iOS to save memory
-  if (!IS_IOS) {
-    const domeGeo = new THREE.SphereGeometry(100, IS_MOBILE ? 8 : 32, IS_MOBILE ? 4 : 16);
-    const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
-    environmentDome = new THREE.Mesh(domeGeo, domeMat);
-    scene.add(environmentDome);
-  }
-
-  clock = new THREE.Clock();
-  setLoadingProgress(30);
-
-  // Load asset data FIRST (fast), then start model download immediately
-  const pathParts = window.location.pathname.split('/');
-  const assetId = pathParts[pathParts.length - 1];
-
-  if (assetId && assetId !== 'viewer.html') {
-    try {
-      const resp = await fetch(`/api/asset/${assetId}`);
-      if (resp.ok) {
-        assetData = await resp.json();
-        console.log('📦 Asset data:', assetData);
-
-        // Update HUD immediately (no waiting)
-        updateCharacterHUD(assetData);
-
-        // Caption
-        if (assetData.caption) {
-          const cap = document.getElementById('captionDisplay');
-          cap.textContent = assetData.caption;
-          cap.style.display = 'block';
+      resetPose() {
+        for (const name of Object.keys(this.bones)) {
+          const b = this.bones[name];
+          const o = this.originalRotations[name];
+          if (b && o) { b.rotation.x = o.x; b.rotation.y = o.y; b.rotation.z = o.z; }
         }
-        
-        setLoadingProgress(40);
       }
-    } catch (e) {
-      console.log('Could not load asset data');
+
+      animate() {
+        if (!this.isPlaying) return;
+        this.time += 0.016;
+        if (this.animType === 'walk') this.animateWalk();
+        else if (this.animType === 'idle') this.animateIdle();
+        else if (this.animType === 'look_around') this.animateLookAround();
+        this.animId = requestAnimationFrame(() => this.animate());
+      }
+
+      orig(name, axis) { return this.originalRotations[name]?.[axis] || 0; }
+
+      animateWalk() {
+        const t = this.time, phase = (t % 1) * Math.PI * 2;
+        const b = this.bones, o = (n, a) => this.orig(n, a);
+        const s = Math.sin, c = Math.cos;
+
+        if (b.hips) { b.hips.rotation.z = o('hips', 'z') + s(phase) * 0.035; b.hips.rotation.y = o('hips', 'y') + s(phase) * 0.06; }
+        if (b.spine) { b.spine.rotation.y = o('spine', 'y') - s(phase) * 0.045; b.spine.rotation.x = o('spine', 'x') + 0.02; }
+        if (b.rightUpLeg) { b.rightUpLeg.rotation.x = o('rightUpLeg', 'x') + s(phase) * 0.38; }
+        if (b.rightLeg) { const bend = Math.max(0, s(phase + 0.4)); b.rightLeg.rotation.x = o('rightLeg', 'x') + bend * bend * 0.55; }
+        if (b.rightFoot) { b.rightFoot.rotation.x = o('rightFoot', 'x') + s(phase - 0.6) * 0.2; }
+        const lp = phase + Math.PI;
+        if (b.leftUpLeg) { b.leftUpLeg.rotation.x = o('leftUpLeg', 'x') + s(lp) * 0.38; }
+        if (b.leftLeg) { const bend = Math.max(0, s(lp + 0.4)); b.leftLeg.rotation.x = o('leftLeg', 'x') + bend * bend * 0.55; }
+        if (b.leftFoot) { b.leftFoot.rotation.x = o('leftFoot', 'x') + s(lp - 0.6) * 0.2; }
+        if (b.rightArm) { b.rightArm.rotation.x = o('rightArm', 'x') + s(lp) * 0.4; }
+        if (b.rightForeArm) { b.rightForeArm.rotation.x = o('rightForeArm', 'x') - Math.max(0, s(lp)) * 0.35 - 0.05; }
+        if (b.leftArm) { b.leftArm.rotation.x = o('leftArm', 'x') + s(phase) * 0.4; }
+        if (b.leftForeArm) { b.leftForeArm.rotation.x = o('leftForeArm', 'x') - Math.max(0, s(phase)) * 0.35 - 0.05; }
+        if (b.head) { b.head.rotation.x = o('head', 'x') + s(phase * 2) * 0.01; }
+      }
+
+      animateIdle() {
+        const t = this.time, b = this.bones, o = (n, a) => this.orig(n, a);
+        const breath = Math.sin(t * 1.2) * 0.5 + 0.5;
+        if (b.spine) { b.spine.rotation.x = o('spine', 'x') + breath * 0.018; }
+        if (b.spine2) { b.spine2.rotation.x = o('spine2', 'x') + breath * 0.009; }
+        if (b.hips) { b.hips.rotation.z = o('hips', 'z') + Math.sin(t * 0.3) * 0.012; }
+        if (b.rightArm) { b.rightArm.rotation.z = o('rightArm', 'z') + Math.sin(t * 0.4) * 0.015; }
+        if (b.leftArm) { b.leftArm.rotation.z = o('leftArm', 'z') - Math.sin(t * 0.4 + 0.5) * 0.015; }
+        if (b.head) { b.head.rotation.y = o('head', 'y') + Math.sin(t * 0.25) * 0.025; }
+      }
+
+      animateLookAround() {
+        const t = this.time, b = this.bones, o = (n, a) => this.orig(n, a);
+        const breath = Math.sin(t * 1.0) * 0.5 + 0.5;
+        if (b.spine) { b.spine.rotation.x = o('spine', 'x') + breath * 0.05; b.spine.rotation.z = o('spine', 'z') + Math.sin(t * 0.4) * 0.03; }
+        if (b.hips) { b.hips.rotation.z = o('hips', 'z') + Math.sin(t * 0.5) * 0.08; b.hips.rotation.y = o('hips', 'y') + Math.sin(t * 0.3) * 0.06; }
+        if (b.rightUpLeg) { b.rightUpLeg.rotation.x = o('rightUpLeg', 'x') + Math.sin(t * 0.7) * 0.1; }
+        if (b.leftUpLeg) { b.leftUpLeg.rotation.x = o('leftUpLeg', 'x') + Math.sin(t * 0.65 + 2) * 0.1; }
+        if (b.rightArm) { b.rightArm.rotation.z = o('rightArm', 'z') + Math.sin(t * 0.6) * 0.1; }
+        if (b.leftArm) { b.leftArm.rotation.z = o('leftArm', 'z') - Math.sin(t * 0.65 + 0.8) * 0.1; }
+        if (b.neck) { b.neck.rotation.y = o('neck', 'y') + Math.sin(t * 0.35) * 0.15; }
+        if (b.head) { b.head.rotation.y = o('head', 'y') + Math.sin(t * 0.3) * 0.25; b.head.rotation.x = o('head', 'x') + Math.sin(t * 0.4) * 0.12; }
+      }
     }
-  }
 
-  // Start model loading ASAP (highest priority)
-  loadModel();
+    // ══════════════════════════════════════════════════════════════════════════════
+    // iOS MEMORY OPTIMIZATION: Downscale textures to prevent Safari crashes
+    // ══════════════════════════════════════════════════════════════════════════════
+    function downscaleMaterialTextures(material) {
+      const maxSize = IS_IOS ? 1024 : (IS_MOBILE ? 2048 : 4096);
+      const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap'];
 
-  // Start animation loop
-  animate();
+      textureProps.forEach(prop => {
+        const tex = material[prop];
+        if (!tex || !tex.image) return;
 
-  // Resize
-  window.addEventListener('resize', onResize);
+        const img = tex.image;
 
-  // Setup UI
-  setupUI();
+        // Only process if image is an HTMLImageElement or HTMLCanvasElement
+        // Do NOT touch CompressedTexture, DataTexture, or other non-drawable types
+        const isDrawable = (img instanceof HTMLImageElement) || (img instanceof HTMLCanvasElement) || (img instanceof ImageBitmap);
+        if (!isDrawable) return;
 
-  // AR camera - auto-request on ALL devices (including iOS)
-  setTimeout(() => {
-    initARCamera().then((ok) => {
-      if (ok) setLoadingProgress(50);
-    });
-  }, 300);
+        const w = img.width || img.naturalWidth || 0;
+        const h = img.height || img.naturalHeight || 0;
 
-  // Load environment images lazily (low priority) - skip on iOS to save memory
-  if (!IS_IOS) {
-    if (assetData?.groundImage) {
-      setTimeout(() => {
-        new THREE.TextureLoader().load(assetData.groundImage, tex => {
-          ground.material.map = tex;
-          ground.material.color.set(0xffffff);
-          ground.material.opacity = 0.8;
-          ground.material.needsUpdate = true;
-        });
-      }, 2000);
+        if (w > maxSize || h > maxSize) {
+          const scale = maxSize / Math.max(w, h);
+          const newW = Math.floor(w * scale);
+          const newH = Math.floor(h * scale);
+
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = newW;
+            canvas.height = newH;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, newW, newH);
+
+            tex.image = canvas;
+            tex.needsUpdate = true;
+
+            console.log(`📐 ${prop}: ${w}x${h} → ${newW}x${newH}`);
+          } catch (e) {
+            // Silently fail for non-drawable images — keep original texture
+            console.log(`⚠️ Cannot downscale ${prop}: ${e.message}`);
+          }
+        }
+      });
+
+      // Ensure correct texture encoding for color maps (sRGB)
+      if (material.map) {
+        material.map.encoding = THREE.sRGBEncoding;
+        material.map.needsUpdate = true;
+      }
+      if (material.emissiveMap) {
+        material.emissiveMap.encoding = THREE.sRGBEncoding;
+        material.emissiveMap.needsUpdate = true;
+      }
     }
-    if (assetData?.envImage && environmentDome) {
-      setTimeout(() => {
-        new THREE.TextureLoader().load(assetData.envImage, tex => {
-          tex.mapping = THREE.EquirectangularReflectionMapping;
-          environmentDome.material.map = tex;
-          environmentDome.material.color.set(0xffffff);
-          environmentDome.material.needsUpdate = true;
-        });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AUTO-RESIZE: Scale any model to real-life human height
+    // ══════════════════════════════════════════════════════════════════════════════
+    function autoResizeToRealLife(loadedModel, targetHeightCM) {
+      // Reset transforms
+      loadedModel.position.set(0, 0, 0);
+      loadedModel.rotation.set(0, 0, 0);
+      loadedModel.scale.set(1, 1, 1);
+      loadedModel.updateMatrixWorld(true);
+
+      // Measure original bounding box
+      const box = new THREE.Box3().setFromObject(loadedModel);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      const originalHeightUnits = size.y;
+      if (originalHeightUnits <= 0) {
+        console.warn('Model has zero height, cannot auto-resize');
+        return { scaleFactor: 1, realHeightCM: 0 };
+      }
+
+      // Target: 1 unit = 1 meter in Three.js
+      // So 170cm = 1.7 units
+      const targetHeightUnits = targetHeightCM / 100;
+      const scaleFactor = targetHeightUnits / originalHeightUnits;
+
+      console.log(`📐 Auto-resize: original=${originalHeightUnits.toFixed(3)} units, target=${targetHeightUnits.toFixed(3)} units (${targetHeightCM}cm), scale=${scaleFactor.toFixed(4)}`);
+
+      // Apply scale
+      loadedModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      loadedModel.updateMatrixWorld(true);
+
+      // Recalculate after scaling
+      const scaledBox = new THREE.Box3().setFromObject(loadedModel);
+      const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+
+      // Place feet on ground (Y=0)
+      const yOffset = -scaledBox.min.y;
+      const adminYOffset = assetData?.modelY || 0;
+
+      loadedModel.position.set(
+        -scaledCenter.x,
+        yOffset + adminYOffset,
+        -scaledCenter.z
+      );
+
+      loadedModel.updateMatrixWorld(true);
+
+      // Verify
+      const finalBox = new THREE.Box3().setFromObject(loadedModel);
+      const finalHeight = finalBox.max.y - finalBox.min.y;
+      console.log(`✅ Final height: ${(finalHeight * 100).toFixed(1)}cm (target: ${targetHeightCM}cm). Feet at Y=${finalBox.min.y.toFixed(3)}`);
+
+      return { scaleFactor, realHeightCM: targetHeightCM };
+    }
+
+    // Dynamic re-scale (for slider)
+    function rescaleModel(newHeightCM) {
+      if (!model) return;
+      autoResizeToRealLife(model, newHeightCM);
+      updateSizeIndicator(newHeightCM);
+    }
+
+    function updateSizeIndicator(heightCM) {
+      const indicator = document.getElementById('sizeIndicator');
+      const ruler = document.getElementById('sizeRuler');
+      const label = document.getElementById('sizeLabel');
+
+      // Show ruler proportional to screen height
+      // Assume at default camera distance, a 170cm person takes ~60% of screen
+      const screenRatio = (heightCM / 170) * 0.6;
+      const rulerPx = Math.min(window.innerHeight * screenRatio, window.innerHeight * 0.8);
+
+      ruler.style.height = rulerPx + 'px';
+      label.textContent = heightCM + 'cm';
+      indicator.style.display = 'block';
+
+      // Auto-hide after 3s
+      clearTimeout(indicator._hideTimer);
+      indicator._hideTimer = setTimeout(() => {
+        indicator.style.display = 'none';
       }, 3000);
     }
-  }
-  
-  } catch(initError) {
-    console.error('Init failed:', initError);
-    _fatalError = true;
-    const ls = document.getElementById('loadingScreen');
-    if (ls) {
-      ls.innerHTML = 
-        '<div style="color:#fff;text-align:center;padding:40px;font-family:sans-serif;">' +
-        '<h2 style="color:#FFD700;">Đã xảy ra lỗi</h2>' +
-        '<p style="margin-top:10px;">' + (initError.message || 'Không thể khởi tạo 3D') + '</p>' +
-        '<p style="margin-top:10px;color:#888;">Vui lòng thử lại hoặc dùng trình duyệt khác</p>' +
-        '<button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">Thử lại</button></div>';
-    }
-  }
-}
 
-// ══════════════════════════════════════════════════════════════════════════════
-// LOAD MODEL - Optimized with caching, Draco, streaming
-// ══════════════════════════════════════════════════════════════════════════════
-function loadModel() {
-  const modelPath = assetData?.model || '/uploads/default.glb';
-  
-  if (!modelPath || modelPath === '/uploads/default.glb') {
-    console.warn('No model path found');
-  }
-  
-  const isFBX = modelPath.toLowerCase().endsWith('.fbx');
-  const isGLB = modelPath.toLowerCase().endsWith('.glb');
-  const fullUrl = modelPath.startsWith('http') ? modelPath : modelPath;
-
-  const onProgress = (p) => {
-    if (p.total > 0) {
-      const pct = 60 + Math.round((p.loaded / p.total) * 30);
-      setLoadingProgress(Math.min(pct, 90));
-      
-      // Show download size info
-      const loadedMB = (p.loaded / (1024 * 1024)).toFixed(1);
-      const totalMB = (p.total / (1024 * 1024)).toFixed(1);
-      const subtitle = document.querySelector('.loading-subtitle');
-      if (subtitle) subtitle.textContent = `Đang tải: ${loadedMB}MB / ${totalMB}MB`;
-    }
-  };
-
-  const onError = (err) => {
-    console.error('Model load error:', err);
-    const absUrl = window.location.origin + modelPath;
-    console.log('Retrying with absolute URL:', absUrl);
-    
-    if (isFBX) {
-      new THREE.FBXLoader().load(absUrl, fbx => {
-        processLoadedModel(fbx, fbx.animations || []);
-      }, onProgress, (err2) => {
-        console.error('Model load failed completely:', err2);
-        hideLoading();
-      });
-    } else {
-      createGLTFLoader().load(absUrl, gltf => {
-        processLoadedModel(gltf.scene, gltf.animations || []);
-      }, onProgress, (err2) => {
-        console.error('Model load failed completely:', err2);
-        hideLoading();
-      });
-    }
-  };
-
-  console.log('Loading model from:', fullUrl, 
-    assetData?.isOptimized ? '(optimized)' : '(original)',
-    assetData?.modelSize ? `(${(assetData.modelSize / (1024*1024)).toFixed(1)}MB)` : '');
-
-  if (isFBX) {
-    new THREE.FBXLoader().load(fullUrl, fbx => {
-      processLoadedModel(fbx, fbx.animations || []);
-    }, onProgress, onError);
-  } else if (isGLB) {
-    // Try cache first for GLB files
-    loadGLBWithCache(fullUrl, onProgress, onError);
-  } else {
-    createGLTFLoader().load(fullUrl, gltf => {
-      processLoadedModel(gltf.scene, gltf.animations || []);
-    }, onProgress, onError);
-  }
-}
-
-// Create GLTF loader with Draco support
-function createGLTFLoader() {
-  const loader = new THREE.GLTFLoader();
-  
-  // Setup DRACOLoader for compressed models
-  try {
-    const dracoLoader = new THREE.DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-    dracoLoader.setDecoderConfig({ type: 'js' }); // JS decoder works everywhere
-    dracoLoader.preload();
-    loader.setDRACOLoader(dracoLoader);
-    console.log('🗜 DRACOLoader configured');
-  } catch (e) {
-    console.log('DRACOLoader not available:', e.message);
-  }
-  
-  return loader;
-}
-
-// Load GLB with Cache API for instant reload
-async function loadGLBWithCache(url, onProgress, onError) {
-  const absoluteUrl = new URL(url, window.location.origin).href;
-  
-  // Step 1: Check cache
-  const cachedBuffer = await ModelCache.get(absoluteUrl);
-  if (cachedBuffer) {
-    console.log('⚡ Loading from cache (instant!)');
-    setLoadingProgress(80);
-    
-    const subtitle = document.querySelector('.loading-subtitle');
-    if (subtitle) subtitle.textContent = 'Đang triệu hồn từ bộ nhớ...';
-    
-    try {
-      const loader = createGLTFLoader();
-      loader.parse(cachedBuffer, '', (gltf) => {
-        processLoadedModel(gltf.scene, gltf.animations || []);
-      }, onError);
-      return;
-    } catch (e) {
-      console.log('Cache parse failed, downloading fresh:', e.message);
-    }
-  }
-  
-  // Step 2: Download with XMLHttpRequest for progress + caching
-  console.log('📥 Downloading model...');
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', absoluteUrl, true);
-  xhr.responseType = 'arraybuffer';
-  
-  xhr.onprogress = (e) => {
-    if (e.lengthComputable) {
-      onProgress({ loaded: e.loaded, total: e.total });
-    }
-  };
-  
-  xhr.onload = function() {
-    if (xhr.status === 200 || xhr.status === 206) {
-      const buffer = xhr.response;
-      console.log(`📦 Downloaded: ${(buffer.byteLength / (1024*1024)).toFixed(1)}MB`);
-      
-      // Cache for next time - but NOT on iOS (save memory)
-      if (!IS_IOS) {
-        ModelCache.put(absoluteUrl, buffer.slice(0));
-      }
-      
-      // Parse the model
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AR CAMERA
+    // ══════════════════════════════════════════════════════════════════════════════
+    async function initARCamera() {
       try {
-        const loader = createGLTFLoader();
-        loader.parse(buffer, '', (gltf) => {
-          processLoadedModel(gltf.scene, gltf.animations || []);
-        }, onError);
+        // Check if mediaDevices is available (requires HTTPS on Safari)
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.log('📷 Camera API not available (needs HTTPS)');
+          arMode = false;
+          return false;
+        }
+
+        // iOS: use lower camera resolution to save memory (camera + WebGL compete for RAM)
+        const camWidth = IS_IOS ? 640 : (IS_MOBILE ? 960 : 1280);
+        const camHeight = IS_IOS ? 480 : (IS_MOBILE ? 540 : 720);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: camWidth }, height: { ideal: camHeight } }
+        });
+        const video = document.getElementById('cameraVideo');
+        video.srcObject = stream;
+
+        // Safari-safe play
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.muted = true;
+
+        try {
+          await video.play();
+        } catch (playErr) {
+          console.log('📷 Video autoplay blocked, will play on interaction');
+          document.addEventListener('touchstart', function playOnTouch() {
+            video.play().catch(() => { });
+            document.removeEventListener('touchstart', playOnTouch);
+          }, { once: true });
+        }
+
+        arMode = true;
+
+        // Make scene transparent for AR
+        if (scene) scene.background = null;
+        if (ground) { ground.material.opacity = 0.15; ground.material.transparent = true; }
+        if (grid) grid.visible = false;
+
+        console.log('📷 AR Camera active');
+        return true;
       } catch (e) {
-        onError(e);
+        console.log('📷 Camera not available:', e.message);
+        arMode = false;
+        return false;
       }
-    } else {
-      onError(new Error(`HTTP ${xhr.status}`));
     }
-  };
-  
-  xhr.onerror = () => onError(new Error('Network error'));
-  xhr.ontimeout = () => onError(new Error('Download timeout'));
-  
-  // Timeout: 5 minutes for large files
-  xhr.timeout = 300000;
-  xhr.send();
-}
 
-function processLoadedModel(loadedModel, animations = []) {
-  try {
-  scene.add(loadedModel);
+    // ══════════════════════════════════════════════════════════════════════════════
+    // INITIALIZE SCENE
+    // ══════════════════════════════════════════════════════════════════════════════
+    let isRendering = true; // Controls whether render loop is active
 
-  // ═══════════════════════════════════════════════════════════════
-  // iOS MEMORY MANAGEMENT: Downscale large textures at runtime
-  // ═══════════════════════════════════════════════════════════════
-  const MAX_TEX_SIZE_MOBILE = 2048;
-  const MAX_TEX_SIZE_IOS = 1024; // Balance quality vs memory on iOS
+    async function init() {
+      if (_fatalError) return; // Don't attempt init if libraries failed to load
+      try {
+        const canvas = document.getElementById('canvas3d');
+        if (!canvas) throw new Error('Canvas element not found');
+        setLoadingProgress(10);
 
-  // ═══════════════════════════════════════════════════════════════
-  // AUTO-RESIZE TO REAL LIFE SIZE
-  // ═══════════════════════════════════════════════════════════════
-  const targetHeightCM = assetData?.characterHeight || DEFAULT_HUMAN_HEIGHT_CM;
-  const { scaleFactor, realHeightCM } = autoResizeToRealLife(loadedModel, targetHeightCM);
+        // Scene
+        scene = new THREE.Scene();
+        scene.background = null;
 
-  // Update slider
-  const slider = document.getElementById('scaleSlider');
-  const scaleVal = document.getElementById('scaleValue');
-  if (slider) slider.value = targetHeightCM;
-  if (scaleVal) scaleVal.textContent = targetHeightCM + 'cm';
+        // Camera - use shorter far plane on mobile to reduce depth buffer memory
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, IS_MOBILE ? 100 : 500);
+        camera.position.set(0, 0.9, 3.5);
 
-  // Enable shadows (skip on mobile for performance)
-  // iOS: aggressively downscale textures and reduce geometry
-  let meshCount = 0;
-  let vertexCount = 0;
-  loadedModel.traverse(child => {
-    if (child.isMesh) {
-      meshCount++;
-      if (child.geometry) vertexCount += child.geometry.attributes.position?.count || 0;
-      
-      if (!IS_MOBILE) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-      // Downscale textures on ALL mobile devices (iOS especially)
-      if (child.material) {
-        if (Array.isArray(child.material)) {
-          child.material.forEach(m => { 
-            m.needsUpdate = true;
-            if (IS_MOBILE) downscaleMaterialTextures(m);
+        // Renderer - iOS Safari compatible (DO NOT create separate WebGL context first!)
+        renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: !IS_IOS, // Enable on non-iOS for sharper edges
+          alpha: true,
+          preserveDrawingBuffer: false, // CRITICAL: true doubles GPU memory, causes iOS crash
+          powerPreference: IS_MOBILE ? 'low-power' : 'high-performance',
+          failIfMajorPerformanceCaveat: false
+        });
+
+        if (!renderer.getContext()) {
+          _fatalError = true;
+          const ls = document.getElementById('loadingScreen');
+          if (ls) ls.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;"><h2>Trình duyệt không hỗ trợ WebGL</h2><p>Vui lòng sử dụng Chrome hoặc Safari mới nhất</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;cursor:pointer;">Thử lại</button></div>';
+          return;
+        }
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // iOS: pixel ratio 1.0 to prevent memory overflow
+        renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, IS_MOBILE ? 2 : 2));
+        renderer.shadowMap.enabled = !IS_MOBILE;
+        if (renderer.shadowMap.enabled) {
+          renderer.shadowMap.type = THREE.BasicShadowMap;
+        }
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2; // Slightly brighter to prevent washed-out colors
+
+        // CRITICAL: Handle WebGL context loss (iOS recovers memory by killing contexts)
+        canvas.addEventListener('webglcontextlost', function (e) {
+          e.preventDefault();
+          console.warn('⚠️ WebGL context lost - pausing render');
+          isRendering = false;
+        }, false);
+        canvas.addEventListener('webglcontextrestored', function (e) {
+          console.log('✅ WebGL context restored - resuming');
+          isRendering = true;
+          // Re-setup renderer state
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 2));
+        }, false);
+
+        // Controls
+        controls = new THREE.OrbitControls(camera, canvas);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 0.85, 0); // Look at chest height
+        controls.minDistance = 0.5;
+        controls.maxDistance = 20;
+
+        // Lighting - outdoor natural light
+        const ambientLight = new THREE.AmbientLight(0xffffff, IS_MOBILE ? 0.8 : 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.0);
+        sunLight.position.set(5, 10, 7);
+        if (!IS_MOBILE) {
+          sunLight.castShadow = true;
+          sunLight.shadow.mapSize.width = 1024;
+          sunLight.shadow.mapSize.height = 1024;
+          sunLight.shadow.camera.near = 0.5;
+          sunLight.shadow.camera.far = 30;
+          sunLight.shadow.camera.left = -3;
+          sunLight.shadow.camera.right = 3;
+          sunLight.shadow.camera.top = 3;
+          sunLight.shadow.camera.bottom = -3;
+        }
+        scene.add(sunLight);
+
+        const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
+        fillLight.position.set(-3, 5, -5);
+        scene.add(fillLight);
+
+        // Hemisphere light for outdoor feel
+        const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d1b, 0.5);
+        scene.add(hemiLight);
+
+        // Ground - hidden for clean AR view
+        const groundGeo = new THREE.PlaneGeometry(30, 30);
+        const groundMat = new THREE.MeshStandardMaterial({
+          color: 0x333333, roughness: 0.9, transparent: true, opacity: 0
+        });
+        ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        ground.visible = false;
+        scene.add(ground);
+
+        // Grid - hidden
+        grid = new THREE.GridHelper(30, 30, 0x444444, 0x222222);
+        grid.material.transparent = true;
+        grid.material.opacity = 0.3;
+        grid.visible = false;
+        scene.add(grid);
+
+        // Environment dome - skip on iOS to save memory
+        if (!IS_IOS) {
+          const domeGeo = new THREE.SphereGeometry(100, IS_MOBILE ? 8 : 32, IS_MOBILE ? 4 : 16);
+          const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
+          environmentDome = new THREE.Mesh(domeGeo, domeMat);
+          scene.add(environmentDome);
+        }
+
+        clock = new THREE.Clock();
+        setLoadingProgress(30);
+
+        // Load asset data FIRST (fast), then start model download immediately
+        const pathParts = window.location.pathname.split('/');
+        const assetId = pathParts[pathParts.length - 1];
+
+        if (assetId && assetId !== 'viewer.html') {
+          try {
+            const resp = await fetch(`/api/asset/${assetId}`);
+            if (resp.ok) {
+              assetData = await resp.json();
+              console.log('📦 Asset data:', assetData);
+
+              // Update HUD immediately (no waiting)
+              updateCharacterHUD(assetData);
+
+              // Caption
+              if (assetData.caption) {
+                const cap = document.getElementById('captionDisplay');
+                cap.textContent = assetData.caption;
+                cap.style.display = 'block';
+              }
+
+              setLoadingProgress(40);
+            }
+          } catch (e) {
+            console.log('Could not load asset data');
+          }
+        }
+
+        // Start model loading ASAP (highest priority)
+        loadModel();
+
+        // Start animation loop
+        animate();
+
+        // Resize
+        window.addEventListener('resize', onResize);
+
+        // Setup UI
+        setupUI();
+
+        // AR camera - auto-request on ALL devices (including iOS)
+        setTimeout(() => {
+          initARCamera().then((ok) => {
+            if (ok) setLoadingProgress(50);
           });
-        } else {
-          child.material.needsUpdate = true;
-          if (IS_MOBILE) downscaleMaterialTextures(child.material);
+        }, 300);
+
+        // Load environment images lazily (low priority) - skip on iOS to save memory
+        if (!IS_IOS) {
+          if (assetData?.groundImage) {
+            setTimeout(() => {
+              new THREE.TextureLoader().load(assetData.groundImage, tex => {
+                ground.material.map = tex;
+                ground.material.color.set(0xffffff);
+                ground.material.opacity = 0.8;
+                ground.material.needsUpdate = true;
+              });
+            }, 2000);
+          }
+          if (assetData?.envImage && environmentDome) {
+            setTimeout(() => {
+              new THREE.TextureLoader().load(assetData.envImage, tex => {
+                tex.mapping = THREE.EquirectangularReflectionMapping;
+                environmentDome.material.map = tex;
+                environmentDome.material.color.set(0xffffff);
+                environmentDome.material.needsUpdate = true;
+              });
+            }, 3000);
+          }
+        }
+
+      } catch (initError) {
+        console.error('Init failed:', initError);
+        _fatalError = true;
+        const ls = document.getElementById('loadingScreen');
+        if (ls) {
+          ls.innerHTML =
+            '<div style="color:#fff;text-align:center;padding:40px;font-family:sans-serif;">' +
+            '<h2 style="color:#FFD700;">Đã xảy ra lỗi</h2>' +
+            '<p style="margin-top:10px;">' + (initError.message || 'Không thể khởi tạo 3D') + '</p>' +
+            '<p style="margin-top:10px;color:#888;">Vui lòng thử lại hoặc dùng trình duyệt khác</p>' +
+            '<button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">Thử lại</button></div>';
         }
       }
-      // iOS: Disable frustum culling computation overhead for simple scenes  
-      if (IS_IOS) child.frustumCulled = false;
     }
-  });
-  console.log(`📊 Model: ${meshCount} meshes, ${vertexCount} vertices`);
 
-  model = loadedModel;
+    // ══════════════════════════════════════════════════════════════════════════════
+    // LOAD MODEL - Optimized with caching, Draco, streaming
+    // ══════════════════════════════════════════════════════════════════════════════
+    function loadModel() {
+      const modelPath = assetData?.model || '/uploads/default.glb';
 
-  // Skeleton helper
-  loadedModel.traverse(child => {
-    if (child.isSkinnedMesh && !skeletonHelper) {
-      skeletonHelper = new THREE.SkeletonHelper(loadedModel);
-      skeletonHelper.visible = false;
-      scene.add(skeletonHelper);
+      if (!modelPath || modelPath === '/uploads/default.glb') {
+        console.warn('No model path found');
+      }
+
+      const isFBX = modelPath.toLowerCase().endsWith('.fbx');
+      const isGLB = modelPath.toLowerCase().endsWith('.glb');
+      const fullUrl = modelPath.startsWith('http') ? modelPath : modelPath;
+
+      const onProgress = (p) => {
+        if (p.total > 0) {
+          const pct = 60 + Math.round((p.loaded / p.total) * 30);
+          setLoadingProgress(Math.min(pct, 90));
+
+          // Show download size info
+          const loadedMB = (p.loaded / (1024 * 1024)).toFixed(1);
+          const totalMB = (p.total / (1024 * 1024)).toFixed(1);
+          const subtitle = document.querySelector('.loading-subtitle');
+          if (subtitle) subtitle.textContent = `Đang tải: ${loadedMB}MB / ${totalMB}MB`;
+        }
+      };
+
+      const onError = (err) => {
+        console.error('Model load error:', err);
+        const absUrl = window.location.origin + modelPath;
+        console.log('Retrying with absolute URL:', absUrl);
+
+        if (isFBX) {
+          new THREE.FBXLoader().load(absUrl, fbx => {
+            processLoadedModel(fbx, fbx.animations || []);
+          }, onProgress, (err2) => {
+            console.error('Model load failed completely:', err2);
+            hideLoading();
+          });
+        } else {
+          createGLTFLoader().load(absUrl, gltf => {
+            processLoadedModel(gltf.scene, gltf.animations || []);
+          }, onProgress, (err2) => {
+            console.error('Model load failed completely:', err2);
+            hideLoading();
+          });
+        }
+      };
+
+      console.log('Loading model from:', fullUrl,
+        assetData?.isOptimized ? '(optimized)' : '(original)',
+        assetData?.modelSize ? `(${(assetData.modelSize / (1024 * 1024)).toFixed(1)}MB)` : '');
+
+      if (isFBX) {
+        new THREE.FBXLoader().load(fullUrl, fbx => {
+          processLoadedModel(fbx, fbx.animations || []);
+        }, onProgress, onError);
+      } else if (isGLB) {
+        // Try cache first for GLB files
+        loadGLBWithCache(fullUrl, onProgress, onError);
+      } else {
+        createGLTFLoader().load(fullUrl, gltf => {
+          processLoadedModel(gltf.scene, gltf.animations || []);
+        }, onProgress, onError);
+      }
     }
-  });
 
-  // Animations
-  if (animations.length > 0) {
-    mixer = new THREE.AnimationMixer(loadedModel);
-    currentAnimAction = mixer.clipAction(animations[0]);
-    currentAnimAction.play();
-    console.log(`🎬 Playing embedded animation: ${animations[0].name || 'default'}`);
-  } else {
-    proceduralAnimator = new ProceduralAnimator(loadedModel);
-    proceduralAnimator.play('look_around');
-  }
+    // Create GLTF loader with Draco support
+    function createGLTFLoader() {
+      const loader = new THREE.GLTFLoader();
 
-  setLoadingProgress(100);
+      // Setup DRACOLoader for compressed models
+      try {
+        const dracoLoader = new THREE.DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        dracoLoader.setDecoderConfig({ type: 'js' }); // JS decoder works everywhere
+        dracoLoader.preload();
+        loader.setDRACOLoader(dracoLoader);
+        console.log('🗜 DRACOLoader configured');
+      } catch (e) {
+        console.log('DRACOLoader not available:', e.message);
+      }
 
-  // Summon effect then show
-  playSummonEffect(() => {
-    hideLoading();
-    document.getElementById('characterTitle').style.display = 'block';
-  });
+      return loader;
+    }
 
-  // Adjust camera for the model - center it properly
-  const finalBox = new THREE.Box3().setFromObject(loadedModel);
-  const fHeight = finalBox.max.y - finalBox.min.y;
-  const fCenter = new THREE.Vector3();
-  finalBox.getCenter(fCenter);
-  
-  // Center model at origin
-  loadedModel.position.x = -fCenter.x;
-  loadedModel.position.z = -fCenter.z;
-  
-  // Camera looks at model center, distance = 2.5x height for comfortable view
-  camera.position.set(0, fHeight * 0.45, fHeight * 2.5);
-  controls.target.set(0, fHeight * 0.4, 0);
-  controls.update();
+    // Load GLB with Cache API for instant reload
+    async function loadGLBWithCache(url, onProgress, onError) {
+      const absoluteUrl = new URL(url, window.location.origin).href;
 
-  // Save to collection
-  saveToCollection(assetData);
-  } catch(e) {
-    console.error('processLoadedModel error:', e);
-    hideLoading();
-  }
-}
+      // Step 1: Check cache
+      const cachedBuffer = await ModelCache.get(absoluteUrl);
+      if (cachedBuffer) {
+        console.log('⚡ Loading from cache (instant!)');
+        setLoadingProgress(80);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// EPIC SUMMON EFFECT
-// ══════════════════════════════════════════════════════════════════════════════
-function createSummonParticles() {
-  const container = document.getElementById('summonParticles');
-  container.innerHTML = '';
-  
-  // Create 20 particles with random positions and delays
-  for (let i = 0; i < 20; i++) {
-    const particle = document.createElement('div');
-    particle.className = 'particle';
-    particle.style.left = (Math.random() * 100) + '%';
-    particle.style.animationDelay = (Math.random() * 1.5) + 's';
-    particle.style.animationDuration = (1.5 + Math.random() * 1) + 's';
-    container.appendChild(particle);
-  }
-}
+        const subtitle = document.querySelector('.loading-subtitle');
+        if (subtitle) subtitle.textContent = 'Đang triệu hồn từ bộ nhớ...';
 
-function playSummonEffect(callback) {
-  // On iOS: skip heavy summon effect to prevent memory spike
-  if (IS_IOS) {
-    if (callback) setTimeout(callback, 300);
-    return;
-  }
-  
-  const el = document.getElementById('summonEffect');
-  const txt = document.getElementById('summonText');
-  const era = document.getElementById('summonEra');
-  
-  txt.textContent = assetData?.characterName || 'TRIỆU HỒN!';
-  era.textContent = assetData?.characterEra || '';
-  
-  // Create particles
-  createSummonParticles();
+        try {
+          const loader = createGLTFLoader();
+          loader.parse(cachedBuffer, '', (gltf) => {
+            processLoadedModel(gltf.scene, gltf.animations || []);
+          }, onError);
+          return;
+        } catch (e) {
+          console.log('Cache parse failed, downloading fresh:', e.message);
+        }
+      }
 
-  el.classList.add('active');
+      // Step 2: Download with XMLHttpRequest for progress + caching
+      console.log('📥 Downloading model...');
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', absoluteUrl, true);
+      xhr.responseType = 'arraybuffer';
 
-  // Vibration pattern for epic effect
-  if (navigator.vibrate) navigator.vibrate([100, 50, 150, 50, 200, 100, 300]);
+      xhr.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress({ loaded: e.loaded, total: e.total });
+        }
+      };
 
-  setTimeout(() => {
-    el.classList.remove('active');
-    if (callback) callback();
-  }, 2500);
-}
+      xhr.onload = function () {
+        if (xhr.status === 200 || xhr.status === 206) {
+          const buffer = xhr.response;
+          console.log(`📦 Downloaded: ${(buffer.byteLength / (1024 * 1024)).toFixed(1)}MB`);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// CHARACTER HUD
-// ══════════════════════════════════════════════════════════════════════════════
-function updateCharacterHUD(data) {
-  if (!data) return;
-  
-  // Update title at top center
-  document.getElementById('titleName').textContent = data.characterName || 'Vị Tướng';
-  document.getElementById('titleEra').textContent = data.characterEra || '';
-  
-  // Update bio popup
-  document.getElementById('bioName').textContent = data.characterName || 'Vị Tướng';
-  document.getElementById('bioEra').textContent = data.characterEra || '';
-  document.getElementById('bioText').textContent = data.characterBio || 'Chưa có thông tin tiểu sử.';
-}
+          // Cache for next time - but NOT on iOS (save memory)
+          if (!IS_IOS) {
+            ModelCache.put(absoluteUrl, buffer.slice(0));
+          }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ANIMATION LOOP
-// ══════════════════════════════════════════════════════════════════════════════
-function animate() {
-  requestAnimationFrame(animate);
-  if (!isRendering || !renderer) return; // Skip render when paused or context lost
-  const dt = clock.getDelta();
-  if (mixer) mixer.update(dt);
-  controls.update();
-  try {
-    renderer.render(scene, camera);
-  } catch (e) {
-    // WebGL context lost - stop rendering
-    isRendering = false;
-    console.warn('Render error:', e.message);
-  }
-}
+          // Parse the model
+          try {
+            const loader = createGLTFLoader();
+            loader.parse(buffer, '', (gltf) => {
+              processLoadedModel(gltf.scene, gltf.animations || []);
+            }, onError);
+          } catch (e) {
+            onError(e);
+          }
+        } else {
+          onError(new Error(`HTTP ${xhr.status}`));
+        }
+      };
 
-function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
+      xhr.onerror = () => onError(new Error('Network error'));
+      xhr.ontimeout = () => onError(new Error('Download timeout'));
 
-// ══════════════════════════════════════════════════════════════════════════════
-// UI SETUP
-// ══════════════════════════════════════════════════════════════════════════════
-function setupUI() {
-  // Camera toggle
-  document.getElementById('btnCamera').addEventListener('click', async () => {
-    const btn = document.getElementById('btnCamera');
-    if (arMode) {
-      // Disable camera
+      // Timeout: 5 minutes for large files
+      xhr.timeout = 300000;
+      xhr.send();
+    }
+
+    function processLoadedModel(loadedModel, animations = []) {
+      try {
+        scene.add(loadedModel);
+
+        // ═══════════════════════════════════════════════════════════════
+        // iOS MEMORY MANAGEMENT: Downscale large textures at runtime
+        // ═══════════════════════════════════════════════════════════════
+        const MAX_TEX_SIZE_MOBILE = 2048;
+        const MAX_TEX_SIZE_IOS = 1024; // Balance quality vs memory on iOS
+
+        // ═══════════════════════════════════════════════════════════════
+        // AUTO-RESIZE TO REAL LIFE SIZE
+        // ═══════════════════════════════════════════════════════════════
+        const targetHeightCM = assetData?.characterHeight || DEFAULT_HUMAN_HEIGHT_CM;
+        const { scaleFactor, realHeightCM } = autoResizeToRealLife(loadedModel, targetHeightCM);
+
+        // Update slider
+        const slider = document.getElementById('scaleSlider');
+        const scaleVal = document.getElementById('scaleValue');
+        if (slider) slider.value = targetHeightCM;
+        if (scaleVal) scaleVal.textContent = targetHeightCM + 'cm';
+
+        // Enable shadows (skip on mobile for performance)
+        // Ensure proper material encoding for GLB models
+        let meshCount = 0;
+        let vertexCount = 0;
+        loadedModel.traverse(child => {
+          if (child.isMesh) {
+            meshCount++;
+            if (child.geometry) vertexCount += child.geometry.attributes.position?.count || 0;
+
+            if (!IS_MOBILE) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+            // Fix material encoding and optionally downscale for mobile
+            if (child.material) {
+              const fixMaterial = (m) => {
+                m.needsUpdate = true;
+
+                // CRITICAL: Ensure color textures use sRGB encoding
+                // GLB files store textures in sRGB but Three.js r147 needs explicit encoding
+                if (m.map) {
+                  m.map.encoding = THREE.sRGBEncoding;
+                  m.map.needsUpdate = true;
+                }
+                if (m.emissiveMap) {
+                  m.emissiveMap.encoding = THREE.sRGBEncoding;
+                  m.emissiveMap.needsUpdate = true;
+                }
+
+                // On mobile: gently downscale oversized textures (but keep them!)
+                if (IS_MOBILE) downscaleMaterialTextures(m);
+              };
+
+              if (Array.isArray(child.material)) {
+                child.material.forEach(fixMaterial);
+              } else {
+                fixMaterial(child.material);
+              }
+            }
+            // iOS: Disable frustum culling computation overhead for simple scenes  
+            if (IS_IOS) child.frustumCulled = false;
+          }
+        });
+        console.log(`📊 Model: ${meshCount} meshes, ${vertexCount} vertices`);
+
+        model = loadedModel;
+
+        // Skeleton helper
+        loadedModel.traverse(child => {
+          if (child.isSkinnedMesh && !skeletonHelper) {
+            skeletonHelper = new THREE.SkeletonHelper(loadedModel);
+            skeletonHelper.visible = false;
+            scene.add(skeletonHelper);
+          }
+        });
+
+        // Animations
+        if (animations.length > 0) {
+          mixer = new THREE.AnimationMixer(loadedModel);
+          currentAnimAction = mixer.clipAction(animations[0]);
+          currentAnimAction.play();
+          console.log(`🎬 Playing embedded animation: ${animations[0].name || 'default'}`);
+        } else {
+          proceduralAnimator = new ProceduralAnimator(loadedModel);
+          proceduralAnimator.play('look_around');
+        }
+
+        setLoadingProgress(100);
+
+        // Summon effect then show
+        playSummonEffect(() => {
+          hideLoading();
+          document.getElementById('characterTitle').style.display = 'block';
+        });
+
+        // Adjust camera for the model
+        const finalBox = new THREE.Box3().setFromObject(loadedModel);
+        const fHeight = finalBox.max.y - finalBox.min.y;
+        const fCenter = new THREE.Vector3();
+        finalBox.getCenter(fCenter);
+
+        // Camera looks at model center, distance = 2.5x height for comfortable view
+        camera.position.set(0, fHeight * 0.45, fHeight * 2.5);
+        controls.target.set(0, fCenter.y, 0);
+        controls.update();
+
+        // Save to collection
+        saveToCollection(assetData);
+      } catch (e) {
+        console.error('processLoadedModel error:', e);
+        hideLoading();
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // EPIC SUMMON EFFECT
+    // ══════════════════════════════════════════════════════════════════════════════
+    function createSummonParticles() {
+      const container = document.getElementById('summonParticles');
+      container.innerHTML = '';
+
+      // Create 20 particles with random positions and delays
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = (Math.random() * 100) + '%';
+        particle.style.animationDelay = (Math.random() * 1.5) + 's';
+        particle.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+        container.appendChild(particle);
+      }
+    }
+
+    function playSummonEffect(callback) {
+      // On iOS: skip heavy summon effect to prevent memory spike
+      if (IS_IOS) {
+        if (callback) setTimeout(callback, 300);
+        return;
+      }
+
+      const el = document.getElementById('summonEffect');
+      const txt = document.getElementById('summonText');
+      const era = document.getElementById('summonEra');
+
+      txt.textContent = assetData?.characterName || 'TRIỆU HỒN!';
+      era.textContent = assetData?.characterEra || '';
+
+      // Create particles
+      createSummonParticles();
+
+      el.classList.add('active');
+
+      // Vibration pattern for epic effect
+      if (navigator.vibrate) navigator.vibrate([100, 50, 150, 50, 200, 100, 300]);
+
+      setTimeout(() => {
+        el.classList.remove('active');
+        if (callback) callback();
+      }, 2500);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // CHARACTER HUD
+    // ══════════════════════════════════════════════════════════════════════════════
+    function updateCharacterHUD(data) {
+      if (!data) return;
+
+      // Update title at top center
+      document.getElementById('titleName').textContent = data.characterName || 'Vị Tướng';
+      document.getElementById('titleEra').textContent = data.characterEra || '';
+
+      // Update bio popup
+      document.getElementById('bioName').textContent = data.characterName || 'Vị Tướng';
+      document.getElementById('bioEra').textContent = data.characterEra || '';
+      document.getElementById('bioText').textContent = data.characterBio || 'Chưa có thông tin tiểu sử.';
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // ANIMATION LOOP
+    // ══════════════════════════════════════════════════════════════════════════════
+    function animate() {
+      requestAnimationFrame(animate);
+      if (!isRendering || !renderer) return; // Skip render when paused or context lost
+      const dt = clock.getDelta();
+      if (mixer) mixer.update(dt);
+      controls.update();
+      try {
+        renderer.render(scene, camera);
+      } catch (e) {
+        // WebGL context lost - stop rendering
+        isRendering = false;
+        console.warn('Render error:', e.message);
+      }
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // UI SETUP
+    // ══════════════════════════════════════════════════════════════════════════════
+    function setupUI() {
+      // Camera toggle
+      document.getElementById('btnCamera').addEventListener('click', async () => {
+        const btn = document.getElementById('btnCamera');
+        if (arMode) {
+          // Disable camera
+          const video = document.getElementById('cameraVideo');
+          if (video.srcObject) {
+            video.srcObject.getTracks().forEach(t => t.stop());
+            video.srcObject = null;
+          }
+          arMode = false;
+          scene.background = new THREE.Color(0x1a1a2e);
+          if (ground) { ground.material.opacity = 0; ground.visible = false; }
+          if (grid) grid.visible = false;
+          btn.classList.remove('active');
+          showToast('📷', 'Chế độ 3D');
+        } else {
+          const ok = await initARCamera();
+          if (ok) {
+            btn.classList.add('active');
+            showToast('📷', 'Camera AR đã bật');
+          }
+        }
+      });
+
+      // Scale toggle
+      const scaleCtrl = document.getElementById('scaleControl');
+      document.getElementById('btnScale').addEventListener('click', () => {
+        scaleCtrl.classList.toggle('show');
+        document.getElementById('btnScale').classList.toggle('active');
+      });
+
+      document.getElementById('scaleSlider').addEventListener('input', (e) => {
+        const h = parseInt(e.target.value);
+        document.getElementById('scaleValue').textContent = h + 'cm';
+        rescaleModel(h);
+      });
+
+      // Photo
+      document.getElementById('btnPhoto').addEventListener('click', takePhoto);
+
+      // Info
+      document.getElementById('btnInfo').addEventListener('click', () => {
+        document.getElementById('bioPopup').classList.toggle('show');
+      });
+
+      // Discovery
+      document.getElementById('btnDiscovery').addEventListener('click', openDiscovery);
+
+      // Collection
+      document.getElementById('btnCollection').addEventListener('click', openCollection);
+
+      // Summon button - Re-trigger summon effect
+      document.getElementById('btnSummon').addEventListener('click', () => {
+        playSummonEffect();
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // PHOTO CAPTURE
+    // ══════════════════════════════════════════════════════════════════════════════
+    function takePhoto() {
+      const flash = document.getElementById('flashOverlay');
+      flash.style.opacity = '1';
+      setTimeout(() => flash.style.opacity = '0', 150);
+
+      // Must render RIGHT BEFORE reading pixels (preserveDrawingBuffer is false)
+      renderer.render(scene, camera);
+
+      // Composite camera + 3D
+      const compCanvas = document.createElement('canvas');
+      const scale = IS_IOS ? 1 : 2; // Lower resolution screenshot on iOS
+      compCanvas.width = window.innerWidth * scale;
+      compCanvas.height = window.innerHeight * scale;
+      const ctx = compCanvas.getContext('2d');
+
+      // Draw camera feed
       const video = document.getElementById('cameraVideo');
       if (video.srcObject) {
-        video.srcObject.getTracks().forEach(t => t.stop());
-        video.srcObject = null;
+        ctx.drawImage(video, 0, 0, compCanvas.width, compCanvas.height);
+      } else {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, compCanvas.width, compCanvas.height);
       }
-      arMode = false;
-      scene.background = new THREE.Color(0x1a1a2e);
-      if (ground) { ground.material.opacity = 0; ground.visible = false; }
-      if (grid) grid.visible = false;
-      btn.classList.remove('active');
-      showToast('📷', 'Chế độ 3D');
-    } else {
-      const ok = await initARCamera();
-      if (ok) {
-        btn.classList.add('active');
-        showToast('📷', 'Camera AR đã bật');
-      }
+
+      // Draw 3D canvas (must be immediately after render call)
+      ctx.drawImage(renderer.domElement, 0, 0, compCanvas.width, compCanvas.height);
+
+      // Add watermark
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+      ctx.font = `${compCanvas.width * 0.02}px 'Be Vietnam Pro', sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText('WEBAR - Boardgame Lịch Sử', compCanvas.width - 20, compCanvas.height - 20);
+
+      // Download
+      compCanvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `webar_${assetData?.characterName || 'general'}_${Date.now()}.png`;
+        a.click();
+        showToast('📸 Đã chụp!', 'Ảnh đã được lưu');
+      }, 'image/png');
     }
-  });
 
-  // Scale toggle
-  const scaleCtrl = document.getElementById('scaleControl');
-  document.getElementById('btnScale').addEventListener('click', () => {
-    scaleCtrl.classList.toggle('show');
-    document.getElementById('btnScale').classList.toggle('active');
-  });
+    // ══════════════════════════════════════════════════════════════════════════════
+    // POKEMON GO STYLE - DISCOVERY MODE
+    // ══════════════════════════════════════════════════════════════════════════════
+    const HISTORICAL_SITES = [
+      {
+        id: 'rach-gam', name: 'Rạch Gầm - Xoài Mút', general: 'Nguyễn Huệ', icon: '⚔️',
+        lat: 10.35, lng: 106.52, challenge: 'Trận Rạch Gầm',
+        question: 'Trận Rạch Gầm - Xoài Mút diễn ra năm nào?',
+        options: ['1785', '1789', '1771', '1802'], correct: 0,
+        reward: 'Mở khóa tướng Nguyễn Huệ - Quang Trung!'
+      },
 
-  document.getElementById('scaleSlider').addEventListener('input', (e) => {
-    const h = parseInt(e.target.value);
-    document.getElementById('scaleValue').textContent = h + 'cm';
-    rescaleModel(h);
-  });
+      {
+        id: 'bach-dang', name: 'Sông Bạch Đằng', general: 'Trần Hưng Đạo', icon: '🚢',
+        lat: 20.93, lng: 106.73, challenge: 'Trận Bạch Đằng',
+        question: 'Ai là người chỉ huy trận Bạch Đằng năm 1288?',
+        options: ['Trần Hưng Đạo', 'Trần Nhân Tông', 'Lê Lợi', 'Ngô Quyền'], correct: 0,
+        reward: 'Mở khóa tướng Trần Hưng Đạo!'
+      },
 
-  // Photo
-  document.getElementById('btnPhoto').addEventListener('click', takePhoto);
+      {
+        id: 'chi-lang', name: 'Ải Chi Lăng', general: 'Lê Lợi', icon: '🏔️',
+        lat: 21.58, lng: 106.57, challenge: 'Trận Chi Lăng',
+        question: 'Tướng nhà Minh nào tử trận tại ải Chi Lăng?',
+        options: ['Liễu Thăng', 'Vương Thông', 'Mộc Thạnh', 'Trương Phụ'], correct: 0,
+        reward: 'Mở khóa tướng Lê Lợi!'
+      },
 
-  // Info
-  document.getElementById('btnInfo').addEventListener('click', () => {
-    document.getElementById('bioPopup').classList.toggle('show');
-  });
+      {
+        id: 'dong-da', name: 'Gò Đống Đa', general: 'Quang Trung', icon: '🏴',
+        lat: 21.01, lng: 105.83, challenge: 'Trận Đống Đa',
+        question: 'Vua Quang Trung đại phá quân Thanh vào mùng mấy Tết Kỷ Dậu?',
+        options: ['Mùng 5', 'Mùng 1', 'Mùng 3', 'Mùng 7'], correct: 0,
+        reward: 'Mở khóa hiệu ứng Hỏa công!'
+      },
 
-  // Discovery
-  document.getElementById('btnDiscovery').addEventListener('click', openDiscovery);
+      {
+        id: 'nhu-nguyet', name: 'Sông Như Nguyệt', general: 'Lý Thường Kiệt', icon: '📜',
+        lat: 21.22, lng: 106.07, challenge: 'Phòng tuyến Như Nguyệt',
+        question: 'Bài thơ "Nam quốc sơn hà" gắn liền với vị tướng nào?',
+        options: ['Lý Thường Kiệt', 'Trần Hưng Đạo', 'Lê Lợi', 'Nguyễn Trãi'], correct: 0,
+        reward: 'Mở khóa tướng Lý Thường Kiệt!'
+      },
 
-  // Collection
-  document.getElementById('btnCollection').addEventListener('click', openCollection);
+      {
+        id: 'van-kiep', name: 'Vạn Kiếp', general: 'Trần Quốc Tuấn', icon: '📖',
+        lat: 21.1, lng: 106.48, challenge: 'Binh thư yếu lược',
+        question: '"Hịch tướng sĩ" là tác phẩm của ai?',
+        options: ['Trần Quốc Tuấn', 'Nguyễn Trãi', 'Lý Thường Kiệt', 'Trần Nhân Tông'], correct: 0,
+        reward: 'Mở khóa kỹ năng Hịch Tướng Sĩ!'
+      },
 
-  // Summon button - Re-trigger summon effect
-  document.getElementById('btnSummon').addEventListener('click', () => {
-    playSummonEffect();
-  });
-}
+      {
+        id: 'lam-son', name: 'Lam Sơn', general: 'Lê Lợi', icon: '⚔️',
+        lat: 20.02, lng: 105.62, challenge: 'Khởi nghĩa Lam Sơn',
+        question: 'Khởi nghĩa Lam Sơn bắt đầu năm nào?',
+        options: ['1418', '1428', '1407', '1427'], correct: 0,
+        reward: 'Mở khóa tướng Lê Lợi phiên bản khởi nghĩa!'
+      },
 
-// ══════════════════════════════════════════════════════════════════════════════
-// PHOTO CAPTURE
-// ══════════════════════════════════════════════════════════════════════════════
-function takePhoto() {
-  const flash = document.getElementById('flashOverlay');
-  flash.style.opacity = '1';
-  setTimeout(() => flash.style.opacity = '0', 150);
+      {
+        id: 'hoa-lu', name: 'Cố đô Hoa Lư', general: 'Đinh Bộ Lĩnh', icon: '👑',
+        lat: 20.28, lng: 105.92, challenge: 'Thống nhất sứ quân',
+        question: 'Đinh Bộ Lĩnh dẹp loạn 12 sứ quân, lập nên quốc hiệu gì?',
+        options: ['Đại Cồ Việt', 'Đại Việt', 'Văn Lang', 'Đại Nam'], correct: 0,
+        reward: 'Mở khóa tướng Đinh Bộ Lĩnh!'
+      }
+    ];
 
-  // Must render RIGHT BEFORE reading pixels (preserveDrawingBuffer is false)
-  renderer.render(scene, camera);
+    function openDiscovery() {
+      const disc = document.getElementById('discoveryMode');
+      disc.classList.add('active');
+      renderRadarDots();
+      renderNearbySites();
+    }
 
-  // Composite camera + 3D
-  const compCanvas = document.createElement('canvas');
-  const scale = IS_IOS ? 1 : 2; // Lower resolution screenshot on iOS
-  compCanvas.width = window.innerWidth * scale;
-  compCanvas.height = window.innerHeight * scale;
-  const ctx = compCanvas.getContext('2d');
+    function closeDiscovery() {
+      document.getElementById('discoveryMode').classList.remove('active');
+    }
 
-  // Draw camera feed
-  const video = document.getElementById('cameraVideo');
-  if (video.srcObject) {
-    ctx.drawImage(video, 0, 0, compCanvas.width, compCanvas.height);
-  } else {
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, compCanvas.width, compCanvas.height);
-  }
+    function renderRadarDots() {
+      const container = document.getElementById('radarDots');
+      container.innerHTML = '';
 
-  // Draw 3D canvas (must be immediately after render call)
-  ctx.drawImage(renderer.domElement, 0, 0, compCanvas.width, compCanvas.height);
+      HISTORICAL_SITES.forEach((site, i) => {
+        const angle = (i / HISTORICAL_SITES.length) * Math.PI * 2 + Math.random() * 0.5;
+        const dist = 30 + Math.random() * 90;
+        const dot = document.createElement('div');
+        dot.className = 'radar-dot';
+        dot.style.left = (50 + Math.cos(angle) * dist / 140 * 50) + '%';
+        dot.style.top = (50 + Math.sin(angle) * dist / 140 * 50) + '%';
+        dot.title = site.name;
+        dot.addEventListener('click', () => {
+          closeDiscovery();
+          startSiteChallenge(site);
+        });
+        container.appendChild(dot);
+      });
+    }
 
-  // Add watermark
-  ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-  ctx.font = `${compCanvas.width * 0.02}px 'Be Vietnam Pro', sans-serif`;
-  ctx.textAlign = 'right';
-  ctx.fillText('WEBAR - Boardgame Lịch Sử', compCanvas.width - 20, compCanvas.height - 20);
+    function renderNearbySites() {
+      const container = document.getElementById('nearbyGenerals');
+      const unlocked = getCollection();
 
-  // Download
-  compCanvas.toBlob(blob => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `webar_${assetData?.characterName || 'general'}_${Date.now()}.png`;
-    a.click();
-    showToast('📸 Đã chụp!', 'Ảnh đã được lưu');
-  }, 'image/png');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// POKEMON GO STYLE - DISCOVERY MODE
-// ══════════════════════════════════════════════════════════════════════════════
-const HISTORICAL_SITES = [
-  { id: 'rach-gam', name: 'Rạch Gầm - Xoài Mút', general: 'Nguyễn Huệ', icon: '⚔️',
-    lat: 10.35, lng: 106.52, challenge: 'Trận Rạch Gầm',
-    question: 'Trận Rạch Gầm - Xoài Mút diễn ra năm nào?',
-    options: ['1785', '1789', '1771', '1802'], correct: 0,
-    reward: 'Mở khóa tướng Nguyễn Huệ - Quang Trung!' },
-
-  { id: 'bach-dang', name: 'Sông Bạch Đằng', general: 'Trần Hưng Đạo', icon: '🚢',
-    lat: 20.93, lng: 106.73, challenge: 'Trận Bạch Đằng',
-    question: 'Ai là người chỉ huy trận Bạch Đằng năm 1288?',
-    options: ['Trần Hưng Đạo', 'Trần Nhân Tông', 'Lê Lợi', 'Ngô Quyền'], correct: 0,
-    reward: 'Mở khóa tướng Trần Hưng Đạo!' },
-
-  { id: 'chi-lang', name: 'Ải Chi Lăng', general: 'Lê Lợi', icon: '🏔️',
-    lat: 21.58, lng: 106.57, challenge: 'Trận Chi Lăng',
-    question: 'Tướng nhà Minh nào tử trận tại ải Chi Lăng?',
-    options: ['Liễu Thăng', 'Vương Thông', 'Mộc Thạnh', 'Trương Phụ'], correct: 0,
-    reward: 'Mở khóa tướng Lê Lợi!' },
-
-  { id: 'dong-da', name: 'Gò Đống Đa', general: 'Quang Trung', icon: '🏴',
-    lat: 21.01, lng: 105.83, challenge: 'Trận Đống Đa',
-    question: 'Vua Quang Trung đại phá quân Thanh vào mùng mấy Tết Kỷ Dậu?',
-    options: ['Mùng 5', 'Mùng 1', 'Mùng 3', 'Mùng 7'], correct: 0,
-    reward: 'Mở khóa hiệu ứng Hỏa công!' },
-
-  { id: 'nhu-nguyet', name: 'Sông Như Nguyệt', general: 'Lý Thường Kiệt', icon: '📜',
-    lat: 21.22, lng: 106.07, challenge: 'Phòng tuyến Như Nguyệt',
-    question: 'Bài thơ "Nam quốc sơn hà" gắn liền với vị tướng nào?',
-    options: ['Lý Thường Kiệt', 'Trần Hưng Đạo', 'Lê Lợi', 'Nguyễn Trãi'], correct: 0,
-    reward: 'Mở khóa tướng Lý Thường Kiệt!' },
-
-  { id: 'van-kiep', name: 'Vạn Kiếp', general: 'Trần Quốc Tuấn', icon: '📖',
-    lat: 21.1, lng: 106.48, challenge: 'Binh thư yếu lược',
-    question: '"Hịch tướng sĩ" là tác phẩm của ai?',
-    options: ['Trần Quốc Tuấn', 'Nguyễn Trãi', 'Lý Thường Kiệt', 'Trần Nhân Tông'], correct: 0,
-    reward: 'Mở khóa kỹ năng Hịch Tướng Sĩ!' },
-
-  { id: 'lam-son', name: 'Lam Sơn', general: 'Lê Lợi', icon: '⚔️',
-    lat: 20.02, lng: 105.62, challenge: 'Khởi nghĩa Lam Sơn',
-    question: 'Khởi nghĩa Lam Sơn bắt đầu năm nào?',
-    options: ['1418', '1428', '1407', '1427'], correct: 0,
-    reward: 'Mở khóa tướng Lê Lợi phiên bản khởi nghĩa!' },
-
-  { id: 'hoa-lu', name: 'Cố đô Hoa Lư', general: 'Đinh Bộ Lĩnh', icon: '👑',
-    lat: 20.28, lng: 105.92, challenge: 'Thống nhất sứ quân',
-    question: 'Đinh Bộ Lĩnh dẹp loạn 12 sứ quân, lập nên quốc hiệu gì?',
-    options: ['Đại Cồ Việt', 'Đại Việt', 'Văn Lang', 'Đại Nam'], correct: 0,
-    reward: 'Mở khóa tướng Đinh Bộ Lĩnh!' }
-];
-
-function openDiscovery() {
-  const disc = document.getElementById('discoveryMode');
-  disc.classList.add('active');
-  renderRadarDots();
-  renderNearbySites();
-}
-
-function closeDiscovery() {
-  document.getElementById('discoveryMode').classList.remove('active');
-}
-
-function renderRadarDots() {
-  const container = document.getElementById('radarDots');
-  container.innerHTML = '';
-
-  HISTORICAL_SITES.forEach((site, i) => {
-    const angle = (i / HISTORICAL_SITES.length) * Math.PI * 2 + Math.random() * 0.5;
-    const dist = 30 + Math.random() * 90;
-    const dot = document.createElement('div');
-    dot.className = 'radar-dot';
-    dot.style.left = (50 + Math.cos(angle) * dist / 140 * 50) + '%';
-    dot.style.top = (50 + Math.sin(angle) * dist / 140 * 50) + '%';
-    dot.title = site.name;
-    dot.addEventListener('click', () => {
-      closeDiscovery();
-      startSiteChallenge(site);
-    });
-    container.appendChild(dot);
-  });
-}
-
-function renderNearbySites() {
-  const container = document.getElementById('nearbyGenerals');
-  const unlocked = getCollection();
-
-  container.innerHTML = HISTORICAL_SITES.map(site => {
-    const isUnlocked = unlocked.includes(site.id);
-    return `<div class="nearby-card" onclick="closeDiscovery(); startSiteChallenge(HISTORICAL_SITES.find(s => s.id === '${site.id}'))">
+      container.innerHTML = HISTORICAL_SITES.map(site => {
+        const isUnlocked = unlocked.includes(site.id);
+        return `<div class="nearby-card" onclick="closeDiscovery(); startSiteChallenge(HISTORICAL_SITES.find(s => s.id === '${site.id}'))">
       <div class="nc-icon">${site.icon}</div>
       <div class="nc-name">${site.general}</div>
       <div class="nc-dist">${site.name}</div>
       <div class="nc-status ${isUnlocked ? 'available' : 'locked'}">${isUnlocked ? '✅ Đã mở' : '🔒 Chưa mở'}</div>
     </div>`;
-  }).join('');
-}
+      }).join('');
+    }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// CHALLENGE SYSTEM - Quiz at historical sites
-// ══════════════════════════════════════════════════════════════════════════════
-function startChallenge() {
-  // Pick random challenge
-  const site = HISTORICAL_SITES[Math.floor(Math.random() * HISTORICAL_SITES.length)];
-  startSiteChallenge(site);
-}
+    // ══════════════════════════════════════════════════════════════════════════════
+    // CHALLENGE SYSTEM - Quiz at historical sites
+    // ══════════════════════════════════════════════════════════════════════════════
+    function startChallenge() {
+      // Pick random challenge
+      const site = HISTORICAL_SITES[Math.floor(Math.random() * HISTORICAL_SITES.length)];
+      startSiteChallenge(site);
+    }
 
-function startSiteChallenge(site) {
-  const overlay = document.getElementById('challengeOverlay');
-  document.getElementById('challengeIcon').textContent = site.icon;
-  document.getElementById('challengeTitle').textContent = site.challenge;
-  document.getElementById('challengeDesc').textContent =
-    `Bạn đã đến gần ${site.name}! Trả lời câu hỏi để mở khóa vị tướng.`;
-  document.getElementById('challengeQText').textContent = site.question;
-  document.getElementById('challengeReward').style.display = 'none';
-  document.getElementById('challengeCloseBtn').style.display = 'none';
+    function startSiteChallenge(site) {
+      const overlay = document.getElementById('challengeOverlay');
+      document.getElementById('challengeIcon').textContent = site.icon;
+      document.getElementById('challengeTitle').textContent = site.challenge;
+      document.getElementById('challengeDesc').textContent =
+        `Bạn đã đến gần ${site.name}! Trả lời câu hỏi để mở khóa vị tướng.`;
+      document.getElementById('challengeQText').textContent = site.question;
+      document.getElementById('challengeReward').style.display = 'none';
+      document.getElementById('challengeCloseBtn').style.display = 'none';
 
-  const optsContainer = document.getElementById('challengeOptions');
-  optsContainer.innerHTML = site.options.map((opt, i) => {
-    return `<div class="challenge-opt" data-idx="${i}" onclick="answerChallenge(this, ${i}, ${site.correct}, '${site.id}')">${opt}</div>`;
-  }).join('');
+      const optsContainer = document.getElementById('challengeOptions');
+      optsContainer.innerHTML = site.options.map((opt, i) => {
+        return `<div class="challenge-opt" data-idx="${i}" onclick="answerChallenge(this, ${i}, ${site.correct}, '${site.id}')">${opt}</div>`;
+      }).join('');
 
-  overlay.classList.add('active');
-}
+      overlay.classList.add('active');
+    }
 
-function answerChallenge(el, chosen, correct, siteId) {
-  const opts = document.querySelectorAll('.challenge-opt');
-  opts.forEach(o => o.style.pointerEvents = 'none');
+    function answerChallenge(el, chosen, correct, siteId) {
+      const opts = document.querySelectorAll('.challenge-opt');
+      opts.forEach(o => o.style.pointerEvents = 'none');
 
-  if (chosen === correct) {
-    el.classList.add('correct');
-    opts[correct].classList.add('correct');
+      if (chosen === correct) {
+        el.classList.add('correct');
+        opts[correct].classList.add('correct');
 
-    // Unlock reward
-    const site = HISTORICAL_SITES.find(s => s.id === siteId);
-    document.getElementById('challengeReward').textContent = '🎉 ' + (site?.reward || 'Phần thưởng!');
-    document.getElementById('challengeReward').style.display = 'block';
+        // Unlock reward
+        const site = HISTORICAL_SITES.find(s => s.id === siteId);
+        document.getElementById('challengeReward').textContent = '🎉 ' + (site?.reward || 'Phần thưởng!');
+        document.getElementById('challengeReward').style.display = 'block';
 
-    // Save to collection
-    unlockSite(siteId);
+        // Save to collection
+        unlockSite(siteId);
 
-    if (navigator.vibrate) navigator.vibrate([50, 30, 100, 30, 200]);
-  } else {
-    el.classList.add('wrong');
-    opts[correct].classList.add('correct');
+        if (navigator.vibrate) navigator.vibrate([50, 30, 100, 30, 200]);
+      } else {
+        el.classList.add('wrong');
+        opts[correct].classList.add('correct');
 
-    document.getElementById('challengeReward').textContent = '❌ Sai rồi! Đáp án đúng đã được đánh dấu.';
-    document.getElementById('challengeReward').style.display = 'block';
-    document.getElementById('challengeReward').style.borderColor = 'rgba(231,76,60,0.3)';
-    document.getElementById('challengeReward').style.background = 'rgba(231,76,60,0.1)';
-    document.getElementById('challengeReward').style.color = '#e74c3c';
-  }
+        document.getElementById('challengeReward').textContent = '❌ Sai rồi! Đáp án đúng đã được đánh dấu.';
+        document.getElementById('challengeReward').style.display = 'block';
+        document.getElementById('challengeReward').style.borderColor = 'rgba(231,76,60,0.3)';
+        document.getElementById('challengeReward').style.background = 'rgba(231,76,60,0.1)';
+        document.getElementById('challengeReward').style.color = '#e74c3c';
+      }
 
-  document.getElementById('challengeCloseBtn').style.display = 'inline-block';
-}
+      document.getElementById('challengeCloseBtn').style.display = 'inline-block';
+    }
 
-function closeChallenge() {
-  document.getElementById('challengeOverlay').classList.remove('active');
-  // Reset reward styling
-  const reward = document.getElementById('challengeReward');
-  reward.style.borderColor = '';
-  reward.style.background = '';
-  reward.style.color = '';
-}
+    function closeChallenge() {
+      document.getElementById('challengeOverlay').classList.remove('active');
+      // Reset reward styling
+      const reward = document.getElementById('challengeReward');
+      reward.style.borderColor = '';
+      reward.style.background = '';
+      reward.style.color = '';
+    }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// COLLECTION SYSTEM - Local storage based
-// ══════════════════════════════════════════════════════════════════════════════
-function getCollection() {
-  try {
-    return JSON.parse(localStorage.getItem('webar_collection') || '[]');
-  } catch { return []; }
-}
+    // ══════════════════════════════════════════════════════════════════════════════
+    // COLLECTION SYSTEM - Local storage based
+    // ══════════════════════════════════════════════════════════════════════════════
+    function getCollection() {
+      try {
+        return JSON.parse(localStorage.getItem('webar_collection') || '[]');
+      } catch { return []; }
+    }
 
-function saveToCollection(data) {
-  if (!data?.id) return;
-  const col = getCollection();
-  if (!col.includes(data.id)) {
-    col.push(data.id);
-    localStorage.setItem('webar_collection', JSON.stringify(col));
-  }
-  // Also save scanned models
-  try {
-    const scanned = JSON.parse(localStorage.getItem('webar_scanned') || '{}');
-    scanned[data.id] = {
-      name: data.characterName || 'Vị Tướng',
-      era: data.characterEra || '',
-      time: Date.now()
-    };
-    localStorage.setItem('webar_scanned', JSON.stringify(scanned));
-  } catch {}
-}
+    function saveToCollection(data) {
+      if (!data?.id) return;
+      const col = getCollection();
+      if (!col.includes(data.id)) {
+        col.push(data.id);
+        localStorage.setItem('webar_collection', JSON.stringify(col));
+      }
+      // Also save scanned models
+      try {
+        const scanned = JSON.parse(localStorage.getItem('webar_scanned') || '{}');
+        scanned[data.id] = {
+          name: data.characterName || 'Vị Tướng',
+          era: data.characterEra || '',
+          time: Date.now()
+        };
+        localStorage.setItem('webar_scanned', JSON.stringify(scanned));
+      } catch { }
+    }
 
-function unlockSite(siteId) {
-  const col = getCollection();
-  if (!col.includes(siteId)) {
-    col.push(siteId);
-    localStorage.setItem('webar_collection', JSON.stringify(col));
-  }
-}
+    function unlockSite(siteId) {
+      const col = getCollection();
+      if (!col.includes(siteId)) {
+        col.push(siteId);
+        localStorage.setItem('webar_collection', JSON.stringify(col));
+      }
+    }
 
-function openCollection() {
-  const overlay = document.getElementById('collectionOverlay');
-  const grid = document.getElementById('collectionGrid');
-  const unlocked = getCollection();
+    function openCollection() {
+      const overlay = document.getElementById('collectionOverlay');
+      const grid = document.getElementById('collectionGrid');
+      const unlocked = getCollection();
 
-  // Get scanned models
-  let scanned = {};
-  try { scanned = JSON.parse(localStorage.getItem('webar_scanned') || '{}'); } catch {}
+      // Get scanned models
+      let scanned = {};
+      try { scanned = JSON.parse(localStorage.getItem('webar_scanned') || '{}'); } catch { }
 
-  // Combine sites + scanned models
-  let cards = '';
+      // Combine sites + scanned models
+      let cards = '';
 
-  // Historical sites
-  HISTORICAL_SITES.forEach(site => {
-    const isUnlocked = unlocked.includes(site.id);
-    cards += `<div class="collect-card ${isUnlocked ? 'unlocked' : 'locked'}">
+      // Historical sites
+      HISTORICAL_SITES.forEach(site => {
+        const isUnlocked = unlocked.includes(site.id);
+        cards += `<div class="collect-card ${isUnlocked ? 'unlocked' : 'locked'}">
       <div class="collect-icon">${isUnlocked ? site.icon : '❓'}</div>
       <div class="collect-name">${isUnlocked ? site.general : '???'}</div>
       <div class="collect-lock">${isUnlocked ? site.name : '🔒 Chưa mở khóa'}</div>
     </div>`;
-  });
+      });
 
-  // Scanned models
-  for (const [id, info] of Object.entries(scanned)) {
-    cards += `<div class="collect-card unlocked">
+      // Scanned models
+      for (const [id, info] of Object.entries(scanned)) {
+        cards += `<div class="collect-card unlocked">
       <div class="collect-icon">⚔️</div>
       <div class="collect-name">${info.name}</div>
       <div class="collect-lock">${info.era || 'Đã quét QR'}</div>
     </div>`;
-  }
+      }
 
-  grid.innerHTML = cards;
+      grid.innerHTML = cards;
 
-  const total = HISTORICAL_SITES.length + Object.keys(scanned).length;
-  const unlockedCount = unlocked.length + Object.keys(scanned).length;
-  document.getElementById('collectionCount').textContent = `${unlockedCount}/${total}`;
+      const total = HISTORICAL_SITES.length + Object.keys(scanned).length;
+      const unlockedCount = unlocked.length + Object.keys(scanned).length;
+      document.getElementById('collectionCount').textContent = `${unlockedCount}/${total}`;
 
-  overlay.classList.add('active');
-}
-
-function closeCollection() {
-  document.getElementById('collectionOverlay').classList.remove('active');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// iOS SAFARI CRASH PREVENTION
-// ══════════════════════════════════════════════════════════════════════════════
-// Pause rendering when page is hidden (saves memory without destroying renderer)
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    isRendering = false;
-    // Stop camera to free memory
-    const video = document.getElementById('cameraVideo');
-    if (video && video.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
-      arMode = false;
+      overlay.classList.add('active');
     }
-    console.log('⏸ Paused (page hidden)');
-  } else {
-    isRendering = true;
-    console.log('▶️ Resumed (page visible)');
-  }
-});
 
-// On page unload, properly cleanup
-window.addEventListener('beforeunload', () => {
-  if (renderer) {
-    renderer.dispose();
-    renderer.forceContextLoss();
-  }
-});
+    function closeCollection() {
+      document.getElementById('collectionOverlay').classList.remove('active');
+    }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// SERVICE WORKER - Cache for instant reload (skip on iOS to save memory)
-// ══════════════════════════════════════════════════════════════════════════════
-if ('serviceWorker' in navigator && !IS_IOS) {
-  navigator.serviceWorker.register('/sw.js').then(reg => {
-    console.log('📦 Service Worker registered');
-  }).catch(err => {
-    console.log('SW registration failed:', err.message);
-  });
-}
+    // ══════════════════════════════════════════════════════════════════════════════
+    // iOS SAFARI CRASH PREVENTION
+    // ══════════════════════════════════════════════════════════════════════════════
+    // Pause rendering when page is hidden (saves memory without destroying renderer)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        isRendering = false;
+        // Stop camera to free memory
+        const video = document.getElementById('cameraVideo');
+        if (video && video.srcObject) {
+          video.srcObject.getTracks().forEach(t => t.stop());
+          video.srcObject = null;
+          arMode = false;
+        }
+        console.log('⏸ Paused (page hidden)');
+      } else {
+        isRendering = true;
+        console.log('▶️ Resumed (page visible)');
+      }
+    });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// GLOBAL ERROR HANDLING
-// ══════════════════════════════════════════════════════════════════════════════
-window.onerror = function(msg, url, line, col, error) {
-  console.error('Global error:', msg, url, line);
-  return false;
-};
+    // On page unload, properly cleanup
+    window.addEventListener('beforeunload', () => {
+      if (renderer) {
+        renderer.dispose();
+        renderer.forceContextLoss();
+      }
+    });
 
-window.addEventListener('unhandledrejection', function(event) {
-  console.error('Unhandled promise rejection:', event.reason);
-});
+    // ══════════════════════════════════════════════════════════════════════════════
+    // SERVICE WORKER - Cache for instant reload (skip on iOS to save memory)
+    // ══════════════════════════════════════════════════════════════════════════════
+    if ('serviceWorker' in navigator && !IS_IOS) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('📦 Service Worker registered');
+      }).catch(err => {
+        console.log('SW registration failed:', err.message);
+      });
+    }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// INIT - with error handling
-// ══════════════════════════════════════════════════════════════════════════════
-init().catch(err => {
-  console.error('Init error:', err);
-  hideLoading();
-});
+    // ══════════════════════════════════════════════════════════════════════════════
+    // GLOBAL ERROR HANDLING
+    // ══════════════════════════════════════════════════════════════════════════════
+    window.onerror = function (msg, url, line, col, error) {
+      console.error('Global error:', msg, url, line);
+      return false;
+    };
 
-</script>
+    window.addEventListener('unhandledrejection', function (event) {
+      console.error('Unhandled promise rejection:', event.reason);
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // INIT - with error handling
+    // ══════════════════════════════════════════════════════════════════════════════
+    init().catch(err => {
+      console.error('Init error:', err);
+      hideLoading();
+    });
+
+  </script>
 </body>
+
 </html>

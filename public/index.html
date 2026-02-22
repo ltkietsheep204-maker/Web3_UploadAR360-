@@ -1,10 +1,13 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>WEBAR - Dragon's Forge</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;600&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --primary: #8B0000;
@@ -17,8 +20,12 @@
       --success: #2ecc71;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Inter', sans-serif;
       min-height: 100vh;
@@ -56,8 +63,8 @@
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 215, 0, 0.2);
       border-radius: 20px;
-      box-shadow: 
-        0 20px 50px rgba(0,0,0,0.8),
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.8),
         0 0 30px rgba(139, 0, 0, 0.2),
         inset 0 0 2px rgba(255, 215, 0, 0.1);
       display: grid;
@@ -75,8 +82,8 @@
     /* Left Panel - Hero */
     .hero-panel {
       background: linear-gradient(135deg, rgba(139, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.9) 100%),
-                  url('bg-dragon.jpg'),
-                  url('https://images.unsplash.com/photo-1633479392263-6c8411c5f35f?q=80&w=1000&auto=format&fit=crop');
+        url('bg-dragon.jpg'),
+        url('https://images.unsplash.com/photo-1633479392263-6c8411c5f35f?q=80&w=1000&auto=format&fit=crop');
       background-position: center;
       background-size: cover;
       position: relative;
@@ -88,7 +95,7 @@
       border-right: 1px solid rgba(255, 215, 0, 0.15);
       text-align: center;
     }
-    
+
     .hero-content {
       position: relative;
       z-index: 2;
@@ -109,7 +116,7 @@
       background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
       margin-bottom: 0.5rem;
       letter-spacing: 4px;
     }
@@ -132,8 +139,15 @@
     }
 
     @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-15px); }
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-15px);
+      }
     }
 
     /* Right Panel - Form */
@@ -145,13 +159,15 @@
       max-height: 80vh;
       overflow-y: auto;
     }
-    
+
     .form-panel::-webkit-scrollbar {
       width: 6px;
     }
+
     .form-panel::-webkit-scrollbar-track {
-      background: rgba(0,0,0,0.3);
+      background: rgba(0, 0, 0, 0.3);
     }
+
     .form-panel::-webkit-scrollbar-thumb {
       background: #444;
       border-radius: 3px;
@@ -195,7 +211,7 @@
       border-color: var(--accent);
       background: rgba(255, 215, 0, 0.08);
       transform: translateY(-2px);
-      box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
     }
 
     .upload-card.active {
@@ -210,7 +226,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.08);
       border-radius: 10px;
       font-size: 22px;
       color: var(--accent);
@@ -240,9 +256,14 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-    .upload-card.active .file-status { opacity: 1; }
 
-    input[type="file"] { display: none; }
+    .upload-card.active .file-status {
+      opacity: 1;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
 
     /* Inputs */
     .input-group {
@@ -271,24 +292,28 @@
     .height-control {
       display: flex;
       align-items: center;
-      background: rgba(0,0,0,0.3);
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
       padding: 5px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .height-btn {
       width: 36px;
       height: 36px;
       border: none;
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       color: #fff;
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.2s;
       font-size: 1.2rem;
     }
-    .height-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
+
+    .height-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--accent);
+    }
 
     .height-val {
       flex: 1;
@@ -306,10 +331,11 @@
       -webkit-appearance: none;
       height: 6px;
       border-radius: 3px;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
       outline: none;
       margin-top: 5px;
     }
+
     .stat-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 16px;
@@ -318,11 +344,13 @@
       background: var(--accent);
       cursor: pointer;
     }
+
     .stat-label-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
+
     .stat-value {
       color: var(--accent);
       font-size: 0.8rem;
@@ -358,10 +386,11 @@
     .submit-btn::after {
       content: '';
       position: absolute;
-      top: 0; left: -100%;
+      top: 0;
+      left: -100%;
       width: 100%;
       height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
       transition: 0.5s;
     }
 
@@ -373,7 +402,7 @@
     #result-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0, 0, 0, 0.9);
       backdrop-filter: blur(10px);
       z-index: 100;
       display: none;
@@ -382,7 +411,11 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-    #result-overlay.active { opacity: 1; pointer-events: auto; }
+
+    #result-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
 
     .result-card {
       background: #111;
@@ -396,7 +429,10 @@
       transform: scale(0.9);
       transition: transform 0.3s;
     }
-    #result-overlay.active .result-card { transform: scale(1); }
+
+    #result-overlay.active .result-card {
+      transform: scale(1);
+    }
 
     .qr-box {
       background: #fff;
@@ -407,7 +443,7 @@
     }
 
     .link-box {
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px dashed #444;
       padding: 10px;
       border-radius: 8px;
@@ -428,7 +464,10 @@
       font-size: 24px;
       cursor: pointer;
     }
-    .close-btn:hover { color: #fff; }
+
+    .close-btn:hover {
+      color: #fff;
+    }
 
     .action-btn {
       padding: 10px 20px;
@@ -440,19 +479,23 @@
       cursor: pointer;
       transition: 0.2s;
     }
-    .action-btn:hover { background: #fff; }
+
+    .action-btn:hover {
+      background: #fff;
+    }
 
     /* Loading Bar */
     .progress-container {
       width: 100%;
       height: 4px;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
       position: absolute;
       bottom: 0;
       left: 0;
       overflow: hidden;
       display: none;
     }
+
     .progress-bar {
       height: 100%;
       background: var(--accent);
@@ -460,9 +503,9 @@
       transition: width 0.3s;
       box-shadow: 0 0 10px var(--accent);
     }
-
   </style>
 </head>
+
 <body>
 
   <!-- Animated Background -->
@@ -476,7 +519,8 @@
         <img src="7e170b92-fab9-464b-8673-2c1fbe370e2c.png" class="dragon-icon" alt="Dragon Logo">
         <h1>WEBAR</h1>
         <p class="subtitle">Next-Gen 3D Visualization</p>
-        <p style="font-size: 1rem; color: #ccc; max-width: 340px; margin: 20px auto 0; line-height: 1.6; font-weight: 300;">
+        <p
+          style="font-size: 1rem; color: #ccc; max-width: 340px; margin: 20px auto 0; line-height: 1.6; font-weight: 300;">
           Upload your 3D models and experience them in Augmented Reality instantly.
         </p>
       </div>
@@ -485,12 +529,12 @@
     <!-- Right: Form -->
     <div class="form-panel">
       <form id="uploadForm">
-        
+
         <!-- Section 1: Core Assets -->
         <div class="section-title">
           <span>📦</span> Core Assets
         </div>
-        
+
         <div class="upload-grid">
           <!-- 3D Model -->
           <div class="upload-card" onclick="document.getElementById('file-model').click()">
@@ -521,8 +565,8 @@
         </div>
 
         <div class="upload-grid">
-           <!-- Ground Image -->
-           <div class="upload-card" onclick="document.getElementById('file-ground').click()">
+          <!-- Ground Image -->
+          <div class="upload-card" onclick="document.getElementById('file-ground').click()">
             <div class="upload-icon">🪵</div>
             <div class="upload-info">
               <div class="upload-title">Floor Texture</div>
@@ -542,7 +586,7 @@
             </div>
             <input type="file" id="file-env" name="envImage" accept="image/*">
           </div>
-          
+
           <!-- Props -->
           <div class="upload-card" onclick="document.getElementById('file-props').click()">
             <div class="upload-icon">🎄</div>
@@ -565,15 +609,18 @@
             <input type="text" name="characterName" class="styled-input" placeholder="Tên vị tướng (vd: Trần Hưng Đạo)">
           </div>
           <div class="input-group">
-            <input type="text" name="characterEra" class="styled-input" placeholder="Triều đại / Thời kỳ (vd: Nhà Trần, 1228-1300)">
+            <input type="text" name="characterEra" class="styled-input"
+              placeholder="Triều đại / Thời kỳ (vd: Nhà Trần, 1228-1300)">
           </div>
           <div class="input-group">
-            <textarea name="characterBio" class="styled-input" rows="2" placeholder="Mô tả ngắn về vị tướng..." style="resize: vertical;"></textarea>
+            <textarea name="characterBio" class="styled-input" rows="2" placeholder="Mô tả ngắn về vị tướng..."
+              style="resize: vertical;"></textarea>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <label style="color: #aaa; font-size: 0.9rem;">Chiều cao nhân vật (cm)</label>
             <div class="height-control">
-              <input type="number" name="characterHeight" class="height-val" value="170" min="100" max="250" style="width: 80px;">
+              <input type="number" name="characterHeight" class="height-val" value="170" min="100" max="250"
+                style="width: 80px;">
             </div>
           </div>
         </div>
@@ -604,7 +651,7 @@
 
       </form>
     </div>
-    
+
     <!-- Progress Bar at bottom -->
     <div class="progress-container" id="uploadProgress">
       <div class="progress-bar" id="progressBar"></div>
@@ -614,16 +661,18 @@
   <!-- Result Overlay -->
   <div id="result-overlay">
     <div class="result-card">
-      <button class="close-btn" onclick="document.getElementById('result-overlay').classList.remove('active')">×</button>
+      <button class="close-btn"
+        onclick="document.getElementById('result-overlay').classList.remove('active')">×</button>
       <div style="font-size: 40px; margin-bottom: 20px;">🎉</div>
       <h2 style="font-family: 'Cinzel', serif; color: var(--accent); margin-bottom: 15px;">Ready to View</h2>
-      
+
       <div class="qr-box" id="qrcode"></div>
-      
+
       <div class="link-box" id="resultUrl">https://webar.com/view/xyz</div>
-      
+
       <div style="display: flex; gap: 10px; justify-content: center;">
-        <button class="action-btn" onclick="window.open(document.getElementById('resultUrl').textContent, '_blank')">🚀 Open Now</button>
+        <button class="action-btn" onclick="window.open(document.getElementById('resultUrl').textContent, '_blank')">🚀
+          Open Now</button>
         <button class="action-btn" style="background:#444; color:white;" onclick="copyLink()">📋 Copy</button>
       </div>
     </div>
@@ -635,7 +684,7 @@
     // ════════════════════════════════════════════════════════════════════════
     // UI INTERACTIONS
     // ════════════════════════════════════════════════════════════════════════
-    
+
     // File Input Handling
     function setupFileInput(id, statusId, isMultiple = false) {
       const input = document.getElementById(id);
@@ -648,8 +697,8 @@
           if (isMultiple) {
             status.textContent = `${input.files.length} items`;
           } else {
-            status.textContent = input.files[0].name.length > 20 
-              ? '...' + input.files[0].name.slice(-15) 
+            status.textContent = input.files[0].name.length > 20
+              ? '...' + input.files[0].name.slice(-15)
               : input.files[0].name;
           }
         } else {
@@ -698,45 +747,45 @@
     class Particle {
       constructor() {
         this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height; 
-        this.reset(true); 
+        this.y = Math.random() * canvas.height;
+        this.reset(true);
       }
 
       reset(initial = false) {
         // Randomly decide direction: Up (Ember) or Down (Ash/Snow)
         this.direction = Math.random() > 0.5 ? 'up' : 'down';
-        
+
         if (!initial) {
-            this.x = Math.random() * canvas.width;
-            this.y = this.direction === 'up' ? canvas.height + 10 : -10;
+          this.x = Math.random() * canvas.width;
+          this.y = this.direction === 'up' ? canvas.height + 10 : -10;
         }
 
         this.size = Math.random() * 3;
         this.opacity = Math.random() * 0.5 + 0.1;
-        
+
         if (this.direction === 'up') {
-            // Embers (Rising)
-            this.speed = Math.random() * 1 + 0.5;
-            this.color = Math.random() > 0.6 ? '#FFD700' : '#E25822';
-            this.fade = Math.random() * 0.005 + 0.002;
+          // Embers (Rising)
+          this.speed = Math.random() * 1 + 0.5;
+          this.color = Math.random() > 0.6 ? '#FFD700' : '#E25822';
+          this.fade = Math.random() * 0.005 + 0.002;
         } else {
-            // Ash/Snow (Falling)
-            this.speed = Math.random() * 1 + 0.2;
-            this.color = Math.random() > 0.5 ? '#ffffff' : '#a0a0a0';
-            this.fade = Math.random() * 0.002;
+          // Ash/Snow (Falling)
+          this.speed = Math.random() * 1 + 0.2;
+          this.color = Math.random() > 0.5 ? '#ffffff' : '#a0a0a0';
+          this.fade = Math.random() * 0.002;
         }
       }
 
       update() {
         if (this.direction === 'up') {
-            this.y -= this.speed;
-            this.opacity -= this.fade;
-            this.x += Math.sin(this.y * 0.01) * 0.5;
-            if (this.y < -10 || this.opacity <= 0) this.reset();
+          this.y -= this.speed;
+          this.opacity -= this.fade;
+          this.x += Math.sin(this.y * 0.01) * 0.5;
+          if (this.y < -10 || this.opacity <= 0) this.reset();
         } else {
-            this.y += this.speed;
-            this.x += Math.cos(this.y * 0.01) * 0.5;
-            if (this.y > canvas.height + 10) this.reset();
+          this.y += this.speed;
+          this.x += Math.cos(this.y * 0.01) * 0.5;
+          if (this.y > canvas.height + 10) this.reset();
         }
       }
 
@@ -776,27 +825,48 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
+
+      // ════════════════════════════════════════════════════════════════
+      // CLIENT-SIDE FILE SIZE VALIDATION
+      // ════════════════════════════════════════════════════════════════
+      const MAX_FILE_SIZE_MB = 500;
+      const WARN_FILE_SIZE_MB = 300;
+      const modelInput = document.getElementById('file-model');
+
+      if (modelInput.files && modelInput.files[0]) {
+        const fileSizeMB = modelInput.files[0].size / (1024 * 1024);
+
+        if (fileSizeMB > MAX_FILE_SIZE_MB) {
+          alert(`⚠️ File quá lớn!\n\nFile: ${modelInput.files[0].name}\nKích thước: ${fileSizeMB.toFixed(1)}MB\nGiới hạn: ${MAX_FILE_SIZE_MB}MB\n\nVui lòng nén file hoặc giảm chất lượng texture trước khi upload.`);
+          return;
+        }
+
+        if (fileSizeMB > WARN_FILE_SIZE_MB) {
+          const proceed = confirm(`⚠️ File khá lớn (${fileSizeMB.toFixed(1)}MB)\n\nUpload có thể mất vài phút. Tiếp tục?`);
+          if (!proceed) return;
+        }
+      }
+
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span>⏳ Uploading...</span>';
       progressContainer.style.display = 'block';
       progressBar.style.width = '0%';
-      
+
       const fd = new FormData(form);
-      
+
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/upload');
-      
+
       // Track upload start time for speed calculation
       const uploadStartTime = Date.now();
       let lastLoaded = 0;
       let lastTime = uploadStartTime;
-      
+
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           const pct = (e.loaded / e.total * 100);
           progressBar.style.width = pct + '%';
-          
+
           // Calculate upload speed
           const now = Date.now();
           const elapsed = (now - lastTime) / 1000;
@@ -805,26 +875,26 @@
             const remaining = (e.total - e.loaded) / speed;
             lastLoaded = e.loaded;
             lastTime = now;
-            
-            const speedText = speed > 1048576 
-              ? (speed / 1048576).toFixed(1) + ' MB/s' 
+
+            const speedText = speed > 1048576
+              ? (speed / 1048576).toFixed(1) + ' MB/s'
               : (speed / 1024).toFixed(0) + ' KB/s';
-            const remainText = remaining < 60 
-              ? Math.ceil(remaining) + 's' 
+            const remainText = remaining < 60
+              ? Math.ceil(remaining) + 's'
               : Math.ceil(remaining / 60) + 'min';
-            
+
             if (pct < 100) {
               submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% · ${speedText} · ~${remainText}</span>`;
             }
           }
         }
       };
-      
+
       xhr.upload.onload = () => {
         submitBtn.innerHTML = '<span>⚡ Generating QR...</span>';
         progressBar.style.width = '100%';
       };
-      
+
       xhr.onload = () => {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
@@ -832,23 +902,23 @@
 
         if (xhr.status === 200) {
           const j = JSON.parse(xhr.responseText);
-          
+
           // Show Result immediately
           document.getElementById('resultUrl').textContent = j.url;
           document.getElementById('qrcode').innerHTML = '';
-          
+
           // Generate QR code (wait for library if async loaded)
           const generateQR = () => {
-            new QRCode(document.getElementById('qrcode'), { 
-              text: j.url, 
-              width: 160, 
+            new QRCode(document.getElementById('qrcode'), {
+              text: j.url,
+              width: 160,
               height: 160,
               colorDark: "#000000",
               colorLight: "#ffffff",
-              correctLevel : QRCode.CorrectLevel.M
+              correctLevel: QRCode.CorrectLevel.M
             });
           };
-          
+
           if (typeof QRCode !== 'undefined') {
             generateQR();
           } else {
@@ -856,24 +926,42 @@
             const qrScript = document.querySelector('script[src*="qrcode"]');
             qrScript.addEventListener('load', generateQR);
           }
-          
+
           resultOverlay.style.display = 'flex';
           setTimeout(() => resultOverlay.classList.add('active'), 10);
         } else {
-          alert('Upload failed: ' + xhr.statusText);
+          // Parse server error message
+          let errMsg = 'Upload thất bại';
+          try {
+            const errData = JSON.parse(xhr.responseText);
+            if (errData.error) errMsg = errData.error;
+          } catch (parseErr) {
+            errMsg = xhr.statusText || 'Upload thất bại';
+          }
+          alert('❌ ' + errMsg);
         }
       };
-      
+
       xhr.onerror = () => {
-        alert('Network Error');
+        alert('❌ Lỗi kết nối mạng! Vui lòng kiểm tra kết nối internet và thử lại.');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
         progressContainer.style.display = 'none';
       };
-      
+
+      xhr.ontimeout = () => {
+        alert('⏱️ Upload quá lâu!\n\nFile có thể quá lớn hoặc kết nối mạng yếu. Vui lòng thử lại với file nhỏ hơn.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
+        progressContainer.style.display = 'none';
+      };
+
+      // Timeout: 10 minutes for large 3D model files
+      xhr.timeout = 10 * 60 * 1000;
       xhr.send(fd);
     });
 
   </script>
 </body>
+
 </html>
