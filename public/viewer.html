@@ -1809,61 +1809,6 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
-    // iOS MEMORY OPTIMIZATION: Downscale textures to prevent Safari crashes
-    // ══════════════════════════════════════════════════════════════════════════════
-    function downscaleMaterialTextures(material) {
-      const maxSize = IS_IOS ? 1024 : (IS_MOBILE ? 2048 : 4096);
-      const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap'];
-
-      textureProps.forEach(prop => {
-        const tex = material[prop];
-        if (!tex || !tex.image) return;
-
-        const img = tex.image;
-
-        // Only process if image is an HTMLImageElement or HTMLCanvasElement
-        // Do NOT touch CompressedTexture, DataTexture, or other non-drawable types
-        const isDrawable = (img instanceof HTMLImageElement) || (img instanceof HTMLCanvasElement) || (img instanceof ImageBitmap);
-        if (!isDrawable) return;
-
-        const w = img.width || img.naturalWidth || 0;
-        const h = img.height || img.naturalHeight || 0;
-
-        if (w > maxSize || h > maxSize) {
-          const scale = maxSize / Math.max(w, h);
-          const newW = Math.floor(w * scale);
-          const newH = Math.floor(h * scale);
-
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = newW;
-            canvas.height = newH;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, newW, newH);
-
-            tex.image = canvas;
-            tex.needsUpdate = true;
-
-            console.log(`📐 ${prop}: ${w}x${h} → ${newW}x${newH}`);
-          } catch (e) {
-            // Silently fail for non-drawable images — keep original texture
-            console.log(`⚠️ Cannot downscale ${prop}: ${e.message}`);
-          }
-        }
-      });
-
-      // Ensure correct texture encoding for color maps (sRGB)
-      if (material.map) {
-        material.map.encoding = THREE.sRGBEncoding;
-        material.map.needsUpdate = true;
-      }
-      if (material.emissiveMap) {
-        material.emissiveMap.encoding = THREE.sRGBEncoding;
-        material.emissiveMap.needsUpdate = true;
-      }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════════
     // AUTO-RESIZE: Scale any model to real-life human height
     // ══════════════════════════════════════════════════════════════════════════════
     function autoResizeToRealLife(loadedModel, targetHeightCM) {
@@ -1989,6 +1934,11 @@
         if (scene) scene.background = null;
         if (ground) { ground.material.opacity = 0.15; ground.material.transparent = true; }
         if (grid) grid.visible = false;
+
+        // Hide environment dome (skybox) so it doesn't block the camera feed
+        if (typeof environmentDome !== 'undefined' && environmentDome) {
+          environmentDome.visible = false;
+        }
 
         console.log('📷 AR Camera active');
         return true;
@@ -2411,31 +2361,26 @@
               child.castShadow = true;
               child.receiveShadow = true;
             }
-            // Fix material encoding and optionally downscale for mobile
-            if (child.material) {
-              const fixMaterial = (m) => {
-                m.needsUpdate = true;
+            // Fix material encoding
+            const fixMaterial = (m) => {
+              m.needsUpdate = true;
 
-                // CRITICAL: Ensure color textures use sRGB encoding
-                // GLB files store textures in sRGB but Three.js r147 needs explicit encoding
-                if (m.map) {
-                  m.map.encoding = THREE.sRGBEncoding;
-                  m.map.needsUpdate = true;
-                }
-                if (m.emissiveMap) {
-                  m.emissiveMap.encoding = THREE.sRGBEncoding;
-                  m.emissiveMap.needsUpdate = true;
-                }
-
-                // On mobile: gently downscale oversized textures (but keep them!)
-                if (IS_MOBILE) downscaleMaterialTextures(m);
-              };
-
-              if (Array.isArray(child.material)) {
-                child.material.forEach(fixMaterial);
-              } else {
-                fixMaterial(child.material);
+              // CRITICAL: Ensure color textures use sRGB encoding
+              // GLB files store textures in sRGB but Three.js r147 needs explicit encoding
+              if (m.map) {
+                m.map.encoding = THREE.sRGBEncoding;
+                m.map.needsUpdate = true;
               }
+              if (m.emissiveMap) {
+                m.emissiveMap.encoding = THREE.sRGBEncoding;
+                m.emissiveMap.needsUpdate = true;
+              }
+            };
+
+            if (Array.isArray(child.material)) {
+              child.material.forEach(fixMaterial);
+            } else {
+              fixMaterial(child.material);
             }
             // iOS: Disable frustum culling computation overhead for simple scenes  
             if (IS_IOS) child.frustumCulled = false;
