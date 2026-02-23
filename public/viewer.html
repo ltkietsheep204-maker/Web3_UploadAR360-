@@ -8,33 +8,36 @@
   <!-- Preload critical scripts -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <!-- PERF: Start model data fetch BEFORE any JS libraries load -->
   <script>
     window.__assetPreload = null;
     (function () {
       var pathParts = window.location.pathname.split('/');
       var assetId = pathParts[pathParts.length - 1];
       if (assetId && assetId !== 'viewer.html') {
-        // Fetch only asset data in head, let loadModel handle the heavy model download
-        // so we get proper progress bar updates in the UI
         window.__assetPreload = fetch('/api/asset/' + assetId)
           .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            return { data: data, buffer: null };
+          })
           .catch(function () { return null; });
       }
     })();
   </script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Noto+Serif+Display:wght@400;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;0,900;1,600&display=swap"
     rel="stylesheet">
   <style>
     :root {
-      --primary: #8B0000;
-      --accent: #FFD700;
-      --bg-panel: rgba(10, 10, 10, 0.85);
-      --text: #e0e0e0;
-      --hp-green: #2ecc71;
-      --hp-red: #e74c3c;
-      --mana-blue: #3498db;
+      --primary: #D4AF37;
+      --accent: #F1C40F;
+      --bg-panel: rgba(18, 18, 22, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --text: #ffffff;
+      --text-muted: rgba(255, 255, 255, 0.6);
+      --ui-font: 'Plus Jakarta Sans', sans-serif;
+      --title-font: 'Playfair Display', serif;
     }
 
     * {
@@ -44,7 +47,7 @@
     }
 
     body {
-      font-family: 'Be Vietnam Pro', sans-serif;
+      font-family: var(--ui-font);
       background: #000;
       overflow: hidden;
       height: 100vh;
@@ -87,83 +90,107 @@
       position: fixed;
       inset: 0;
       z-index: 9999;
-      background: radial-gradient(ellipse at center, #1a0a0a 0%, #000 100%);
+      background: #050505;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      transition: opacity 0.8s ease;
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #loadingScreen::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(212, 175, 55, 0.08) 0%, transparent 60%);
+      pointer-events: none;
     }
 
     #loadingScreen.fade-out {
       opacity: 0;
       pointer-events: none;
+      transform: scale(1.05);
     }
 
     .loading-dragon {
-      width: 100px;
-      height: 100px;
-      animation: pulse 2s ease-in-out infinite;
-      filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.6));
+      width: 90px;
+      height: 90px;
+      animation: pulseFloat 3s ease-in-out infinite;
+      filter: drop-shadow(0 0 25px rgba(212, 175, 55, 0.4));
     }
 
-    @keyframes pulse {
+    @keyframes pulseFloat {
 
       0%,
       100% {
-        transform: scale(1);
-        opacity: 0.8;
+        transform: translateY(0) scale(1);
+        opacity: 0.85;
       }
 
       50% {
-        transform: scale(1.1);
+        transform: translateY(-10px) scale(1.05);
         opacity: 1;
+        filter: drop-shadow(0 0 40px rgba(212, 175, 55, 0.6));
       }
     }
 
     .loading-title {
-      font-family: 'Noto Serif Display', 'Be Vietnam Pro', serif;
-      font-size: 2rem;
-      font-weight: 900;
-      background: linear-gradient(to right, #FFD700, #FDB931, #B8860B);
+      font-family: var(--title-font);
+      font-size: 2.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #FFF1CD 0%, #D4AF37 50%, #8A6D1C 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-top: 20px;
-      letter-spacing: 6px;
-      padding-left: 6px;
-      /* Balance letter-spacing for true center */
+      margin-top: 24px;
+      letter-spacing: 8px;
       text-transform: uppercase;
-      max-width: 90vw;
       text-align: center;
+      line-height: 1.3;
+      padding: 0 15px;
     }
 
     .loading-subtitle {
-      font-family: 'Cormorant Garamond', serif;
-      color: #999;
-      font-size: 1rem;
-      font-style: italic;
-      margin-top: 10px;
-      letter-spacing: 2px;
-      max-width: 90vw;
+      font-family: var(--ui-font);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
       text-align: center;
+      padding: 0 15px;
+    }
+
+    @media (max-width: 480px) {
+      .loading-title {
+        font-size: 1.8rem;
+        letter-spacing: 5px;
+      }
+
+      .loading-subtitle {
+        font-size: 0.75rem;
+        letter-spacing: 2px;
+      }
     }
 
     .loading-bar-container {
-      width: 200px;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-      margin-top: 30px;
+      width: 240px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      margin-top: 35px;
       overflow: hidden;
+      position: relative;
     }
 
     .loading-bar {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #FFD700, #ff6b35);
-      border-radius: 2px;
-      transition: width 0.3s;
+      background: linear-gradient(90deg, transparent, #D4AF37, #FFF1CD);
+      border-radius: 4px;
+      transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -171,46 +198,56 @@
     ══════════════════════════════════════════════════════════════════ */
     #characterTitle {
       position: fixed;
-      top: 20px;
+      top: 30px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 50;
       pointer-events: none;
       text-align: center;
       display: none;
-      /* Dark backdrop so text is always readable on camera */
-      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
-      padding: 15px 40px 12px;
-      border-radius: 16px;
+
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 14px 45px;
+      border-radius: 40px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      animation: slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translate(-50%, -20px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+      }
     }
 
     .title-main {
-      font-family: 'Noto Serif Display', serif;
-      font-size: 2.5rem;
-      font-weight: 900;
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
-      letter-spacing: 4px;
+      font-family: var(--title-font);
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #FFF1CD;
+      text-shadow: 0 2px 15px rgba(212, 175, 55, 0.4);
+      letter-spacing: 3px;
       text-transform: uppercase;
-      margin-bottom: 8px;
-      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+      line-height: 1.2;
     }
 
     .title-era {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.3rem;
-      font-weight: 700;
-      font-style: italic;
-      color: #FFD700;
-      text-shadow:
-        0 0 10px rgba(255, 215, 0, 0.6),
-        0 2px 4px rgba(0, 0, 0, 1),
-        0 0 20px rgba(0, 0, 0, 0.8);
+      font-family: var(--ui-font);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
       letter-spacing: 4px;
       text-transform: uppercase;
+      margin-top: 4px;
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -407,21 +444,20 @@
     /* Character name reveal */
     .summon-text {
       position: absolute;
-      top: 50%;
+      top: 30%;
       left: 50%;
-      transform: translate(-50%, -50%) scale(0.5);
-      font-family: 'Noto Serif Display', serif;
-      font-size: clamp(2.5rem, 8vw, 4rem);
-      font-weight: 900;
-      color: #fff;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.5);
-      opacity: 0;
+      transform: translateX(-50%);
+      font-family: var(--title-font);
+      font-size: 3rem;
+      font-weight: 700;
+      color: #FFF1CD;
+      text-shadow: 0 0 40px rgba(212, 175, 55, 0.8),
+        0 0 80px rgba(212, 175, 55, 0.4),
+        0 4px 15px rgba(0, 0, 0, 0.9);
+      animation: summonTextAnim 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       white-space: nowrap;
-      letter-spacing: min(15px, 3vw);
-      padding-left: min(15px, 3vw);
-      /* Balance letter-spacing */
-      max-width: 95vw;
-      text-align: center;
+      letter-spacing: 8px;
+      text-transform: uppercase;
     }
 
     @keyframes summonTextAnim {
@@ -525,142 +561,160 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════
-       BOTTOM ACTION BAR - Pokemon Go style
+       BOTTOM ACTION BAR - Floating Modern Dock
     ══════════════════════════════════════════════════════════════════ */
     #actionBar {
       position: fixed;
-      bottom: 0;
+      bottom: 30px;
       left: 0;
       right: 0;
       z-index: 50;
-      padding: 10px 15px 25px;
-      background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+      pointer-events: none;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      justify-content: center;
     }
 
     .action-buttons {
-      display: flex;
+      pointer-events: auto;
+      display: inline-flex;
       justify-content: center;
       align-items: center;
-      gap: 12px;
+      gap: 15px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--glass-border);
+      border-radius: 50px;
+      padding: 10px 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     }
 
     .action-btn-round {
-      width: 50px;
-      height: 50px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.03);
+      color: rgba(255, 255, 255, 0.9);
       font-size: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s;
-      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .action-btn-round:hover,
+    .action-btn-round:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
     .action-btn-round:active {
-      transform: scale(1.1);
-      border-color: var(--accent);
+      transform: scale(0.92);
+      background: rgba(255, 255, 255, 0.15);
     }
 
     .action-btn-round.active {
-      border-color: var(--accent);
-      background: rgba(255, 215, 0, 0.2);
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+      color: #111;
+      background: var(--primary);
+      box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
     }
 
     /* Main capture/summon button */
     .btn-summon {
-      width: 70px;
-      height: 70px;
+      width: 64px;
+      height: 64px;
       border-radius: 50%;
-      border: 3px solid var(--accent);
-      background: linear-gradient(135deg, #8B0000 0%, #c0392b 100%);
-      color: #fff;
-      font-size: 28px;
+      border: none;
+      background: linear-gradient(135deg, #F1C40F 0%, #D4AF37 100%);
+      color: #111;
+      font-size: 26px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 0 20px rgba(139, 0, 0, 0.5),
-        0 0 40px rgba(255, 215, 0, 0.2);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 8px 25px rgba(212, 175, 55, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4);
       position: relative;
     }
 
+    .btn-summon:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 12px 30px rgba(212, 175, 55, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+    }
+
     .btn-summon:active {
-      transform: scale(0.95);
+      transform: scale(0.92);
+      box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
     }
 
     .btn-summon::after {
       content: '';
       position: absolute;
       inset: -6px;
-      border: 2px solid rgba(255, 215, 0, 0.3);
+      border: 1px solid rgba(212, 175, 55, 0.4);
       border-radius: 50%;
-      animation: summonPulse 2s ease-in-out infinite;
+      animation: summonPulse 2.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
     }
 
     @keyframes summonPulse {
-
-      0%,
-      100% {
+      0% {
         transform: scale(1);
-        opacity: 0.5;
+        opacity: 0.8;
       }
 
-      50% {
-        transform: scale(1.1);
-        opacity: 1;
+      100% {
+        transform: scale(1.3);
+        opacity: 0;
       }
     }
 
     /* Bio popup */
     #bioPopup {
       position: fixed;
-      bottom: 100px;
-      left: 15px;
-      right: 15px;
+      bottom: 110px;
+      left: 20px;
+      right: 20px;
       z-index: 55;
       background: var(--bg-panel);
-      border: 1px solid rgba(255, 215, 0, 0.3);
-      border-radius: 16px;
-      padding: 20px;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      transform: translateY(120%);
-      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      max-height: 50vh;
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 24px;
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transform: translateY(150%) scale(0.95);
+      opacity: 0;
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 60vh;
       overflow-y: auto;
     }
 
     #bioPopup.show {
-      transform: translateY(0);
+      transform: translateY(0) scale(1);
+      opacity: 1;
     }
 
     .bio-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
+      gap: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 16px;
     }
 
     .bio-avatar {
-      width: 45px;
-      height: 45px;
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
-      border: 2px solid var(--accent);
+      border: 2px solid var(--primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
-      background: rgba(0, 0, 0, 0.5);
+      font-size: 24px;
+      background: rgba(0, 0, 0, 0.3);
+      box-shadow: 0 4px 15px rgba(212, 175, 55, 0.15);
     }
 
     .bio-title-area {
@@ -668,29 +722,45 @@
     }
 
     .bio-name {
-      font-family: 'Noto Serif Display', serif;
+      font-family: var(--title-font);
       font-weight: 700;
-      color: var(--accent);
-      font-size: 1.1rem;
+      color: #FFF1CD;
+      font-size: 1.4rem;
+      letter-spacing: 1px;
     }
 
     .bio-era {
-      font-size: 0.75rem;
-      color: #999;
+      font-family: var(--ui-font);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-weight: 500;
     }
 
     .bio-close {
-      background: none;
+      background: rgba(255, 255, 255, 0.05);
       border: none;
-      color: #666;
-      font-size: 20px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 16px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .bio-close:hover {
+      background: rgba(255, 255, 255, 0.15);
     }
 
     .bio-text {
-      color: #ccc;
-      font-size: 0.85rem;
-      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      font-weight: 300;
       margin-top: 8px;
     }
 
@@ -729,11 +799,11 @@
     }
 
     .discovery-title {
-      font-family: 'Noto Serif Display', serif;
-      color: var(--accent);
-      font-size: 1rem;
+      font-family: var(--title-font);
+      color: var(--primary);
+      font-size: 1.1rem;
       font-weight: 700;
-      letter-spacing: 2px;
+      letter-spacing: 1px;
     }
 
     .discovery-map {
@@ -1055,10 +1125,11 @@
 
     .collection-title {
       flex: 1;
-      font-family: 'Be Vietnam Pro', sans-serif;
-      color: var(--accent);
-      font-size: 1rem;
-      font-weight: 600;
+      font-family: var(--title-font);
+      color: var(--primary);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 1px;
     }
 
     .collection-count {
@@ -1131,39 +1202,46 @@
     ══════════════════════════════════════════════════════════════════ */
     #sidePanel {
       position: fixed;
-      top: 80px;
-      right: 10px;
-      width: 52px;
+      top: 100px;
+      right: 15px;
       z-index: 60;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
     }
 
     .side-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
       background: var(--bg-panel);
-      backdrop-filter: blur(10px);
-      color: #fff;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: rgba(255, 255, 255, 0.9);
       font-size: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .side-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
     }
 
     .side-btn:active {
       transform: scale(0.9);
-      border-color: var(--accent);
     }
 
     .side-btn.active {
-      border-color: var(--accent);
-      background: rgba(255, 215, 0, 0.15);
+      border-color: var(--primary);
+      color: var(--primary);
+      background: rgba(212, 175, 55, 0.1);
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -1320,15 +1398,31 @@
       border-radius: 4px;
     }
 
-    @media (max-width: 768px) {
-      .loading-title {
-        font-size: 1.5rem;
+    @media (max-width: 500px) {
+      #characterTitle {
+        padding: 10px 25px;
+        width: auto;
+        min-width: 60%;
       }
 
-      .summon-text {
-        font-size: 2.5rem;
-        letter-spacing: 10px;
-        padding-left: 10px;
+      .title-main {
+        font-size: 1.4rem;
+        letter-spacing: 1px;
+        white-space: nowrap;
+      }
+
+      .title-era {
+        font-size: 0.7rem;
+        letter-spacing: 2px;
+      }
+
+      .hud-name {
+        font-size: 0.85rem;
+      }
+
+      .stat-badge {
+        padding: 3px 5px;
+        font-size: 0.6rem;
       }
 
       .btn-summon {
@@ -1399,24 +1493,9 @@
     <button class="side-btn" id="btnCamera" title="Camera AR">📷</button>
     <button class="side-btn" id="btnScale" title="Điều chỉnh kích thước">📏</button>
     <button class="side-btn" id="btnPhoto" title="Chụp ảnh">📸</button>
-    <button class="side-btn" id="btnAnim" title="Animation" style="display:none;">🎬</button>
     <button class="side-btn" id="btnInfo" title="Thông tin tướng">📜</button>
     <button class="side-btn" id="btnDiscovery" title="Khám phá">🗺️</button>
     <button class="side-btn" id="btnCollection" title="Bộ sưu tập">📖</button>
-  </div>
-
-  <!-- Animation Control Panel -->
-  <div id="animPanel" style="display:none; position:fixed; bottom:80px; left:10px; right:10px; z-index:200;
-    background:rgba(10,10,10,0.92); border:1px solid rgba(255,215,0,0.3); border-radius:16px;
-    padding:15px; max-height:40vh; overflow-y:auto; backdrop-filter:blur(10px);">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <div style="color:#FFD700; font-family:'Be Vietnam Pro',sans-serif; font-size:0.85rem; font-weight:600;">🎬
-        ANIMATIONS</div>
-      <button
-        onclick="document.getElementById('animPanel').style.display='none'; document.getElementById('btnAnim').classList.remove('active');"
-        style="background:none; border:none; color:#999; font-size:1.2rem; cursor:pointer;">✕</button>
-    </div>
-    <div id="animList" style="display:flex; flex-direction:column; gap:6px;"></div>
   </div>
 
   <!-- Scale Control -->
@@ -1529,6 +1608,7 @@
   <script src="/lib/OrbitControls.js"></script>
   <script src="/lib/GLTFLoader.js"></script>
   <script src="/lib/DRACOLoader.js"></script>
+  <script src="/lib/meshopt_decoder.js?v=2"></script>
   <!-- fflate MUST load before FBXLoader -->
   <script src="/lib/fflate.min.js"></script>
   <script src="/lib/FBXLoader.js"></script>
@@ -1540,7 +1620,6 @@
     let scene, camera, renderer, controls, clock;
     let model, mixer, skeletonHelper;
     let proceduralAnimator = null;
-    let allAnimationClips = []; // Store all animation clips for switching
     let environmentDome = null;
     let assetData = null;
     let ground, grid;
@@ -1593,10 +1672,20 @@
       try {
         if (typeof THREE === 'undefined' || !THREE.DRACOLoader) return null;
         const d = new THREE.DRACOLoader();
-        d.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-        d.setDecoderConfig({ type: 'js' });
-        d.preload(); // Start WASM download immediately
-        console.log('🗜 DRACOLoader singleton initialized + preloading');
+        // Use LOCAL Draco decoders instead of gstatic.com CDN
+        // This prevents mixed-content issues (HTTP page loading HTTPS worker)
+        // and ensures mobile Safari can decode without external internet
+        d.setDecoderPath('/lib/draco/');
+
+        // ═══════════════════════════════════════════════════════════════
+        // MEMORY FIX: Use WASM (much faster, less RAM spike than JS)
+        // Set worker limit to 1 on iOS to prevent Safari killing tab
+        // ═══════════════════════════════════════════════════════════════
+        d.setDecoderConfig({ type: 'wasm' });
+        d.setWorkerLimit(IS_IOS ? 1 : (IS_MOBILE ? 2 : 4));
+
+        d.preload();
+        console.log('🗜 DRACOLoader initialized (LOCAL WASM decoders)');
         return d;
       } catch (e) {
         console.log('DRACOLoader init failed:', e.message);
@@ -1809,6 +1898,84 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
+    // iOS MEMORY OPTIMIZATION: Downscale textures to prevent Safari crashes
+    // ══════════════════════════════════════════════════════════════════════════════
+    function downscaleMaterialTextures(material) {
+      // iOS: aggressive 512px max to prevent memory crash
+      // Mobile: 1024px for balance. Desktop: full quality.
+      const maxSize = IS_IOS ? 512 : (IS_MOBILE ? 1024 : 4096);
+      // iOS: only process color maps to save memory (skip normalMap, aoMap etc.)
+      const textureProps = IS_IOS
+        ? ['map', 'emissiveMap']
+        : ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'displacementMap', 'alphaMap'];
+
+      textureProps.forEach(prop => {
+        const tex = material[prop];
+        if (!tex || !tex.image) return;
+
+        const img = tex.image;
+
+        // Only process if image is an HTMLImageElement or HTMLCanvasElement
+        // Do NOT touch CompressedTexture, DataTexture, or other non-drawable types
+        const isDrawable = (img instanceof HTMLImageElement) || (img instanceof HTMLCanvasElement) || (img instanceof ImageBitmap);
+        if (!isDrawable) return;
+
+        const w = img.width || img.naturalWidth || 0;
+        const h = img.height || img.naturalHeight || 0;
+
+        if (w > maxSize || h > maxSize) {
+          const scale = maxSize / Math.max(w, h);
+          const newW = Math.floor(w * scale);
+          const newH = Math.floor(h * scale);
+
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = newW;
+            canvas.height = newH;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, newW, newH);
+
+            tex.image = canvas;
+            tex.needsUpdate = true;
+
+            // MEMORY: Release the original image to allow GC
+            // (the canvas now owns the pixel data)
+            if (img instanceof HTMLImageElement) {
+              img.src = '';
+            }
+
+            console.log(`📐 ${prop}: ${w}x${h} → ${newW}x${newH}`);
+          } catch (e) {
+            // Silently fail for non-drawable images — keep original texture
+            console.log(`⚠️ Cannot downscale ${prop}: ${e.message}`);
+          }
+        }
+      });
+
+      // iOS: strip non-essential texture maps entirely to save GPU memory
+      if (IS_IOS) {
+        const stripProps = ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap', 'displacementMap', 'alphaMap'];
+        stripProps.forEach(prop => {
+          if (material[prop]) {
+            material[prop].dispose();
+            material[prop] = null;
+          }
+        });
+        material.needsUpdate = true;
+      }
+
+      // Ensure correct texture encoding for color maps (sRGB)
+      if (material.map) {
+        material.map.encoding = THREE.sRGBEncoding;
+        material.map.needsUpdate = true;
+      }
+      if (material.emissiveMap) {
+        material.emissiveMap.encoding = THREE.sRGBEncoding;
+        material.emissiveMap.needsUpdate = true;
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
     // AUTO-RESIZE: Scale any model to real-life human height
     // ══════════════════════════════════════════════════════════════════════════════
     function autoResizeToRealLife(loadedModel, targetHeightCM) {
@@ -1935,11 +2102,6 @@
         if (ground) { ground.material.opacity = 0.15; ground.material.transparent = true; }
         if (grid) grid.visible = false;
 
-        // Hide environment dome (skybox) so it doesn't block the camera feed
-        if (typeof environmentDome !== 'undefined' && environmentDome) {
-          environmentDome.visible = false;
-        }
-
         console.log('📷 AR Camera active');
         return true;
       } catch (e) {
@@ -1987,8 +2149,9 @@
         }
 
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // iOS: pixel ratio 1.0 to prevent memory overflow
-        renderer.setPixelRatio(IS_IOS ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, IS_MOBILE ? 2 : 2));
+        // iOS: pixel ratio MUST be 1.0 to prevent GPU memory overflow crash
+        // iPhone GPU has ~256MB VRAM budget. At 3x retina + 1M vertices = instant crash
+        renderer.setPixelRatio(IS_IOS ? 1.0 : Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
         renderer.shadowMap.enabled = !IS_MOBILE;
         if (renderer.shadowMap.enabled) {
           renderer.shadowMap.type = THREE.BasicShadowMap;
@@ -2081,10 +2244,15 @@
 
         if (assetId && assetId !== 'viewer.html') {
           try {
-            // Check if preload from <head> already has the asset data
+            // Check if preload from <head> already has the data
+            let preloaded = null;
             if (window.__assetPreload) {
-              assetData = await window.__assetPreload;
-              console.log('⚡ Using preloaded asset data', assetData);
+              preloaded = await window.__assetPreload;
+              console.log('⚡ Using preloaded data' + (preloaded?.buffer ? ' + model buffer!' : ''));
+            }
+
+            if (preloaded?.data) {
+              assetData = preloaded.data;
             } else {
               // Fallback: fetch normally
               const resp = await fetch(`/api/asset/${assetId}`);
@@ -2102,8 +2270,11 @@
               }
               setLoadingProgress(40);
             }
+
+            // PERF: Store preloaded buffer for loadModel to use
+            window.__preloadedModelBuffer = preloaded?.buffer || null;
           } catch (e) {
-            console.log('Could not load asset data', e);
+            console.log('Could not load asset data');
           }
         }
 
@@ -2119,7 +2290,9 @@
         // Setup UI
         setupUI();
 
-        // AR camera - auto-request on ALL devices (including iOS)
+        // AR camera - request on ALL devices upon initial user interaction
+        // Safari requires camera permission to happen on a direct UI interaction
+        // We initialize it here, but delay WebGL rendering until the model is ready.
         setTimeout(() => {
           initARCamera().then((ok) => {
             if (ok) setLoadingProgress(50);
@@ -2175,9 +2348,26 @@
         console.warn('No model path found');
       }
 
-      const isFBX = modelPath.toLowerCase().endsWith('.fbx');
-      const isGLB = modelPath.toLowerCase().endsWith('.glb');
-      const fullUrl = modelPath.startsWith('http') ? modelPath : modelPath;
+      // Strip query params (e.g. ?v=123) before checking file extension
+      const cleanPath = modelPath.split('?')[0].toLowerCase();
+      const isFBX = cleanPath.endsWith('.fbx');
+      const isGLB = cleanPath.endsWith('.glb') || cleanPath.endsWith('.gltf');
+      const fullUrl = modelPath;
+      const previewUrl = assetData?.previewModel || null;
+
+      console.log('🔍 Model detection:', { modelPath, cleanPath, isFBX, isGLB, previewUrl });
+
+      // ═══════════════════════════════════════════════════════════════
+      // MEMORY FIX: Pause rendering during model load/parse
+      // This frees GPU resources for Draco decompression + texture decode
+      // Without this, the render loop competes for GPU memory and causes crash
+      // ═══════════════════════════════════════════════════════════════
+      isRendering = false;
+      if (IS_MOBILE && renderer) {
+        // Shrink renderer to 1x1 to free GPU framebuffer memory (~20-50MB)
+        renderer.setSize(1, 1);
+        console.log('⏸ Paused rendering + shrunk framebuffer for model loading');
+      }
 
       const onProgress = (p) => {
         if (p.total > 0) {
@@ -2199,14 +2389,14 @@
 
         if (isFBX) {
           new THREE.FBXLoader().load(absUrl, fbx => {
-            processLoadedModel(fbx, fbx.animations || []);
+            processLoadedModel(fbx, fbx.animations || [], false);
           }, onProgress, (err2) => {
             console.error('Model load failed completely:', err2);
             hideLoading();
           });
         } else {
           createGLTFLoader().load(absUrl, gltf => {
-            processLoadedModel(gltf.scene, gltf.animations || []);
+            processLoadedModel(gltf.scene, gltf.animations || [], false);
           }, onProgress, (err2) => {
             console.error('Model load failed completely:', err2);
             hideLoading();
@@ -2220,14 +2410,71 @@
 
       if (isFBX) {
         new THREE.FBXLoader().load(fullUrl, fbx => {
-          processLoadedModel(fbx, fbx.animations || []);
+          processLoadedModel(fbx, fbx.animations || [], false);
         }, onProgress, onError);
       } else if (isGLB) {
-        // Try cache first for GLB files
-        loadGLBWithCache(fullUrl, onProgress, onError);
+        // ═══════════════════════════════════════════════════════════════
+        // MOBILE: Load ONLY mobile model (< 100k verts) or preview model (11MB)
+        // This prevents crash by keeping memory usage low and bypassing Draco
+        // DESKTOP: Progressive load (preview first → HD swap in background)
+        // ═══════════════════════════════════════════════════════════════
+        const mobileTargetUrl = assetData.mobileModel || assetData.previewModel;
+
+        if (IS_MOBILE && mobileTargetUrl) {
+          // MOBILE PATH: Mobile/Preview model is the FINAL model (no HD upgrade)
+          console.log('📱 Mobile: Loading optimized mobile or preview model ONLY');
+          console.log('📱 Target URL:', mobileTargetUrl);
+
+          createGLTFLoader().load(mobileTargetUrl, gltf => {
+            processLoadedModel(gltf.scene, gltf.animations || [], false); // false = this IS the final model
+          }, (evt) => {
+            if (evt.total > 0) {
+              const pct = 60 + Math.round((evt.loaded / evt.total) * 35);
+              setLoadingProgress(Math.min(pct, 95));
+              const loadedMB = (evt.loaded / (1024 * 1024)).toFixed(1);
+              const totalMB = (evt.total / (1024 * 1024)).toFixed(1);
+              const subtitle = document.querySelector('.loading-subtitle');
+              if (subtitle) subtitle.textContent = `Đang tải: ${loadedMB}MB / ${totalMB}MB`;
+            }
+          }, (err) => {
+            // If preview fails, fall back to full model
+            console.warn('📱 Preview load failed, falling back to full model:', err);
+            loadGLBWithCache(fullUrl, onProgress, onError, false);
+          });
+
+        } else if (!IS_MOBILE && previewUrl && !window.__preloadedModelBuffer) {
+          // DESKTOP PATH: Progressive loading (preview → HD swap)
+          console.log('🖥️ Desktop: Progressive Loading (preview → HD swap)');
+
+          createGLTFLoader().load(previewUrl, gltf => {
+            processLoadedModel(gltf.scene, gltf.animations || [], true); // true = preview, will be swapped
+
+            setTimeout(() => {
+              console.log('🖥️ Starting background download of HD model...');
+              loadGLBWithCache(fullUrl, (p) => { }, onError, true);
+            }, 500);
+
+          }, (evt) => {
+            if (evt.total > 0) {
+              const pct = Math.round((evt.loaded / evt.total) * 90);
+              setLoadingProgress(Math.min(pct, 90));
+              const loadedMB = (evt.loaded / (1024 * 1024)).toFixed(1);
+              const totalMB = (evt.total / (1024 * 1024)).toFixed(1);
+              const subtitle = document.querySelector('.loading-subtitle');
+              if (subtitle) subtitle.textContent = `Triệu Hồn Mẫu: ${loadedMB}MB / ${totalMB}MB`;
+            }
+          }, (err) => {
+            console.warn("Preview load failed, falling back to standard load", err);
+            loadGLBWithCache(fullUrl, onProgress, onError, false);
+          });
+
+        } else {
+          // No preview available, or preloaded buffer exists — load full model directly
+          loadGLBWithCache(fullUrl, onProgress, onError, false);
+        }
       } else {
         createGLTFLoader().load(fullUrl, gltf => {
-          processLoadedModel(gltf.scene, gltf.animations || []);
+          processLoadedModel(gltf.scene, gltf.animations || [], false);
         }, onProgress, onError);
       }
     }
@@ -2238,26 +2485,54 @@
       if (_sharedDracoLoader) {
         loader.setDRACOLoader(_sharedDracoLoader);
       }
+      if (typeof MeshoptDecoder !== 'undefined') {
+        loader.setMeshoptDecoder(MeshoptDecoder);
+      }
       return loader;
     }
 
     // Load GLB with Cache API for instant reload
-    async function loadGLBWithCache(url, onProgress, onError) {
+    async function loadGLBWithCache(url, onProgress, onError, isBackground = false) {
       const absoluteUrl = new URL(url, window.location.origin).href;
+
+      // PERF Step 0: Check if model was pre-downloaded in <head>
+      if (window.__preloadedModelBuffer && !isBackground) {
+        console.log('⚡⚡ Using pre-downloaded model buffer (fastest!)');
+        setLoadingProgress(85);
+        const subtitle = document.querySelector('.loading-subtitle');
+        if (subtitle) subtitle.textContent = 'Triệu hồn tức thì...';
+
+        const buffer = window.__preloadedModelBuffer;
+        window.__preloadedModelBuffer = null; // Free reference
+
+        // Cache for next time
+        if (!IS_IOS) ModelCache.put(absoluteUrl, buffer.slice(0));
+
+        try {
+          const loader = createGLTFLoader();
+          loader.parse(buffer, '', (gltf) => {
+            processLoadedModel(gltf.scene, gltf.animations || [], false);
+          }, onError);
+          return;
+        } catch (e) {
+          console.log('Preload parse failed, falling through:', e.message);
+        }
+      }
 
       // Step 1: Check cache
       const cachedBuffer = await ModelCache.get(absoluteUrl);
       if (cachedBuffer) {
         console.log('⚡ Loading from cache (instant!)');
-        setLoadingProgress(80);
-
-        const subtitle = document.querySelector('.loading-subtitle');
-        if (subtitle) subtitle.textContent = 'Đang triệu hồn từ bộ nhớ...';
+        if (!isBackground) {
+          setLoadingProgress(80);
+          const subtitle = document.querySelector('.loading-subtitle');
+          if (subtitle) subtitle.textContent = 'Đang triệu hồn từ bộ nhớ...';
+        }
 
         try {
           const loader = createGLTFLoader();
           loader.parse(cachedBuffer, '', (gltf) => {
-            processLoadedModel(gltf.scene, gltf.animations || []);
+            processLoadedModel(gltf.scene, gltf.animations || [], false);
           }, onError);
           return;
         } catch (e) {
@@ -2299,16 +2574,20 @@
           const downloadTime = ((Date.now() - downloadStartTime) / 1000).toFixed(1);
           console.log(`📦 Downloaded: ${(buffer.byteLength / (1024 * 1024)).toFixed(1)}MB in ${downloadTime}s`);
 
-          // Cache for next time - but NOT on iOS (save memory)
-          if (!IS_IOS) {
-            ModelCache.put(absoluteUrl, buffer.slice(0));
-          }
-
-          // Parse the model
+          // MEMORY FIX: Parse model FIRST, cache AFTER to avoid holding 2x buffer in RAM
+          // Previous code: buffer.slice(0) + parse = 2x memory at peak
           try {
             const loader = createGLTFLoader();
             loader.parse(buffer, '', (gltf) => {
-              processLoadedModel(gltf.scene, gltf.animations || []);
+              processLoadedModel(gltf.scene, gltf.animations || [], false);
+
+              // Cache AFTER model is rendered — buffer can now be GC'd by browser
+              // Skip on iOS entirely to save memory
+              if (!IS_IOS && !IS_MOBILE) {
+                setTimeout(() => {
+                  try { ModelCache.put(absoluteUrl, buffer.slice(0)); } catch (e) { }
+                }, 5000); // 5s delay lets GC reclaim parse buffers first
+              }
             }, onError);
           } catch (e) {
             onError(e);
@@ -2326,21 +2605,63 @@
       xhr.send();
     }
 
-    function processLoadedModel(loadedModel, animations = []) {
+    function processLoadedModel(loadedModel, animations = [], isPreview = false) {
       try {
-        scene.add(loadedModel);
+        // ═══════════════════════════════════════════════════════════════
+        // PROGRESSIVE LOADING SWAP (Seamless Transition)
+        // ═══════════════════════════════════════════════════════════════
+        if (model && !isPreview) {
+          console.log("✨ Progressive Swap: Replacing Preview Model with High-Res HD Model!");
+
+          // 1. Copy exact transform state from old model to new model
+          loadedModel.position.copy(model.position);
+          loadedModel.rotation.copy(model.rotation);
+          loadedModel.scale.copy(model.scale);
+          loadedModel.updateMatrixWorld(true);
+
+          // 2. Add new model
+          scene.add(loadedModel);
+
+          // 3. Setup HD Materials (Fix encoding, shadows, etc)
+          setupModelMaterials(loadedModel);
+
+          // 4. Remove old model
+          scene.remove(model);
+
+          // 5. Restart animations for HD model
+          if (mixer && mixer.stopAllAction) mixer.stopAllAction();
+          startAnimations(loadedModel, animations);
+
+          model = loadedModel;
+          console.log("✨ Swap complete! HD textures loaded.");
+          return;
+        }
+
+        // STANDARD LOAD FLOW
 
         // ═══════════════════════════════════════════════════════════════
-        // iOS MEMORY MANAGEMENT: Downscale large textures at runtime
+        // CRITICAL FIX: Process materials BEFORE adding to scene!
+        // Previously: scene.add(model) → render loop uploads full-size textures to GPU
+        //             → THEN setupModelMaterials downscales textures (too late!)
+        // Now: downscale textures FIRST → then add to scene → GPU only sees small textures
         // ═══════════════════════════════════════════════════════════════
-        const MAX_TEX_SIZE_MOBILE = 2048;
-        const MAX_TEX_SIZE_IOS = 1024; // Balance quality vs memory on iOS
 
-        // ═══════════════════════════════════════════════════════════════
-        // AUTO-RESIZE TO REAL LIFE SIZE
-        // ═══════════════════════════════════════════════════════════════
+        // Step 1: Auto-resize (only sets transforms, no GPU work)
         const targetHeightCM = assetData?.characterHeight || DEFAULT_HUMAN_HEIGHT_CM;
         const { scaleFactor, realHeightCM } = autoResizeToRealLife(loadedModel, targetHeightCM);
+
+        // Step 2: Downscale textures BEFORE adding to scene (GPU never sees large textures)
+        setupModelMaterials(loadedModel);
+
+        // Step 3: NOW add to scene (GPU will only upload the small downscaled textures)
+        scene.add(loadedModel);
+
+        // Step 4: Restore renderer size + resume rendering
+        if (IS_MOBILE && renderer) {
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          console.log('▶️ Restored renderer size after model processing');
+        }
+        isRendering = true;
 
         // Update slider
         const slider = document.getElementById('scaleSlider');
@@ -2348,92 +2669,76 @@
         if (slider) slider.value = targetHeightCM;
         if (scaleVal) scaleVal.textContent = targetHeightCM + 'cm';
 
-        // Enable shadows (skip on mobile for performance)
-        // Ensure proper material encoding for GLB models
-        let meshCount = 0;
-        let vertexCount = 0;
-        loadedModel.traverse(child => {
-          if (child.isMesh) {
-            meshCount++;
-            if (child.geometry) vertexCount += child.geometry.attributes.position?.count || 0;
+        function setupModelMaterials(loadedModel) {
+          let meshCount = 0;
+          let vertexCount = 0;
+          loadedModel.traverse(child => {
+            if (child.isMesh) {
+              meshCount++;
+              if (child.geometry) vertexCount += child.geometry.attributes.position?.count || 0;
 
-            if (!IS_MOBILE) {
-              child.castShadow = true;
-              child.receiveShadow = true;
-            }
-            // Fix material encoding
-            const fixMaterial = (m) => {
-              m.needsUpdate = true;
-
-              // CRITICAL: Ensure color textures use sRGB encoding
-              // GLB files store textures in sRGB but Three.js r147 needs explicit encoding
-              if (m.map) {
-                m.map.encoding = THREE.sRGBEncoding;
-                m.map.needsUpdate = true;
+              if (!IS_MOBILE) {
+                child.castShadow = true;
+                child.receiveShadow = true;
               }
-              if (m.emissiveMap) {
-                m.emissiveMap.encoding = THREE.sRGBEncoding;
-                m.emissiveMap.needsUpdate = true;
-              }
-            };
+              // Fix material encoding and optionally downscale for mobile
+              if (child.material) {
+                const fixMaterial = (m) => {
+                  m.needsUpdate = true;
+                  if (m.map) {
+                    m.map.encoding = THREE.sRGBEncoding;
+                    m.map.needsUpdate = true;
+                  }
+                  if (m.emissiveMap) {
+                    m.emissiveMap.encoding = THREE.sRGBEncoding;
+                    m.emissiveMap.needsUpdate = true;
+                  }
+                  if (IS_MOBILE) downscaleMaterialTextures(m);
+                };
 
-            if (Array.isArray(child.material)) {
-              child.material.forEach(fixMaterial);
-            } else {
-              fixMaterial(child.material);
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(fixMaterial);
+                } else {
+                  fixMaterial(child.material);
+                }
+              }
+              // REMOVED: frustumCulled=false was forcing GPU to render ALL meshes every frame
+              // This caused significant GPU memory overhead on iOS leading to crashes
             }
-            // iOS: Disable frustum culling computation overhead for simple scenes  
-            if (IS_IOS) child.frustumCulled = false;
+          });
+          console.log(`📊 Model: ${meshCount} meshes, ${vertexCount} vertices`);
+        }
+
+        function startAnimations(loadedModel, animations) {
+          // Skeleton helper — skip on iOS to save memory (it's invisible anyway)
+          if (!IS_IOS) {
+            loadedModel.traverse(child => {
+              if (child.isSkinnedMesh && !skeletonHelper) {
+                skeletonHelper = new THREE.SkeletonHelper(loadedModel);
+                skeletonHelper.visible = false;
+                scene.add(skeletonHelper);
+              }
+            });
           }
-        });
-        console.log(`📊 Model: ${meshCount} meshes, ${vertexCount} vertices`);
+
+          // Animations
+          if (animations.length > 0) {
+            mixer = new THREE.AnimationMixer(loadedModel);
+            currentAnimAction = mixer.clipAction(animations[0]);
+            currentAnimAction.play();
+            console.log(`🎬 Playing embedded animation: ${animations[0].name || 'default'}`);
+          } else {
+            proceduralAnimator = new ProceduralAnimator(loadedModel);
+            proceduralAnimator.play('look_around');
+          }
+        }
 
         model = loadedModel;
-
-        // Skeleton helper
-        loadedModel.traverse(child => {
-          if (child.isSkinnedMesh && !skeletonHelper) {
-            skeletonHelper = new THREE.SkeletonHelper(loadedModel);
-            skeletonHelper.visible = false;
-            scene.add(skeletonHelper);
-          }
-        });
-
-        // Animations
-        console.log(`🎬 Animation clips found: ${animations.length}`);
-        if (animations.length > 0) {
-          animations.forEach((clip, i) => {
-            console.log(`   📎 Clip ${i}: "${clip.name || 'unnamed'}" duration=${clip.duration.toFixed(2)}s tracks=${clip.tracks.length}`);
-          });
-
-          // Store all clips globally for animation switching
-          allAnimationClips = animations;
-          mixer = new THREE.AnimationMixer(loadedModel);
-
-          // Play the first animation
-          currentAnimAction = mixer.clipAction(animations[0]);
-          currentAnimAction.play();
-          console.log(`🎬 Playing: "${animations[0].name || 'default'}"`);
-
-          // Show animation button and populate list
-          const btnAnim = document.getElementById('btnAnim');
-          if (btnAnim) btnAnim.style.display = 'block';
-          buildAnimationList(animations);
-        } else {
-          console.log('🎬 No embedded animations, using procedural animator');
-          proceduralAnimator = new ProceduralAnimator(loadedModel);
-          proceduralAnimator.play('look_around');
-        }
+        startAnimations(loadedModel, animations);
 
         setLoadingProgress(100);
 
-        // Summon effect then show
-        playSummonEffect(() => {
-          hideLoading();
-          document.getElementById('characterTitle').style.display = 'block';
-        });
-
-        // Adjust camera for the model
+        // Adjust camera for the model FIRST (lightweight)
         const finalBox = new THREE.Box3().setFromObject(loadedModel);
         const fHeight = finalBox.max.y - finalBox.min.y;
         const fCenter = new THREE.Vector3();
@@ -2444,83 +2749,24 @@
         controls.target.set(0, fCenter.y, 0);
         controls.update();
 
-        // Save to collection
-        saveToCollection(assetData);
+        // MEMORY FIX: Stagger heavy operations instead of running all at once
+        // Step 1: Hide loading immediately (let model render 1 frame first)
+        hideLoading();
+        document.getElementById('characterTitle').style.display = 'block';
+
+        // Step 2: Summon effect AFTER first render (500ms delay)
+        setTimeout(() => {
+          playSummonEffect();
+        }, 500);
+
+        // Step 3: (Removed) AR camera now initialized on user click to satisfy Safari policies
+
+        // Step 4: Save to collection (lightweight, no rush)
+        setTimeout(() => saveToCollection(assetData), 1000);
       } catch (e) {
         console.error('processLoadedModel error:', e);
         hideLoading();
       }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════════
-    // ANIMATION CONTROLS - Switch between model animations
-    // ══════════════════════════════════════════════════════════════════════════════
-    function buildAnimationList(animations) {
-      const container = document.getElementById('animList');
-      if (!container) return;
-      container.innerHTML = '';
-
-      animations.forEach((clip, i) => {
-        const name = clip.name || `Animation ${i + 1}`;
-        const duration = clip.duration.toFixed(1);
-        const isActive = i === 0;
-
-        const btn = document.createElement('button');
-        btn.className = 'anim-item';
-        btn.setAttribute('data-index', i);
-        btn.style.cssText = `
-          display:flex; align-items:center; justify-content:space-between;
-          padding:10px 14px; border-radius:10px; border:1px solid ${isActive ? 'rgba(255,215,0,0.5)' : 'rgba(255,255,255,0.1)'};
-          background:${isActive ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.05)'};
-          color:${isActive ? '#FFD700' : '#ccc'}; cursor:pointer; font-family:'Be Vietnam Pro',sans-serif;
-          font-size:0.82rem; transition:all 0.2s;
-        `;
-        btn.innerHTML = `
-          <span style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:1.1rem;">${isActive ? '▶️' : '⏸'}</span>
-            <span>${name}</span>
-          </span>
-          <span style="color:#888;font-size:0.75rem;">${duration}s</span>
-        `;
-        btn.addEventListener('click', () => switchAnimation(i));
-        container.appendChild(btn);
-      });
-    }
-
-    function switchAnimation(index) {
-      if (!mixer || !allAnimationClips[index]) return;
-
-      // Fade out current
-      if (currentAnimAction) {
-        currentAnimAction.fadeOut(0.3);
-      }
-
-      // Stop procedural animator if running
-      if (proceduralAnimator) {
-        proceduralAnimator.stop();
-        proceduralAnimator = null;
-      }
-
-      // Play new animation with cross-fade
-      const clip = allAnimationClips[index];
-      currentAnimAction = mixer.clipAction(clip);
-      currentAnimAction.reset();
-      currentAnimAction.fadeIn(0.3);
-      currentAnimAction.play();
-
-      console.log(`🎬 Switched to: "${clip.name || 'Animation ' + (index + 1)}"`);
-      showToast('🎬', clip.name || `Animation ${index + 1}`);
-
-      // Update button styles
-      const items = document.querySelectorAll('#animList .anim-item');
-      items.forEach((item, i) => {
-        const isActive = i === index;
-        item.style.borderColor = isActive ? 'rgba(255,215,0,0.5)' : 'rgba(255,255,255,0.1)';
-        item.style.background = isActive ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.05)';
-        item.style.color = isActive ? '#FFD700' : '#ccc';
-        const icon = item.querySelector('span span:first-child');
-        if (icon) icon.textContent = isActive ? '▶️' : '⏸';
-      });
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
@@ -2653,19 +2899,6 @@
 
       // Photo
       document.getElementById('btnPhoto').addEventListener('click', takePhoto);
-
-      // Animation toggle
-      document.getElementById('btnAnim').addEventListener('click', () => {
-        const panel = document.getElementById('animPanel');
-        const btn = document.getElementById('btnAnim');
-        if (panel.style.display === 'none') {
-          panel.style.display = 'block';
-          btn.classList.add('active');
-        } else {
-          panel.style.display = 'none';
-          btn.classList.remove('active');
-        }
-      });
 
       // Info
       document.getElementById('btnInfo').addEventListener('click', () => {

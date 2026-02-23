@@ -77,26 +77,30 @@ const upload = multer({
 
 // ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Smart model serving - prefer optimized version
+// Handles both /uploads/:file AND /uploads/optimized/:file
 // ═══════════════════════════════════════════════════════════════════
-app.get('/uploads/:filename', (req, res, next) => {
-  const filename = req.params.filename;
+function serveModelFile(req, res, next) {
+  const filename = req.params.filename || req.params[0];
+  if (!filename || !filename.match(/\.(glb|gltf)$/i)) return next();
 
-  // Only intercept model files
-  if (!filename.match(/\.(glb|gltf)$/i)) return next();
-
-  // Check for optimized version first
+  // Determine file path - check optimized first, then original
   const optimizedPath = path.join(OPTIMIZED_DIR, filename);
   const originalPath = path.join(UPLOADS_DIR, filename);
-
   const filePath = fs.existsSync(optimizedPath) ? optimizedPath : originalPath;
+
+  // LOG: Track what's being served to help debug mobile issues
+  const ua = req.headers['user-agent'] || 'Unknown';
+  const isMobile = /iPhone|iPad|Android/i.test(ua);
+  const sizeMB = fs.existsSync(filePath) ? (fs.statSync(filePath).size / 1024 / 1024).toFixed(1) : '?';
+  console.log(`📡 [${isMobile ? 'MOBILE' : 'DESKTOP'}] Serving: ${filename} (${sizeMB}MB) from ${filePath === optimizedPath ? 'OPTIMIZED' : 'ORIGINAL'} → ${req.ip}`);
 
   if (!fs.existsSync(filePath)) return next();
 
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
 
-  // Set aggressive cache headers
-  res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 days
+  // No-cache on short reload, but allow long-term cache
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day (not immutable)
   res.setHeader('Content-Type', filename.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json');
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('X-Optimized', fs.existsSync(optimizedPath) ? 'true' : 'false');
@@ -108,44 +112,39 @@ app.get('/uploads/:filename', (req, res, next) => {
     const start = parseInt(parts[0], 10);
     const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
     const chunkSize = (end - start) + 1;
-
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Content-Length': chunkSize,
     });
-
     fs.createReadStream(filePath, { start, end }).pipe(res);
   } else {
     res.setHeader('Content-Length', fileSize);
     fs.createReadStream(filePath).pipe(res);
   }
-});
+}
+app.get('/uploads/optimized/:filename', serveModelFile);
+app.get('/uploads/:filename', serveModelFile);
 
 // ═══════════════════════════════════════════════════════════════════
-// PERFORMANCE: Static files with aggressive caching for uploads
+// Static files - NO aggressive caching to prevent stale mobile files
 // ═══════════════════════════════════════════════════════════════════
 app.use('/uploads', express.static(path.join(PUBLIC_DIR, 'uploads'), {
-  maxAge: '30d',
+  maxAge: 0,
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    if (filePath.match(/\.(glb|gltf|fbx)$/i)) {
-      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
-      res.setHeader('Accept-Ranges', 'bytes');
-    }
+    // Let ETag handle revalidation - no immutable to prevent stale cache
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Accept-Ranges', 'bytes');
   }
 }));
 
 app.use(express.static(PUBLIC_DIR, {
-  maxAge: '1h',
+  maxAge: 0,
   etag: true,
   setHeaders: (res, filePath) => {
-    // Không cache các file giao diện HTML để luôn nhận được bản update mới nhất
-    if (filePath.match(/\.html$/i)) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
+    // Force browser to always revalidate HTML/JS files
+    res.setHeader('Cache-Control', 'no-cache');
   }
 }));
 
@@ -228,8 +227,8 @@ app.post('/upload', (req, res, next) => {
       const modelStat = fs.statSync(modelFullPath);
       const modelSizeMB = modelStat.size / (1024 * 1024);
 
-      if (modelSizeMB > 200) {
-        console.log(`⏭️ Skipping auto-optimize for ${modelFile} (${modelSizeMB.toFixed(1)}MB > 200MB limit) — will serve original`);
+      if (modelSizeMB > 500) {
+        console.log(`⏭️ Skipping auto-optimize for ${modelFile} (${modelSizeMB.toFixed(1)}MB > 500MB limit) — will serve original`);
       } else {
         const { spawn } = require('child_process');
         console.log(`🔧 Auto-optimizing ${modelFile} (${modelSizeMB.toFixed(1)}MB, background)...`);
@@ -297,14 +296,34 @@ app.get('/api/asset/:id', (req, res) => {
   const modelFile = asset.model ? path.basename(asset.model) : null;
   let modelSize = 0;
   let isOptimized = false;
+  let previewModel = null;
+  let mobileModel = null;
 
   if (modelFile) {
     const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
     const originalPath = path.join(UPLOADS_DIR, modelFile);
 
+    const isGltf = modelFile.toLowerCase().endsWith('.gltf');
+    const ext = isGltf ? '.gltf' : '.glb';
+    const baseName = modelFile.substring(0, modelFile.length - ext.length);
+    const previewFileName = `${baseName}.preview${ext}`;
+    const previewPath = path.join(OPTIMIZED_DIR, previewFileName);
+    const mobileFileName = `${baseName}.mobile${ext}`;
+    const mobilePath = path.join(OPTIMIZED_DIR, mobileFileName);
+
+    if (fs.existsSync(previewPath)) {
+      previewModel = `/uploads/optimized/${previewFileName}`;
+    }
+
+    if (fs.existsSync(mobilePath)) {
+      mobileModel = `/uploads/optimized/${mobileFileName}`;
+    }
+
     if (modelFile.endsWith('.glb') && fs.existsSync(optimizedPath)) {
       modelSize = fs.statSync(optimizedPath).size;
       isOptimized = true;
+      // Serve directly from optimized path (no query string - it breaks .glb detection on client)
+      asset.model = `/uploads/optimized/${modelFile}`;
     } else if (fs.existsSync(originalPath)) {
       modelSize = fs.statSync(originalPath).size;
     }
@@ -314,6 +333,8 @@ app.get('/api/asset/:id', (req, res) => {
     ...asset,
     modelSize,
     isOptimized,
+    previewModel,
+    mobileModel,
     // Tell client if Draco decoding is needed
     needsDraco: isOptimized
   });

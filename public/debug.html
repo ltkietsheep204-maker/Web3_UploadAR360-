@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WEBAR Debug - iOS Crash Diagnostic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, monospace;
+            background: #000;
+            color: #0f0;
+            font-size: 11px;
+            padding: 8px;
+            overflow-y: auto;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #FFD700;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 6px;
+        }
+
+        .section-title {
+            color: #FFD700;
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .log-entry {
+            padding: 1px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            word-break: break-all;
+        }
+
+        .log-entry.error {
+            color: #ff4444;
+        }
+
+        .log-entry.warn {
+            color: #ffaa00;
+        }
+
+        .log-entry.info {
+            color: #4488ff;
+        }
+
+        .log-entry.success {
+            color: #44ff44;
+        }
+
+        .log-entry.step {
+            color: #ff88ff;
+            font-weight: bold;
+        }
+
+        .meter {
+            height: 16px;
+            background: #111;
+            border-radius: 3px;
+            margin: 3px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .meter-fill {
+            height: 100%;
+            transition: width 0.3s;
+            border-radius: 3px;
+        }
+
+        .meter-label {
+            position: absolute;
+            top: 0;
+            left: 4px;
+            line-height: 16px;
+            color: #fff;
+            font-size: 10px;
+            z-index: 1;
+        }
+
+        #startBtn {
+            width: 100%;
+            padding: 14px;
+            background: #FFD700;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        #startBtn:disabled {
+            background: #555;
+            color: #888;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+        }
+
+        .stat-label {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 WEBAR iOS Debug Tool</h1>
+
+    <div class="section">
+        <div class="section-title">📱 Device Info</div>
+        <div id="deviceInfo"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📊 Memory & GPU</div>
+        <div id="memoryInfo"></div>
+        <div class="meter">
+            <div class="meter-fill" id="memMeter" style="width:0%;background:#4CAF50;"></div>
+            <div class="meter-label" id="memLabel">...</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📦 Model Loading</div>
+        <div class="meter">
+            <div class="meter-fill" id="loadMeter" style="width:0%;background:#2196F3;"></div>
+            <div class="meter-label" id="loadLabel">Not started</div>
+        </div>
+        <div id="modelInfo"></div>
+    </div>
+
+    <button id="startBtn" onclick="startDebugLoad()">🚀 START DEBUG LOAD</button>
+
+    <div class="section">
+        <div class="section-title">📋 Step-by-Step Log</div>
+        <div id="logPanel" style="max-height: 50vh; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Three.js + Loaders -->
+    <script src="/lib/three.min.js"></script>
+    <script src="/lib/OrbitControls.js"></script>
+    <script src="/lib/GLTFLoader.js"></script>
+    <script src="/lib/DRACOLoader.js"></script>
+    <script src="/lib/meshopt_decoder.js?v=2"></script>
+    <script src="/lib/fflate.min.js"></script>
+    <script src="/lib/FBXLoader.js"></script>
+
+    <canvas id="debugCanvas" width="1" height="1"
+        style="position:fixed;bottom:0;right:0;width:1px;height:1px;"></canvas>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        // DEBUG LOGGER - Shows everything on screen
+        // ═══════════════════════════════════════════════════════════════
+        const logPanel = document.getElementById('logPanel');
+        let logCount = 0;
+        let stepCount = 0;
+
+        function dlog(msg, type = '') {
+            logCount++;
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            const time = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+            entry.textContent = `[${time}] #${logCount} ${msg}`;
+            logPanel.appendChild(entry);
+            logPanel.scrollTop = logPanel.scrollHeight;
+
+            // Also persist to sessionStorage in case of crash
+            try {
+                const logs = JSON.parse(sessionStorage.getItem('debug_logs') || '[]');
+                logs.push({ t: time, n: logCount, m: msg, type });
+                sessionStorage.setItem('debug_logs', JSON.stringify(logs));
+            } catch (e) { }
+        }
+
+        function dstep(msg) {
+            stepCount++;
+            dlog(`═══ STEP ${stepCount}: ${msg} ═══`, 'step');
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // DEVICE INFO
+        // ═══════════════════════════════════════════════════════════════
+        const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const IS_MOBILE = /Android|iPhone|iPad|iPod|mobile/i.test(navigator.userAgent);
+
+        const deviceDiv = document.getElementById('deviceInfo');
+        deviceDiv.innerHTML = `
+      <div class="stat"><span class="stat-label">UA</span><span class="stat-value" style="font-size:9px;max-width:70%;text-align:right;word-break:break-all;">${navigator.userAgent.substring(0, 120)}</span></div>
+      <div class="stat"><span class="stat-label">iOS</span><span class="stat-value">${IS_IOS ? '✅ YES' : '❌ NO'}</span></div>
+      <div class="stat"><span class="stat-label">Safari</span><span class="stat-value">${IS_SAFARI ? '✅ YES' : '❌ NO'}</span></div>
+      <div class="stat"><span class="stat-label">Mobile</span><span class="stat-value">${IS_MOBILE ? '✅ YES' : '❌ NO'}</span></div>
+      <div class="stat"><span class="stat-label">Screen</span><span class="stat-value">${screen.width}x${screen.height} @${window.devicePixelRatio}x</span></div>
+      <div class="stat"><span class="stat-label">WebGL</span><span class="stat-value" id="webglInfo">checking...</span></div>
+      <div class="stat"><span class="stat-label">Max Tex Size</span><span class="stat-value" id="maxTexSize">checking...</span></div>
+      <div class="stat"><span class="stat-label">GPU</span><span class="stat-value" id="gpuInfo">checking...</span></div>
+    `;
+
+        // Check WebGL capabilities
+        try {
+            const testCanvas = document.createElement('canvas');
+            const gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl');
+            if (gl) {
+                document.getElementById('webglInfo').textContent = gl instanceof WebGL2RenderingContext ? 'WebGL2 ✅' : 'WebGL1';
+                document.getElementById('maxTexSize').textContent = gl.getParameter(gl.MAX_TEXTURE_SIZE) + 'px';
+                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                if (dbg) {
+                    document.getElementById('gpuInfo').textContent = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+                }
+                // Get max memory info
+                const memExt = gl.getExtension('WEBGL_memory_info');
+                if (memExt) {
+                    dlog(`GPU Memory: ${JSON.stringify(memExt)}`, 'info');
+                }
+            } else {
+                document.getElementById('webglInfo').textContent = '❌ NOT AVAILABLE';
+            }
+        } catch (e) {
+            document.getElementById('webglInfo').textContent = '❌ Error: ' + e.message;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // MEMORY MONITORING
+        // ═══════════════════════════════════════════════════════════════
+        const memDiv = document.getElementById('memoryInfo');
+        const memMeter = document.getElementById('memMeter');
+        const memLabel = document.getElementById('memLabel');
+
+        function updateMemory() {
+            let memHTML = '';
+
+            if (performance.memory) {
+                const used = performance.memory.usedJSHeapSize;
+                const total = performance.memory.totalJSHeapSize;
+                const limit = performance.memory.jsHeapSizeLimit;
+                const pct = Math.round(used / limit * 100);
+                memHTML += `<div class="stat"><span class="stat-label">JS Heap</span><span class="stat-value">${formatBytes(used)} / ${formatBytes(limit)} (${pct}%)</span></div>`;
+                memMeter.style.width = pct + '%';
+                memMeter.style.background = pct > 80 ? '#f44' : pct > 50 ? '#ff9800' : '#4CAF50';
+                memLabel.textContent = `JS Heap: ${formatBytes(used)} / ${formatBytes(limit)}`;
+            } else {
+                memHTML += `<div class="stat"><span class="stat-label">JS Heap</span><span class="stat-value">Not available (Safari)</span></div>`;
+                memLabel.textContent = 'Memory API not available on Safari';
+            }
+
+            memDiv.innerHTML = memHTML;
+        }
+        updateMemory();
+        setInterval(updateMemory, 1000);
+
+        // ═══════════════════════════════════════════════════════════════
+        // CHECK FOR PREVIOUS CRASH LOGS
+        // ═══════════════════════════════════════════════════════════════
+        try {
+            const prevLogs = JSON.parse(sessionStorage.getItem('debug_logs') || '[]');
+            if (prevLogs.length > 0) {
+                dlog(`⚠️ PREVIOUS SESSION HAD ${prevLogs.length} LOG ENTRIES (crash recovery)`, 'warn');
+                dlog(`Last log before crash: "${prevLogs[prevLogs.length - 1]?.m}"`, 'error');
+                // Show last 5 logs from crash
+                const last5 = prevLogs.slice(-5);
+                last5.forEach(l => dlog(`  [PREV] ${l.m}`, 'warn'));
+                sessionStorage.removeItem('debug_logs');
+            }
+        } catch (e) { }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ASSET ID FROM URL
+        // ═══════════════════════════════════════════════════════════════
+        function getAssetId() {
+            // Support ?id=xxx or default to 5fB5Wf1I
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id') || '5fB5Wf1I';
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // MAIN DEBUG LOAD
+        // ═══════════════════════════════════════════════════════════════
+        async function startDebugLoad() {
+            const btn = document.getElementById('startBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Loading...';
+            sessionStorage.removeItem('debug_logs');
+
+            const assetId = getAssetId();
+            const loadLabel = document.getElementById('loadLabel');
+            const loadMeter = document.getElementById('loadMeter');
+            const modelInfo = document.getElementById('modelInfo');
+
+            try {
+                // STEP 1: Fetch asset data
+                dstep('Fetching asset data from API');
+                const resp = await fetch(`/api/asset/${assetId}`);
+                if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+                const assetData = await resp.json();
+                dlog(`Asset ID: ${assetId}`, 'info');
+                dlog(`Model path: ${assetData.model}`, 'info');
+                dlog(`Model size: ${formatBytes(assetData.modelSize)}`, 'info');
+                dlog(`Optimized: ${assetData.isOptimized}`, 'info');
+                dlog(`Preview: ${assetData.previewModel || 'NONE'}`, assetData.previewModel ? 'info' : 'warn');
+                dlog(`Mobile: ${assetData.mobileModel || 'NONE'}`, assetData.mobileModel ? 'info' : 'warn');
+                dlog(`Needs Draco: ${assetData.needsDraco}`, 'info');
+                modelInfo.innerHTML = `
+          <div class="stat"><span class="stat-label">Model</span><span class="stat-value">${assetData.model}</span></div>
+          <div class="stat"><span class="stat-label">Size</span><span class="stat-value">${formatBytes(assetData.modelSize)}</span></div>
+          <div class="stat"><span class="stat-label">Mobile</span><span class="stat-value">${assetData.mobileModel || '❌ NONE'}</span></div>
+          <div class="stat"><span class="stat-label">Preview</span><span class="stat-value">${assetData.previewModel || '❌ NONE'}</span></div>
+        `;
+
+                // Choose URL: mobile (best for iOS) > preview > full model
+                const modelUrl = IS_MOBILE
+                    ? (assetData.mobileModel || assetData.previewModel || assetData.model)
+                    : assetData.model;
+                dlog(`Will load: ${modelUrl}`, 'success');
+
+                // STEP 2: Create minimal renderer
+                dstep('Creating WebGL renderer (minimal)');
+                const canvas = document.getElementById('debugCanvas');
+                let renderer;
+                try {
+                    renderer = new THREE.WebGLRenderer({
+                        canvas,
+                        antialias: false,
+                        alpha: true,
+                        preserveDrawingBuffer: false,
+                        powerPreference: 'low-power',
+                        failIfMajorPerformanceCaveat: false
+                    });
+                    renderer.setSize(1, 1); // Tiny - no GPU framebuffer waste
+                    renderer.setPixelRatio(1);
+                    renderer.outputEncoding = THREE.sRGBEncoding;
+                    dlog(`Renderer created OK. Context: ${renderer.getContext() ? 'YES' : 'NO'}`, 'success');
+
+                    const gl = renderer.getContext();
+                    dlog(`GL MAX_TEXTURE_SIZE: ${gl.getParameter(gl.MAX_TEXTURE_SIZE)}`, 'info');
+                    dlog(`GL MAX_RENDERBUFFER_SIZE: ${gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)}`, 'info');
+                    dlog(`GL MAX_VIEWPORT_DIMS: ${gl.getParameter(gl.MAX_VIEWPORT_DIMS)}`, 'info');
+
+                    canvas.addEventListener('webglcontextlost', (e) => {
+                        e.preventDefault();
+                        dlog('🔥🔥🔥 WebGL CONTEXT LOST! 🔥🔥🔥', 'error');
+                    });
+                } catch (e) {
+                    dlog(`Renderer creation FAILED: ${e.message}`, 'error');
+                    throw e;
+                }
+
+                // STEP 3: Create scene  
+                dstep('Creating scene + camera');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+                camera.position.set(0, 1, 3);
+                scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+                dlog('Scene + camera created OK', 'success');
+
+                // STEP 4: Setup Draco loader
+                dstep('Setting up Draco decoder');
+                let dracoLoader = null;
+                try {
+                    dracoLoader = new THREE.DRACOLoader();
+                    dracoLoader.setDecoderPath('/lib/draco/');
+                    dracoLoader.setDecoderConfig({ type: 'wasm' });
+                    dracoLoader.setWorkerLimit(IS_IOS ? 1 : (IS_MOBILE ? 2 : 4));
+                    dracoLoader.preload();
+                    dlog('DRACOLoader initialized OK', 'success');
+                } catch (e) {
+                    dlog(`DRACOLoader failed: ${e.message}`, 'error');
+                }
+
+                // STEP 5: Download model file
+                dstep(`Downloading model: ${modelUrl}`);
+                const absoluteUrl = new URL(modelUrl, window.location.origin).href;
+                dlog(`Full URL: ${absoluteUrl}`, 'info');
+
+                const downloadStart = Date.now();
+
+                const buffer = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', absoluteUrl, true);
+                    xhr.responseType = 'arraybuffer';
+
+                    xhr.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const pct = Math.round(e.loaded / e.total * 100);
+                            loadMeter.style.width = pct + '%';
+                            loadLabel.textContent = `Download: ${pct}% (${formatBytes(e.loaded)} / ${formatBytes(e.total)})`;
+
+                            // Log every 20%
+                            if (pct % 20 === 0) {
+                                const elapsed = (Date.now() - downloadStart) / 1000;
+                                const speed = e.loaded / elapsed;
+                                dlog(`Download ${pct}%: ${formatBytes(e.loaded)}/${formatBytes(e.total)} @${formatBytes(speed)}/s`, 'info');
+                            }
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status === 200 || xhr.status === 206) {
+                            resolve(xhr.response);
+                        } else {
+                            reject(new Error(`HTTP ${xhr.status}`));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.timeout = 300000;
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    xhr.send();
+                });
+
+                const downloadTime = ((Date.now() - downloadStart) / 1000).toFixed(1);
+                dlog(`✅ Download complete: ${formatBytes(buffer.byteLength)} in ${downloadTime}s`, 'success');
+                loadLabel.textContent = `Downloaded: ${formatBytes(buffer.byteLength)}`;
+                loadMeter.style.width = '100%';
+                loadMeter.style.background = '#4CAF50';
+                updateMemory();
+
+                // STEP 6: Parse model (THIS IS WHERE CRASH USUALLY HAPPENS)
+                dstep('🔥 PARSING MODEL (crash-prone zone!)');
+                dlog('About to call GLTFLoader.parse()...', 'warn');
+                dlog(`Buffer size: ${formatBytes(buffer.byteLength)}`, 'info');
+                updateMemory();
+
+                const parseStart = Date.now();
+
+                const gltf = await new Promise((resolve, reject) => {
+                    try {
+                        const loader = new THREE.GLTFLoader();
+                        if (dracoLoader) loader.setDRACOLoader(dracoLoader);
+                        if (typeof MeshoptDecoder !== 'undefined') loader.setMeshoptDecoder(MeshoptDecoder);
+
+                        dlog('GLTFLoader.parse() CALLED - waiting for callback...', 'warn');
+
+                        loader.parse(buffer, '', (result) => {
+                            dlog('GLTFLoader.parse() CALLBACK RECEIVED ✅', 'success');
+                            resolve(result);
+                        }, (err) => {
+                            dlog(`GLTFLoader.parse() ERROR: ${err?.message || err}`, 'error');
+                            reject(err);
+                        });
+                    } catch (e) {
+                        dlog(`GLTFLoader.parse() THREW: ${e.message}`, 'error');
+                        reject(e);
+                    }
+                });
+
+                const parseTime = ((Date.now() - parseStart) / 1000).toFixed(1);
+                dlog(`✅ Parse complete in ${parseTime}s`, 'success');
+                updateMemory();
+
+                // STEP 7: Analyze the parsed model
+                dstep('Analyzing parsed model');
+                const model = gltf.scene;
+                let meshCount = 0, vertexCount = 0, textureCount = 0;
+                let textureDetails = [];
+                let totalTexPixels = 0;
+
+                model.traverse(child => {
+                    if (child.isMesh) {
+                        meshCount++;
+                        const posAttr = child.geometry?.attributes?.position;
+                        if (posAttr) vertexCount += posAttr.count;
+
+                        const processTex = (mat) => {
+                            ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap'].forEach(prop => {
+                                const tex = mat[prop];
+                                if (tex && tex.image) {
+                                    const w = tex.image.width || tex.image.naturalWidth || 0;
+                                    const h = tex.image.height || tex.image.naturalHeight || 0;
+                                    if (w > 0) {
+                                        textureCount++;
+                                        const pixels = w * h;
+                                        totalTexPixels += pixels;
+                                        const gpuBytes = pixels * 4; // RGBA
+                                        textureDetails.push({ prop, w, h, gpuBytes });
+                                    }
+                                }
+                            });
+                        };
+
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(processTex);
+                            } else {
+                                processTex(child.material);
+                            }
+                        }
+                    }
+                });
+
+                const totalGPUTexMB = (totalTexPixels * 4 / 1024 / 1024).toFixed(1);
+
+                dlog(`Meshes: ${meshCount}`, 'info');
+                dlog(`Vertices: ${vertexCount.toLocaleString()}`, vertexCount > 500000 ? 'warn' : 'info');
+                dlog(`Textures: ${textureCount}`, 'info');
+                dlog(`GPU Texture Memory: ${totalGPUTexMB}MB (uncompressed RGBA)`, totalGPUTexMB > 100 ? 'error' : totalGPUTexMB > 50 ? 'warn' : 'info');
+                dlog(`Animations: ${gltf.animations?.length || 0}`, 'info');
+
+                textureDetails.forEach(t => {
+                    dlog(`  ${t.prop}: ${t.w}x${t.h} = ${formatBytes(t.gpuBytes)} GPU`, t.gpuBytes > 16 * 1024 * 1024 ? 'error' : 'info');
+                });
+
+                updateMemory();
+
+                // STEP 8: Try adding to scene + first render
+                dstep('Adding model to scene');
+                scene.add(model);
+                dlog('scene.add() OK', 'success');
+                updateMemory();
+
+                // STEP 9: Try rendering
+                dstep('First render call (GPU texture upload happens here!)');
+                dlog('About to call renderer.render()...', 'warn');
+
+                try {
+                    renderer.setSize(100, 100); // Small render to test
+                    renderer.render(scene, camera);
+                    dlog('✅ FIRST RENDER SUCCESSFUL!', 'success');
+                } catch (e) {
+                    dlog(`🔥 RENDER FAILED: ${e.message}`, 'error');
+                }
+                updateMemory();
+
+                // STEP 10: Try full-size render
+                dstep('Full-size render');
+                try {
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.setPixelRatio(1);
+                    renderer.render(scene, camera);
+                    dlog('✅ FULL-SIZE RENDER SUCCESSFUL!', 'success');
+                } catch (e) {
+                    dlog(`🔥 FULL-SIZE RENDER FAILED: ${e.message}`, 'error');
+                }
+                updateMemory();
+
+                // DONE
+                dstep('🎉 ALL STEPS COMPLETED WITHOUT CRASH!');
+                dlog(`Total time: ${((Date.now() - downloadStart) / 1000).toFixed(1)}s`, 'success');
+                btn.textContent = '✅ COMPLETE - No crash!';
+                btn.style.background = '#4CAF50';
+
+                // Cleanup
+                renderer.dispose();
+
+            } catch (e) {
+                dlog(`💥 FATAL ERROR: ${e.message}`, 'error');
+                dlog(`Stack: ${e.stack?.substring(0, 200)}`, 'error');
+                btn.textContent = '❌ ERROR';
+                btn.style.background = '#f44336';
+            }
+        }
+
+        dlog('Debug page loaded. Press START to begin.', 'info');
+        dlog(`Asset ID: ${getAssetId()} (add ?id=xxx to URL to change)`, 'info');
+    </script>
+</body>
+
+</html>
