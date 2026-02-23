@@ -20,8 +20,11 @@ try {
     level: 6,
     threshold: 1024,
     filter: (req, res) => {
-      // Always compress GLB/GLTF/FBX/JSON
-      if (req.path.match(/\.(glb|gltf|fbx|json)$/i)) return true;
+      // GLB files are already compressed binary - gzip adds very little (5-10%)
+      // and strips Content-Length header → progress bar can't show accurate %
+      if (req.path.match(/\.(glb)$/i)) return false;
+      // Compress text-based formats normally
+      if (req.path.match(/\.(gltf|fbx|json)$/i)) return true;
       return compression.filter(req, res);
     }
   }));
