@@ -867,10 +867,14 @@
           const pct = (e.loaded / e.total * 100);
           progressBar.style.width = pct + '%';
 
-          // Calculate upload speed
+          // Always show percentage + size
+          const loadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
+          const totalMB = (e.total / (1024 * 1024)).toFixed(1);
+
+          // Calculate upload speed (after 0.5s for stability)
           const now = Date.now();
           const elapsed = (now - lastTime) / 1000;
-          if (elapsed > 0.5) {
+          if (elapsed > 0.5 && e.loaded > lastLoaded) {
             const speed = (e.loaded - lastLoaded) / elapsed;
             const remaining = (e.total - e.loaded) / speed;
             lastLoaded = e.loaded;
@@ -884,8 +888,11 @@
               : Math.ceil(remaining / 60) + 'min';
 
             if (pct < 100) {
-              submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% · ${speedText} · ~${remainText}</span>`;
+              submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% · ${loadedMB}/${totalMB}MB · ${speedText} · ~${remainText}</span>`;
             }
+          } else if (pct < 100) {
+            // Show percentage immediately (before speed calc is ready)
+            submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% · ${loadedMB}/${totalMB}MB</span>`;
           }
         }
       };
