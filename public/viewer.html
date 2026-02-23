@@ -8,37 +8,16 @@
   <!-- Preload critical scripts -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <!-- PERF: Start model data fetch + download BEFORE any JS libraries load -->
   <script>
-    window.__modelPreload = null;
     window.__assetPreload = null;
     (function () {
       var pathParts = window.location.pathname.split('/');
       var assetId = pathParts[pathParts.length - 1];
       if (assetId && assetId !== 'viewer.html') {
+        // Fetch only asset data in head, let loadModel handle the heavy model download
+        // so we get proper progress bar updates in the UI
         window.__assetPreload = fetch('/api/asset/' + assetId)
           .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (data) {
-            if (!data || !data.model) return { data: data, buffer: null };
-            // Start downloading model immediately (while Three.js libraries load)
-            var modelUrl = data.model.startsWith('http') ? data.model : data.model;
-            var xhr = new XMLHttpRequest();
-            return new Promise(function (resolve) {
-              xhr.open('GET', modelUrl, true);
-              xhr.responseType = 'arraybuffer';
-              xhr.onload = function () {
-                if (xhr.status === 200 || xhr.status === 206) {
-                  console.log('⚡ Model pre-downloaded: ' + (xhr.response.byteLength / (1024 * 1024)).toFixed(1) + 'MB');
-                  resolve({ data: data, buffer: xhr.response });
-                } else {
-                  resolve({ data: data, buffer: null });
-                }
-              };
-              xhr.onerror = function () { resolve({ data: data, buffer: null }); };
-              xhr.timeout = 300000;
-              xhr.send();
-            });
-          })
           .catch(function () { return null; });
       }
     })();
@@ -152,7 +131,11 @@
       background-clip: text;
       margin-top: 20px;
       letter-spacing: 6px;
+      padding-left: 6px;
+      /* Balance letter-spacing for true center */
       text-transform: uppercase;
+      max-width: 90vw;
+      text-align: center;
     }
 
     .loading-subtitle {
@@ -162,6 +145,8 @@
       font-style: italic;
       margin-top: 10px;
       letter-spacing: 2px;
+      max-width: 90vw;
+      text-align: center;
     }
 
     .loading-bar-container {
@@ -422,20 +407,21 @@
     /* Character name reveal */
     .summon-text {
       position: absolute;
-      top: 25%;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translate(-50%, -50%) scale(0.5);
       font-family: 'Noto Serif Display', serif;
-      font-size: 2.4rem;
+      font-size: clamp(2.5rem, 8vw, 4rem);
       font-weight: 900;
-      color: var(--accent);
-      text-shadow: 0 0 30px rgba(255, 215, 0, 0.9),
-        0 0 60px rgba(255, 215, 0, 0.5),
-        0 4px 15px rgba(0, 0, 0, 0.9);
-      animation: summonTextAnim 2s ease-out forwards;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.5);
+      opacity: 0;
       white-space: nowrap;
-      letter-spacing: 5px;
-      text-transform: uppercase;
+      letter-spacing: min(15px, 3vw);
+      padding-left: min(15px, 3vw);
+      /* Balance letter-spacing */
+      max-width: 95vw;
+      text-align: center;
     }
 
     @keyframes summonTextAnim {
@@ -1334,14 +1320,15 @@
       border-radius: 4px;
     }
 
-    @media (max-width: 500px) {
-      .hud-name {
-        font-size: 0.85rem;
+    @media (max-width: 768px) {
+      .loading-title {
+        font-size: 1.5rem;
       }
 
-      .stat-badge {
-        padding: 3px 5px;
-        font-size: 0.6rem;
+      .summon-text {
+        font-size: 2.5rem;
+        letter-spacing: 10px;
+        padding-left: 10px;
       }
 
       .btn-summon {
@@ -2144,15 +2131,10 @@
 
         if (assetId && assetId !== 'viewer.html') {
           try {
-            // Check if preload from <head> already has the data
-            let preloaded = null;
+            // Check if preload from <head> already has the asset data
             if (window.__assetPreload) {
-              preloaded = await window.__assetPreload;
-              console.log('⚡ Using preloaded data' + (preloaded?.buffer ? ' + model buffer!' : ''));
-            }
-
-            if (preloaded?.data) {
-              assetData = preloaded.data;
+              assetData = await window.__assetPreload;
+              console.log('⚡ Using preloaded asset data', assetData);
             } else {
               // Fallback: fetch normally
               const resp = await fetch(`/api/asset/${assetId}`);
@@ -2170,11 +2152,8 @@
               }
               setLoadingProgress(40);
             }
-
-            // PERF: Store preloaded buffer for loadModel to use
-            window.__preloadedModelBuffer = preloaded?.buffer || null;
           } catch (e) {
-            console.log('Could not load asset data');
+            console.log('Could not load asset data', e);
           }
         }
 
@@ -2315,30 +2294,6 @@
     // Load GLB with Cache API for instant reload
     async function loadGLBWithCache(url, onProgress, onError) {
       const absoluteUrl = new URL(url, window.location.origin).href;
-
-      // PERF Step 0: Check if model was pre-downloaded in <head>
-      if (window.__preloadedModelBuffer) {
-        console.log('⚡⚡ Using pre-downloaded model buffer (fastest!)');
-        setLoadingProgress(85);
-        const subtitle = document.querySelector('.loading-subtitle');
-        if (subtitle) subtitle.textContent = 'Triệu hồn tức thì...';
-
-        const buffer = window.__preloadedModelBuffer;
-        window.__preloadedModelBuffer = null; // Free reference
-
-        // Cache for next time
-        if (!IS_IOS) ModelCache.put(absoluteUrl, buffer.slice(0));
-
-        try {
-          const loader = createGLTFLoader();
-          loader.parse(buffer, '', (gltf) => {
-            processLoadedModel(gltf.scene, gltf.animations || []);
-          }, onError);
-          return;
-        } catch (e) {
-          console.log('Preload parse failed, falling through:', e.message);
-        }
-      }
 
       // Step 1: Check cache
       const cachedBuffer = await ModelCache.get(absoluteUrl);
