@@ -138,7 +138,15 @@ app.use('/uploads', express.static(path.join(PUBLIC_DIR, 'uploads'), {
 
 app.use(express.static(PUBLIC_DIR, {
   maxAge: '1h',
-  etag: true
+  etag: true,
+  setHeaders: (res, filePath) => {
+    // Không cache các file giao diện HTML để luôn nhận được bản update mới nhất
+    if (filePath.match(/\.html$/i)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
 }));
 
 app.post('/upload', (req, res, next) => {
