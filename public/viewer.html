@@ -2635,7 +2635,11 @@
       // Desktop/localhost: 300MB loads in ~2s from disk → no need to wait
       // Mobile: 300MB over network would crash → must wait for 11MB version
       // ═══════════════════════════════════════════════════════════════
-      if (IS_MOBILE && assetData?.optimizing && !assetData?.isOptimized) {
+      // Check ACTUAL file size, not just the flag — flag is unreliable after server restart
+      const rawSizeMB = assetData?.modelSize ? assetData.modelSize / (1024 * 1024) : 0;
+      const needsWait = IS_MOBILE && !assetData?.isOptimized && rawSizeMB > 50;
+      if (needsWait) {
+        console.log(`📦 Model is ${rawSizeMB.toFixed(1)}MB and not yet optimized — waiting for server optimization...`);
         await waitForOptimization();
       }
 

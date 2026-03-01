@@ -50,6 +50,45 @@ if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify({}), 'utf8
 const optimizingModels = new Map(); // modelFile -> { startTime, assetId }
 
 // ═══════════════════════════════════════════════════════════════════
+// OPTIMIZER SPAWN: Reusable — called on upload AND on server startup
+// Uses --max-old-space-size to prevent OOM on Railway (512MB container)
+// ═══════════════════════════════════════════════════════════════════
+function spawnOptimizer(modelFile, assetId) {
+  if (optimizingModels.has(modelFile)) {
+    console.log(`⏭️ Already optimizing ${modelFile}, skip duplicate`);
+    return;
+  }
+  const modelFullPath = path.join(UPLOADS_DIR, modelFile);
+  if (!fs.existsSync(modelFullPath)) {
+    console.log(`⚠️ spawnOptimizer: file not found: ${modelFile}`);
+    return;
+  }
+  const modelSizeMB = (fs.statSync(modelFullPath).size / (1024 * 1024)).toFixed(1);
+  console.log(`🔧 Optimizing ${modelFile} (${modelSizeMB}MB) for asset ${assetId}...`);
+  optimizingModels.set(modelFile, { startTime: Date.now(), assetId });
+  const { spawn } = require('child_process');
+  // --max-old-space-size=768 → caps Node RAM at 768MB, prevents Railway OOM kill
+  const child = spawn('node', ['--max-old-space-size=768', 'optimize_models.mjs', modelFullPath], {
+    cwd: __dirname,
+    stdio: 'inherit',
+    detached: false
+  });
+  child.on('close', (code) => {
+    optimizingModels.delete(modelFile);
+    if (code === 0) {
+      console.log(`✅ Optimization done: ${modelFile}`);
+    } else {
+      console.log(`⚠️ Optimization failed (code ${code}): ${modelFile} — original will be served`);
+    }
+  });
+  child.on('error', (err) => {
+    optimizingModels.delete(modelFile);
+    console.log(`❌ Optimizer spawn error: ${err.message}`);
+  });
+  child.unref();
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Cache DB in memory instead of reading file every time
 // ═══════════════════════════════════════════════════════════════════
 let dbCache = null;
@@ -282,39 +321,15 @@ app.post('/upload', (req, res, next) => {
     };
     saveDB(db);
 
-    // Auto-optimize GLB models in background (truly async, doesn't block event loop)
-    // Skip optimization for files >50MB to prevent OOM crash
+    // Auto-optimize GLB on upload — always run, no size skip
+    // spawnOptimizer handles memory limit + dedup guard internally
     if (modelFile && modelFile.endsWith('.glb')) {
       const modelFullPath = path.join(UPLOADS_DIR, modelFile);
-      const modelStat = fs.statSync(modelFullPath);
-      const modelSizeMB = modelStat.size / (1024 * 1024);
-
-      if (modelSizeMB > 500) {
-        console.log(`⏭️ Skipping auto-optimize for ${modelFile} (${modelSizeMB.toFixed(1)}MB > 500MB limit) — will serve original`);
+      const modelSizeMB = (fs.statSync(modelFullPath).size / (1024 * 1024)).toFixed(1);
+      if (parseFloat(modelSizeMB) > 500) {
+        console.log(`⏭️ ${modelFile} is ${modelSizeMB}MB — too large to optimize, serving original`);
       } else {
-        const { spawn } = require('child_process');
-        console.log(`🔧 Auto-optimizing ${modelFile} (${modelSizeMB.toFixed(1)}MB, background)...`);
-        // Track optimization in progress
-        optimizingModels.set(modelFile, { startTime: Date.now(), assetId: id });
-        const child = spawn('node', ['optimize_models.mjs', modelFullPath], {
-          cwd: __dirname,
-          stdio: 'inherit',
-          detached: false
-        });
-        child.on('close', (code) => {
-          optimizingModels.delete(modelFile);
-          if (code === 0) {
-            console.log(`✅ Optimized ${modelFile} successfully`);
-          } else {
-            console.log(`⚠️ Optimize ${modelFile} exited with code ${code} (will use original)`);
-          }
-        });
-        child.on('error', (err) => {
-          optimizingModels.delete(modelFile);
-          console.log('Auto-optimize failed (will use original):', err.message);
-        });
-        // Unref so it doesn't prevent server shutdown
-        child.unref();
+        spawnOptimizer(modelFile, id);
       }
     }
 
@@ -424,11 +439,25 @@ app.get('/api/optimize-status/:id', (req, res) => {
   const modelFile = asset.model ? path.basename(asset.model) : null;
   if (!modelFile) return res.json({ optimizing: false, ready: false });
 
-  const isStillOptimizing = optimizingModels.has(modelFile);
+  let isStillOptimizing = optimizingModels.has(modelFile);
 
   // Check if optimized version now exists
   const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
   const optimizedExists = fs.existsSync(optimizedPath);
+
+  // ── AUTO-HEAL: If not optimized and not running (e.g. after server restart)
+  // re-trigger optimization automatically so next poll will see it complete
+  if (!optimizedExists && !isStillOptimizing) {
+    const originalPath = path.join(UPLOADS_DIR, modelFile);
+    if (fs.existsSync(originalPath)) {
+      const sizeMB = fs.statSync(originalPath).size / (1024 * 1024);
+      if (sizeMB <= 500) {
+        console.log(`🔄 optimize-status: re-triggering missed optimization for ${modelFile}`);
+        spawnOptimizer(modelFile, asset.id || req.params.id);
+        isStillOptimizing = true; // tell client to keep polling
+      }
+    }
+  }
 
   // Also check for mobile model
   const ext = modelFile.toLowerCase().endsWith('.gltf') ? '.gltf' : '.glb';
@@ -523,7 +552,37 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+const server = app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+
+  // ── STARTUP SCAN: Re-trigger optimization for any models missing optimized files
+  // This covers the case where Railway restarted and lost in-memory state
+  setTimeout(() => {
+    try {
+      const db = getDB();
+      const pending = Object.entries(db).filter(([, asset]) => {
+        if (!asset.model) return false;
+        const modelFile = path.basename(asset.model);
+        if (!modelFile.endsWith('.glb')) return false;
+        const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
+        const originalPath = path.join(UPLOADS_DIR, modelFile);
+        return !fs.existsSync(optimizedPath) && fs.existsSync(originalPath);
+      });
+      if (pending.length === 0) {
+        console.log('✅ Startup scan: all models already optimized');
+        return;
+      }
+      console.log(`🔄 Startup scan: ${pending.length} model(s) need optimization`);
+      // Stagger each optimization 8s apart to avoid RAM spikes
+      pending.forEach(([id, asset], i) => {
+        const modelFile = path.basename(asset.model);
+        setTimeout(() => spawnOptimizer(modelFile, id), i * 8000);
+      });
+    } catch (e) {
+      console.log('Startup scan error:', e.message);
+    }
+  }, 5000); // wait 5s after server is ready
+});
 
 // Set server timeout to 10 minutes for large 3D model uploads
 server.timeout = 10 * 60 * 1000; // 10 minutes
