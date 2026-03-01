@@ -1245,6 +1245,205 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════
+       ANIMATION PANEL - Bottom bar, horizontal scroll
+    ══════════════════════════════════════════════════════════════════ */
+    #animPanel {
+      position: fixed;
+      bottom: 28px;
+      left: 0;
+      right: 0;
+      z-index: 60;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .anim-panel-title {
+      font-size: 0.55rem;
+      letter-spacing: 2.5px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+      font-family: var(--ui-font);
+    }
+
+    #animList {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 6px 20px 6px 20px;
+      max-width: 100vw;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x mandatory;
+    }
+
+    /* Hide scrollbar on all browsers */
+    #animList::-webkit-scrollbar { display: none; }
+    #animList { scrollbar-width: none; -ms-overflow-style: none; }
+
+    /* ─── Per-button hue palette: set via JS as --btn-h (0-360) ─── */
+    .anim-btn {
+      --btn-h: 45;  /* default: gold — overridden per-button in JS */
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 20px 0 14px;
+      border-radius: 50px;
+      /* colored tinted glass */
+      border: 1px solid hsla(var(--btn-h), 75%, 62%, 0.30);
+      background: linear-gradient(
+        135deg,
+        hsla(var(--btn-h), 65%, 45%, 0.16),
+        hsla(var(--btn-h), 50%, 30%, 0.08)
+      );
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      color: hsla(var(--btn-h), 85%, 80%, 0.9);
+      font-size: 0.73rem;
+      font-family: var(--ui-font);
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: 40px;
+      position: relative;
+      overflow: hidden;
+      /* float animation — delay set per-button in JS */
+      animation: anim-float 3.2s ease-in-out infinite;
+      /* color + interaction transitions */
+      transition: border-color 0.25s, background 0.25s, box-shadow 0.25s, color 0.25s;
+      box-shadow:
+        0 0 10px hsla(var(--btn-h), 80%, 55%, 0.12),
+        0 4px 16px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    /* Shimmer sweep on hover */
+    .anim-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+      transform: translateX(-220%);
+      transition: transform 0s;
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .anim-btn:hover {
+      border-color: hsla(var(--btn-h), 85%, 70%, 0.6);
+      color: hsla(var(--btn-h), 90%, 90%, 1);
+      box-shadow:
+        0 0 18px hsla(var(--btn-h), 80%, 60%, 0.28),
+        0 4px 20px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .anim-btn:hover::before {
+      transform: translateX(220%);
+      transition: transform 0.5s ease;
+    }
+    .anim-btn:active {
+      transform: scale(0.91) !important;
+      animation-play-state: paused;
+    }
+
+    /* Idle floating */
+    @keyframes anim-float {
+      0%, 100% { transform: translateY(0px);   }
+      50%       { transform: translateY(-5px);  }
+    }
+
+    /* ── Equalizer icon ── */
+    .anim-eq {
+      display: flex;
+      align-items: flex-end;
+      gap: 2.5px;
+      height: 14px;
+      width: 14px;
+      flex-shrink: 0;
+    }
+    .anim-eq i {
+      display: block;
+      width: 3px;
+      border-radius: 2px;
+      background: hsla(var(--btn-h), 70%, 65%, 0.55);
+      transition: background 0.25s, height 0.25s;
+    }
+    .anim-eq i:nth-child(1) { height: 5px; }
+    .anim-eq i:nth-child(2) { height: 10px; }
+    .anim-eq i:nth-child(3) { height: 6px; }
+
+    /* ── Active state: spinning conic border + full glow ── */
+    .anim-btn.active {
+      animation-play-state: paused;    /* stop floating while playing */
+      transform: translateY(0) !important;
+      border-color: transparent;       /* border hidden — replaced by conic ring */
+      color: hsla(var(--btn-h), 90%, 88%, 1);
+      background: linear-gradient(
+        135deg,
+        hsla(var(--btn-h), 70%, 45%, 0.28),
+        hsla(var(--btn-h), 55%, 30%, 0.14)
+      );
+      box-shadow:
+        0 0 0 1.5px hsla(var(--btn-h), 85%, 62%, 0.45),
+        0 0 28px hsla(var(--btn-h), 80%, 58%, 0.35),
+        0 0 6px  hsla(var(--btn-h), 80%, 58%, 0.5),
+        0 4px 18px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    /* Spinning conic-gradient ring behind active button */
+    .anim-btn.active::after {
+      content: '';
+      position: absolute;
+      inset: -1.5px;
+      border-radius: 50px;
+      background: conic-gradient(
+        from var(--spin-angle, 0deg),
+        hsla(var(--btn-h), 100%, 65%, 0.9),
+        hsla(var(--btn-h), 80%, 80%, 0.4) 25%,
+        transparent 45%,
+        transparent 55%,
+        hsla(var(--btn-h), 80%, 80%, 0.4) 75%,
+        hsla(var(--btn-h), 100%, 65%, 0.9)
+      );
+      z-index: -1;
+      animation: anim-spin-border 1.8s linear infinite;
+    }
+    @property --spin-angle {
+      syntax: '<angle>';
+      inherits: false;
+      initial-value: 0deg;
+    }
+    @keyframes anim-spin-border {
+      to { --spin-angle: 360deg; }
+    }
+
+    /* Equalizer dance in active state — uses hue color */
+    .anim-btn.active .anim-eq i {
+      background: hsla(var(--btn-h), 90%, 72%, 1);
+      animation: anim-eq-dance 0.7s ease-in-out infinite alternate;
+    }
+    .anim-btn.active .anim-eq i:nth-child(1) { animation-delay: 0.00s; }
+    .anim-btn.active .anim-eq i:nth-child(2) { animation-delay: 0.16s; }
+    .anim-btn.active .anim-eq i:nth-child(3) { animation-delay: 0.08s; }
+
+    @keyframes anim-eq-dance {
+      0%   { height: 3px;  }
+      100% { height: 14px; }
+    }
+
+    /* Mobile: bigger touch targets */
+    @media (max-width: 480px) {
+      #animPanel { bottom: 36px; }
+      .anim-btn { padding: 0 22px 0 15px; font-size: 0.78rem; min-height: 44px; gap: 10px; }
+      #animList { gap: 10px; padding: 6px 16px; }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
        SIZE INDICATOR
     ══════════════════════════════════════════════════════════════════ */
     #sizeIndicator {
@@ -1498,6 +1697,18 @@
     <button class="side-btn" id="btnCollection" title="Bộ sưu tập">📖</button>
   </div>
 
+  <!-- Animation Panel -->
+  <div id="animPanel">
+    <div class="anim-panel-title">⚙︎ Hoạt Cảnh</div>
+    <div id="animList"></div>
+  </div>
+
+  <!-- Animation Panel -->
+  <div id="animPanel">
+    <div class="anim-panel-title">⚙️ Hoạt Cảnh</div>
+    <div id="animList"></div>
+  </div>
+
   <!-- Scale Control -->
   <div id="scaleControl">
     <div class="scale-value" id="scaleValue">170cm</div>
@@ -1625,6 +1836,8 @@
     let ground, grid;
     let arMode = false;
     let currentAnimAction = null;
+    let availableClips = [];   // raw Three.js AnimationClip[] from loaded GLB
+    let activeAnimBtn = null;  // currently highlighted animation button
 
     // Real-world scale: 1 Three.js unit = 1 meter
     const REAL_WORLD_SCALE = true;
@@ -2339,9 +2552,93 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
+    // WAIT FOR OPTIMIZATION - Poll server until optimized model is ready
+    // ══════════════════════════════════════════════════════════════════════════════
+    async function waitForOptimization() {
+      const pathParts = window.location.pathname.split('/');
+      const assetId = pathParts[pathParts.length - 1];
+      if (!assetId) return false;
+
+      const subtitle = document.querySelector('.loading-subtitle');
+      const title = document.querySelector('.loading-title');
+
+      console.log('⏳ Model is being optimized on server, waiting...');
+      if (title) title.textContent = 'ĐANG TỐI ƯU HÓA';
+      setLoadingProgress(45);
+
+      // Poll every 3 seconds
+      const POLL_INTERVAL = 3000;
+      const MAX_WAIT = 10 * 60 * 1000; // 10 minutes max
+      const startedWaiting = Date.now();
+
+      while (true) {
+        const waitedSec = Math.round((Date.now() - startedWaiting) / 1000);
+        const elapsedMin = Math.floor(waitedSec / 60);
+        const elapsedSec = waitedSec % 60;
+        const timeStr = elapsedMin > 0 ? `${elapsedMin}p${elapsedSec}s` : `${elapsedSec}s`;
+
+        if (subtitle) {
+          subtitle.textContent = `Đang nén mô hình 3D từ server... ${timeStr}`;
+        }
+
+        // Animate progress bar slowly (45% → 80%) during wait
+        const waitProgress = Math.min(80, 45 + (waitedSec / 300) * 35);
+        setLoadingProgress(Math.round(waitProgress));
+
+        // Check timeout
+        if (Date.now() - startedWaiting > MAX_WAIT) {
+          console.warn('⏰ Optimization timeout, loading original model');
+          if (subtitle) subtitle.textContent = 'Hết thời gian chờ, tải bản gốc...';
+          return false; // Load original
+        }
+
+        // Wait before polling
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+
+        try {
+          const res = await fetch(`/api/optimize-status/${assetId}`);
+          const status = await res.json();
+
+          if (status.ready) {
+            console.log('✅ Optimization complete! Reloading asset data...');
+            if (subtitle) subtitle.textContent = 'Tối ưu xong! Đang tải mô hình...';
+            setLoadingProgress(85);
+
+            // Reload asset data to get optimized model paths
+            const freshRes = await fetch(`/api/asset/${assetId}`);
+            if (freshRes.ok) {
+              assetData = await freshRes.json();
+              console.log('📦 Updated asset data with optimized model:', assetData.model);
+              const sizeMB = (assetData.modelSize / (1024 * 1024)).toFixed(1);
+              console.log(`📦 Optimized size: ${sizeMB}MB (was 300MB+)`);
+            }
+            return true; // Optimized model ready
+          }
+
+          if (!status.optimizing && !status.ready) {
+            // Optimization failed or not running — load original
+            console.warn('⚠️ Optimization not running and not ready, loading original');
+            return false;
+          }
+        } catch (e) {
+          console.log('Poll error:', e.message);
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
     // LOAD MODEL - Optimized with caching, Draco, streaming
     // ══════════════════════════════════════════════════════════════════════════════
-    function loadModel() {
+    async function loadModel() {
+      // ═══════════════════════════════════════════════════════════════
+      // WAIT for optimization ONLY on MOBILE devices
+      // Desktop/localhost: 300MB loads in ~2s from disk → no need to wait
+      // Mobile: 300MB over network would crash → must wait for 11MB version
+      // ═══════════════════════════════════════════════════════════════
+      if (IS_MOBILE && assetData?.optimizing && !assetData?.isOptimized) {
+        await waitForOptimization();
+      }
+
       const modelPath = assetData?.model || '/uploads/default.glb';
 
       if (!modelPath || modelPath === '/uploads/default.glb') {
@@ -2505,8 +2802,8 @@
         const buffer = window.__preloadedModelBuffer;
         window.__preloadedModelBuffer = null; // Free reference
 
-        // Cache for next time
-        if (!IS_IOS) ModelCache.put(absoluteUrl, buffer.slice(0));
+        // Cache for next visit (ALL devices including mobile & iOS)
+        ModelCache.put(absoluteUrl, buffer.slice(0));
 
         try {
           const loader = createGLTFLoader();
@@ -2582,12 +2879,10 @@
               processLoadedModel(gltf.scene, gltf.animations || [], false);
 
               // Cache AFTER model is rendered — buffer can now be GC'd by browser
-              // Skip on iOS entirely to save memory
-              if (!IS_IOS && !IS_MOBILE) {
-                setTimeout(() => {
-                  try { ModelCache.put(absoluteUrl, buffer.slice(0)); } catch (e) { }
-                }, 5000); // 5s delay lets GC reclaim parse buffers first
-              }
+              // Now enabled on ALL devices (mobile needs fast reload the most)
+              setTimeout(() => {
+                try { ModelCache.put(absoluteUrl, buffer.slice(0)); } catch (e) { }
+              }, 5000); // 5s delay lets GC reclaim parse buffers first
             }, onError);
           } catch (e) {
             onError(e);
@@ -2630,6 +2925,9 @@
 
           // 5. Restart animations for HD model
           if (mixer && mixer.stopAllAction) mixer.stopAllAction();
+          currentAnimAction = null;
+          activeAnimBtn = null;
+          availableClips = [];
           startAnimations(loadedModel, animations);
 
           model = loadedModel;
@@ -2702,15 +3000,88 @@
                   fixMaterial(child.material);
                 }
               }
-              // REMOVED: frustumCulled=false was forcing GPU to render ALL meshes every frame
-              // This caused significant GPU memory overhead on iOS leading to crashes
+              // SkinnedMesh MUST have frustumCulled=false:
+              // Three.js culls based on rest-pose bounding box; once bones animate
+              // the mesh outside those bounds it becomes invisible even though it's on screen.
+              // Only apply to SkinnedMesh (not static meshes) to avoid unnecessary GPU overhead.
+              if (child.isSkinnedMesh) {
+                child.frustumCulled = false;
+              }
             }
           });
           console.log(`📊 Model: ${meshCount} meshes, ${vertexCount} vertices`);
         }
 
+        // ── ANIMATION HELPERS ───────────────────────────────────────────────
+        function cleanAnimName(name) {
+          let n = name.replace(/ Retarget$/, '');
+          const pipe = n.lastIndexOf('|');
+          if (pipe !== -1) n = n.slice(pipe + 1);
+          n = n.replace(/^Layer0$/, 'Hoạt cảnh 1');
+          n = n.replace(/^Layer0\.(\d+)$/, (_, d) => `Hoạt cảnh ${parseInt(d) + 2}`);
+          return n.trim() || name;
+        }
+
+        // Color palette: hue angles for each button (cycling)
+        const ANIM_BTN_HUES = [45, 185, 270, 340, 145, 25, 205, 305, 60, 160];
+
+        function buildAnimPanel(clipList) {
+          const panel = document.getElementById('animPanel');
+          const list  = document.getElementById('animList');
+          if (!panel || !list || clipList.length === 0) return;
+          list.innerHTML = '';
+          clipList.forEach((clip, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'anim-btn';
+            btn.title = clip.displayName;
+            btn.dataset.clipIndex = clip.clipIndex;
+
+            // Assign unique hue from palette
+            const hue = ANIM_BTN_HUES[idx % ANIM_BTN_HUES.length];
+            btn.style.setProperty('--btn-h', hue);
+
+            // Staggered float delay so buttons don't all bob in sync
+            btn.style.animationDelay = `${(idx * 0.38).toFixed(2)}s`;
+
+            // Equalizer icon — 3 bars
+            const eq = document.createElement('span');
+            eq.className = 'anim-eq';
+            eq.innerHTML = '<i></i><i></i><i></i>';
+
+            const label = document.createElement('span');
+            label.textContent = clip.displayName;
+
+            btn.appendChild(eq);
+            btn.appendChild(label);
+            btn.addEventListener('click', () => playClip(clip.clipIndex, btn));
+            list.appendChild(btn);
+          });
+          panel.style.display = 'flex';
+        }
+
+        function playClip(clipIndex, btnEl) {
+          if (!mixer || !availableClips[clipIndex]) return;
+          // Stop current action (same as debug: .stop(), not .fadeOut)
+          if (currentAnimAction) currentAnimAction.stop();
+          // Toggle off if same button tapped again
+          if (btnEl && btnEl === activeAnimBtn) {
+            currentAnimAction = null;
+            btnEl.classList.remove('active');
+            activeAnimBtn = null;
+            return;
+          }
+          // Deactivate previous button
+          if (activeAnimBtn) activeAnimBtn.classList.remove('active');
+          // Play new clip (same as debug: .reset().play())
+          currentAnimAction = mixer.clipAction(availableClips[clipIndex]);
+          currentAnimAction.reset();
+          currentAnimAction.play();
+          if (btnEl) { btnEl.classList.add('active'); activeAnimBtn = btnEl; }
+          console.log(`▶ [${clipIndex}] "${availableClips[clipIndex].name}"`);
+        }
+
         function startAnimations(loadedModel, animations) {
-          // Skeleton helper — skip on iOS to save memory (it's invisible anyway)
+          // Skeleton helper — skip on iOS to save memory
           if (!IS_IOS) {
             loadedModel.traverse(child => {
               if (child.isSkinnedMesh && !skeletonHelper) {
@@ -2721,13 +3092,41 @@
             });
           }
 
-          // Animations
           if (animations.length > 0) {
+            console.log(`🎬 ${animations.length} animation clips in model`);
+
+            // Build deduplicated clip list
+            // Source 1: server already extracted + deduplicated (preferred — set at upload time)
+            // Source 2: auto-detect from raw clips (fallback for old uploads)
+            let clipList = []; // [{displayName, clipIndex}]
+
+            if (assetData?.animations?.length > 0) {
+              // Server list: already filtered to Retarget-only
+              clipList = assetData.animations.map(a => ({
+                displayName: a.displayName || cleanAnimName(a.name),
+                clipIndex: a.clipIndex
+              }));
+              console.log(`   📋 Server list: ${clipList.length} unique clips`);
+            } else {
+              // Fallback: show ONLY Retarget clips (skip originals entirely)
+              const retargetOnly = animations.filter(a => a.name.includes('Retarget'));
+              const useList = retargetOnly.length > 0 ? retargetOnly : animations;
+              clipList = useList.map(a => ({
+                displayName: cleanAnimName(a.name),
+                clipIndex: animations.indexOf(a)
+              }));
+              console.log(`   📋 Auto-detected: ${clipList.length} Retarget clips (from ${animations.length} total)`);
+            }
+
+            // Store raw clips + create mixer (not playing yet — model starts idle)
+            availableClips = animations;
             mixer = new THREE.AnimationMixer(loadedModel);
-            currentAnimAction = mixer.clipAction(animations[0]);
-            currentAnimAction.play();
-            console.log(`🎬 Playing embedded animation: ${animations[0].name || 'default'}`);
+
+            // Build animation panel on left side
+            buildAnimPanel(clipList);
+            console.log('⏸ Model idle — tap an animation button to play');
           } else {
+            // No GLB animations → procedural motion
             proceduralAnimator = new ProceduralAnimator(loadedModel);
             proceduralAnimator.play('look_around');
           }
@@ -3255,9 +3654,9 @@
     });
 
     // ══════════════════════════════════════════════════════════════════════════════
-    // SERVICE WORKER - Cache for instant reload (skip on iOS to save memory)
+    // SERVICE WORKER - Cache for instant reload (now enabled on ALL devices including iOS)
     // ══════════════════════════════════════════════════════════════════════════════
-    if ('serviceWorker' in navigator && !IS_IOS) {
+    if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(reg => {
         console.log('📦 Service Worker registered');
       }).catch(err => {

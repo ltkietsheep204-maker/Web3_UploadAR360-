@@ -170,22 +170,41 @@ async function optimizeModel(inputPath) {
     }
 
     // Step 6: Quantize vertex data
-    console.log('   📐 Quantizing vertices...');
-    await document.transform(quantize());
+    // CRITICAL: Exclude JOINTS and WEIGHTS from quantization!
+    // Quantizing these destroys the vertex→bone binding, making animations
+    // play (bones move) but the mesh stays frozen (vertices don't follow bones)
+    console.log('   📐 Quantizing vertices (preserving skin data)...');
+    await document.transform(quantize({
+      excludeAttributes: ['JOINTS_0', 'JOINTS_1', 'WEIGHTS_0', 'WEIGHTS_1']
+    }));
 
-    // Step 6: Draco compression
-    console.log('   🗜  Applying Draco compression...');
-    await document.transform(
-      draco({
-        method: 'edgebreaker',
-        encodeSpeed: 5,
-        decodeSpeed: 5,
-        quantizePosition: 14,
-        quantizeNormal: 10,
-        quantizeTexcoord: 12,
-        quantizeColor: 8,
-      })
-    );
+    // Step 7: Compression
+    // CRITICAL: Draco compression DESTROYS skin data (JOINTS/WEIGHTS) for animated models!
+    // Bones animate correctly but mesh vertices don't follow → model appears frozen.
+    // Solution: Use Meshopt for animated models, Draco for static models.
+    const hasAnimations = root.listAnimations().length > 0;
+    const hasSkins = root.listSkins().length > 0;
+
+    if (hasAnimations || hasSkins) {
+      console.log(`   🎬 Animated/skinned model detected — using Meshopt (Draco would break skinning)`);
+      await MeshoptEncoder.ready;
+      document.createExtension(EXTMeshoptCompression)
+        .setRequired(true)
+        .setEncoderOptions({ method: MeshoptEncoder.filter });
+    } else {
+      console.log('   🗜  Static model — applying Draco compression...');
+      await document.transform(
+        draco({
+          method: 'edgebreaker',
+          encodeSpeed: 5,
+          decodeSpeed: 5,
+          quantizePosition: 14,
+          quantizeNormal: 10,
+          quantizeTexcoord: 12,
+          quantizeColor: 8,
+        })
+      );
+    }
 
     // Write optimized High-Res file (Desktop)
     console.log('   💾 Writing optimized High-Res file (Desktop)...');
@@ -303,7 +322,9 @@ async function optimizeModel(inputPath) {
 
 async function optimizeWithoutDraco(inputPath, outputPath, inputSize) {
   try {
-    const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+    const io = new NodeIO()
+      .registerExtensions(ALL_EXTENSIONS)
+      .registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
     const document = await io.read(inputPath);
 
     // Compress textures with sharp WebP
@@ -328,7 +349,21 @@ async function optimizeWithoutDraco(inputPath, outputPath, inputSize) {
       } catch { }
     }
 
-    await document.transform(dedup(), prune(), resample(), quantize());
+    // CRITICAL: Exclude JOINTS/WEIGHTS from quantize to preserve skin/animation data
+    const hasAnimFallback = document.getRoot().listAnimations().length > 0;
+    const hasSkinFallback = document.getRoot().listSkins().length > 0;
+    await document.transform(dedup(), prune(), resample(), quantize({
+      excludeAttributes: ['JOINTS_0', 'JOINTS_1', 'WEIGHTS_0', 'WEIGHTS_1']
+    }));
+
+    // Use Meshopt for animated/skinned models, no compression for others
+    if (hasAnimFallback || hasSkinFallback) {
+      console.log('   🎬 (Fallback) Animated model — using Meshopt instead of Draco');
+      await MeshoptEncoder.ready;
+      document.createExtension(EXTMeshoptCompression)
+        .setRequired(true)
+        .setEncoderOptions({ method: MeshoptEncoder.filter });
+    }
     await io.write(outputPath, document);
 
     const outputSize = fs.statSync(outputPath).size;

@@ -45,6 +45,11 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify({}), 'utf8');
 
 // ═══════════════════════════════════════════════════════════════════
+// OPTIMIZATION TRACKING: Know which models are currently being optimized
+// ═══════════════════════════════════════════════════════════════════
+const optimizingModels = new Map(); // modelFile -> { startTime, assetId }
+
+// ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Cache DB in memory instead of reading file every time
 // ═══════════════════════════════════════════════════════════════════
 let dbCache = null;
@@ -57,6 +62,42 @@ function getDB() {
 function saveDB(db) {
   dbCache = db;
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ANIMATION EXTRACTION: Parse GLB binary → get animation clip names
+// No extra dependency — reads the JSON chunk directly from the binary
+// ═══════════════════════════════════════════════════════════════════
+function extractGLBAnimations(filePath) {
+  try {
+    const buf = fs.readFileSync(filePath);
+    if (buf.length < 20) return [];
+    if (buf.readUInt32LE(0) !== 0x46546C67) return []; // not 'glTF' magic
+    const jsonLength = buf.readUInt32LE(12);
+    const json = JSON.parse(buf.slice(20, 20 + jsonLength).toString('utf8'));
+    return (json.animations || []).map((a, i) => ({ name: a.name || `Animation ${i}`, index: i }));
+  } catch (e) {
+    console.log('extractGLBAnimations error:', e.message);
+    return [];
+  }
+}
+
+function cleanAnimDisplayName(name) {
+  let n = name.replace(/ Retarget$/, '');                    // strip " Retarget"
+  const pipe = n.lastIndexOf('|');
+  if (pipe !== -1) n = n.slice(pipe + 1);                    // strip "Armature|mixamo.com|" prefix
+  n = n.replace(/^Layer0$/, 'Hoạt cảnh 1');                  // Layer0 → Hoạt cảnh 1
+  n = n.replace(/^Layer0\.(\d+)$/, (_, d) => `Hoạt cảnh ${parseInt(d) + 2}`); // Layer0.001 → Hoạt cảnh 3
+  return n.trim() || name;
+}
+
+function deduplicateAnimations(rawAnims) {
+  if (!rawAnims.length) return [];
+  // Only keep Retarget clips (they are re-baked to the model's actual skeleton)
+  const retargetAnims = rawAnims.filter(a => a.name.endsWith(' Retarget'));
+  // If no Retarget clips exist, fall back to all clips
+  const useAnims = retargetAnims.length > 0 ? retargetAnims : rawAnims;
+  return useAnims.map(a => ({ clipIndex: a.index, name: a.name, displayName: cleanAnimDisplayName(a.name) }));
 }
 
 const storage = multer.diskStorage({
@@ -99,10 +140,12 @@ function serveModelFile(req, res, next) {
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
 
-  // No-cache on short reload, but allow long-term cache
-  res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day (not immutable)
+  // PERF: Model files have unique IDs in filename (nanoid) → they NEVER change
+  // Safe to cache immutably for 1 year — browser will never re-download
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   res.setHeader('Content-Type', filename.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json');
   res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Last-Modified', stat.mtime.toUTCString());
   res.setHeader('X-Optimized', fs.existsSync(optimizedPath) ? 'true' : 'false');
 
   // Support Range requests for streaming/resume
@@ -129,12 +172,16 @@ app.get('/uploads/:filename', serveModelFile);
 // Static files - NO aggressive caching to prevent stale mobile files
 // ═══════════════════════════════════════════════════════════════════
 app.use('/uploads', express.static(path.join(PUBLIC_DIR, 'uploads'), {
-  maxAge: 0,
+  maxAge: '7d', // 1 week — upload files have unique IDs, safe to cache long
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    // Let ETag handle revalidation - no immutable to prevent stale cache
-    res.setHeader('Cache-Control', 'no-cache');
+    // Upload files have unique nanoid names → immutable for models, 1-week for others
+    if (filePath.match(/\.(glb|gltf|fbx)$/i)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // 1 week
+    }
     res.setHeader('Accept-Ranges', 'bytes');
   }
 }));
@@ -196,6 +243,20 @@ app.post('/upload', (req, res, next) => {
       }
     }
 
+    // Extract animations from GLB file (server-side, reliable)
+    let detectedAnimations = [];
+    if (modelFile && modelFile.endsWith('.glb')) {
+      try {
+        const rawAnims = extractGLBAnimations(path.join(UPLOADS_DIR, modelFile));
+        detectedAnimations = deduplicateAnimations(rawAnims);
+        if (detectedAnimations.length > 0) {
+          console.log(`🎬 Detected ${rawAnims.length} clips → ${detectedAnimations.length} unique after dedup`);
+        }
+      } catch (e) {
+        console.log('Animation detection skipped:', e.message);
+      }
+    }
+
     db[id] = {
       id,
       model: `/uploads/${modelFile}`,
@@ -216,6 +277,7 @@ app.post('/upload', (req, res, next) => {
         leadership: parseInt(req.body.statLeadership) || 80,
         defense: parseInt(req.body.statDefense) || 80
       },
+      animations: detectedAnimations,
       createdAt: Date.now()
     };
     saveDB(db);
@@ -232,12 +294,15 @@ app.post('/upload', (req, res, next) => {
       } else {
         const { spawn } = require('child_process');
         console.log(`🔧 Auto-optimizing ${modelFile} (${modelSizeMB.toFixed(1)}MB, background)...`);
+        // Track optimization in progress
+        optimizingModels.set(modelFile, { startTime: Date.now(), assetId: id });
         const child = spawn('node', ['optimize_models.mjs', modelFullPath], {
           cwd: __dirname,
           stdio: 'inherit',
           detached: false
         });
         child.on('close', (code) => {
+          optimizingModels.delete(modelFile);
           if (code === 0) {
             console.log(`✅ Optimized ${modelFile} successfully`);
           } else {
@@ -245,6 +310,7 @@ app.post('/upload', (req, res, next) => {
           }
         });
         child.on('error', (err) => {
+          optimizingModels.delete(modelFile);
           console.log('Auto-optimize failed (will use original):', err.message);
         });
         // Unref so it doesn't prevent server shutdown
@@ -329,6 +395,10 @@ app.get('/api/asset/:id', (req, res) => {
     }
   }
 
+  // Check if this model is currently being optimized
+  const isCurrentlyOptimizing = modelFile ? optimizingModels.has(modelFile) : false;
+  const optimizeInfo = isCurrentlyOptimizing ? optimizingModels.get(modelFile) : null;
+
   res.json({
     ...asset,
     modelSize,
@@ -336,7 +406,49 @@ app.get('/api/asset/:id', (req, res) => {
     previewModel,
     mobileModel,
     // Tell client if Draco decoding is needed
-    needsDraco: isOptimized
+    needsDraco: isOptimized,
+    // Tell client if optimization is in progress
+    optimizing: isCurrentlyOptimizing,
+    optimizeStartTime: optimizeInfo?.startTime || null
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// API: Check optimization status (lightweight polling endpoint)
+// ═══════════════════════════════════════════════════════════════════
+app.get('/api/optimize-status/:id', (req, res) => {
+  const db = getDB();
+  const asset = db[req.params.id];
+  if (!asset) return res.status(404).json({ error: 'Not found' });
+
+  const modelFile = asset.model ? path.basename(asset.model) : null;
+  if (!modelFile) return res.json({ optimizing: false, ready: false });
+
+  const isStillOptimizing = optimizingModels.has(modelFile);
+
+  // Check if optimized version now exists
+  const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
+  const optimizedExists = fs.existsSync(optimizedPath);
+
+  // Also check for mobile model
+  const ext = modelFile.toLowerCase().endsWith('.gltf') ? '.gltf' : '.glb';
+  const baseName = modelFile.substring(0, modelFile.length - ext.length);
+  const mobilePath = path.join(OPTIMIZED_DIR, `${baseName}.mobile${ext}`);
+  const mobileExists = fs.existsSync(mobilePath);
+
+  let optimizedSize = 0;
+  let mobileSize = 0;
+  if (optimizedExists) optimizedSize = fs.statSync(optimizedPath).size;
+  if (mobileExists) mobileSize = fs.statSync(mobilePath).size;
+
+  res.json({
+    optimizing: isStillOptimizing,
+    ready: optimizedExists,
+    optimizedModel: optimizedExists ? `/uploads/optimized/${modelFile}` : null,
+    mobileModel: mobileExists ? `/uploads/optimized/${baseName}.mobile${ext}` : null,
+    optimizedSize,
+    mobileSize,
+    elapsedMs: isStillOptimizing ? Date.now() - optimizingModels.get(modelFile).startTime : 0
   });
 });
 

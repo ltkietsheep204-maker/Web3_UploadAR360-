@@ -2,6 +2,12 @@ node_modules/
 .env
 data/
 public/uploads/
+uploads/
+warmup_frames/
 dist/
 npm-debug.log*
 .DS_Store
+# Large binary model files in public root (use public/uploads/ instead)
+public/*.glb
+public/*.gltf
+public/*.fbx

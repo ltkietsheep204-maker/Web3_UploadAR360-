@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEBAR - Animation Debug Tool</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Left panel: 3D viewer */
+    #viewer-panel {
+      flex: 1;
+      position: relative;
+      background: #111;
+      border-right: 2px solid #333;
+    }
+
+    #canvas3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #viewer-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #viewer-overlay > * {
+      pointer-events: auto;
+    }
+
+    .anim-controls {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .anim-controls select {
+      width: 100%;
+      background: #222;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .anim-controls .anim-btns {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .anim-controls button {
+      background: #333;
+      color: #FFD700;
+      border: 1px solid #555;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    .anim-controls button:hover {
+      background: #444;
+    }
+
+    .anim-controls button.active {
+      background: #FFD700;
+      color: #000;
+    }
+
+    /* Right panel: debug console */
+    #debug-panel {
+      width: 460px;
+      display: flex;
+      flex-direction: column;
+      background: #0d0d0d;
+    }
+
+    #debug-header {
+      padding: 12px;
+      background: linear-gradient(135deg, #1a0a00, #0a0a1a);
+      border-bottom: 1px solid #333;
+    }
+
+    #debug-header h1 {
+      color: #FFD700;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    #debug-header p {
+      color: #888;
+      font-size: 11px;
+    }
+
+    /* File input */
+    .file-input-area {
+      padding: 12px;
+      background: #111;
+      border-bottom: 1px solid #222;
+    }
+
+    .file-input-area label {
+      display: block;
+      padding: 20px;
+      border: 2px dashed #444;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      color: #888;
+      transition: all 0.3s;
+    }
+
+    .file-input-area label:hover {
+      border-color: #FFD700;
+      color: #FFD700;
+    }
+
+    .file-input-area input {
+      display: none;
+    }
+
+    .url-input {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .url-input input {
+      flex: 1;
+      background: #1a1a1a;
+      color: #fff;
+      border: 1px solid #333;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .url-input button {
+      padding: 6px 12px;
+      background: #FFD700;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    /* Log area */
+    #log-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .log-entry {
+      padding: 2px 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      word-break: break-all;
+    }
+
+    .log-entry.error {
+      color: #ff4444;
+      background: rgba(255, 0, 0, 0.05);
+    }
+
+    .log-entry.warn {
+      color: #ffaa00;
+    }
+
+    .log-entry.success {
+      color: #44ff44;
+    }
+
+    .log-entry.info {
+      color: #4488ff;
+    }
+
+    .log-entry.header {
+      color: #FFD700;
+      font-weight: bold;
+      margin-top: 8px;
+      font-size: 12px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 4px;
+    }
+
+    .log-entry.dim {
+      color: #666;
+    }
+
+    /* Live stats */
+    #live-stats {
+      padding: 8px 12px;
+      background: #111;
+      border-top: 1px solid #333;
+      font-size: 11px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .stat {
+      display: flex;
+      gap: 4px;
+    }
+
+    .stat-label {
+      color: #888;
+    }
+
+    .stat-value {
+      color: #FFD700;
+      font-weight: bold;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        flex-direction: column;
+      }
+
+      #viewer-panel {
+        height: 40vh;
+        border-right: none;
+        border-bottom: 2px solid #333;
+      }
+
+      #debug-panel {
+        width: 100%;
+        height: 60vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="viewer-panel">
+    <canvas id="canvas3d"></canvas>
+    <div id="viewer-overlay">
+      <span style="background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;font-size:11px;color:#FFD700;">
+        🔬 Animation Debug Mode
+      </span>
+    </div>
+    <div class="anim-controls" id="animControls" style="display:none;">
+      <select id="animSelect"></select>
+      <div class="anim-btns">
+        <button onclick="playSelectedAnim()" id="btnPlay">▶ Play</button>
+        <button onclick="stopAnim()">⏹ Stop</button>
+        <button onclick="playAllAnims()">🔄 Cycle All</button>
+        <button onclick="toggleWireframe()" id="btnWire">🔲 Wireframe</button>
+        <button onclick="toggleSkeleton()" id="btnSkel">🦴 Skeleton</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="debug-panel">
+    <div id="debug-header">
+      <h1>🔬 WEBAR Animation Debugger</h1>
+      <p>Load a GLB/GLTF file to diagnose animation issues</p>
+    </div>
+
+    <div class="file-input-area">
+      <label for="fileInput">
+        📂 Drop or click to load GLB/GLTF file
+        <input type="file" id="fileInput" accept=".glb,.gltf">
+      </label>
+      <div class="url-input">
+        <input type="text" id="urlInput" placeholder="Or enter URL: /uploads/xxx-model.glb or /view/assetId">
+        <button onclick="loadFromUrl()">Load</button>
+      </div>
+    </div>
+
+    <div id="log-area"></div>
+
+    <div id="live-stats">
+      <div class="stat">
+        <span class="stat-label">Mixer:</span>
+        <span class="stat-value" id="statMixer">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Time:</span>
+        <span class="stat-value" id="statTime">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Action:</span>
+        <span class="stat-value" id="statAction">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Bones:</span>
+        <span class="stat-value" id="statBones">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">FPS:</span>
+        <span class="stat-value" id="statFPS">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js -->
+  <script src="/lib/three.min.js"></script>
+  <script src="/lib/OrbitControls.js"></script>
+  <script src="/lib/GLTFLoader.js"></script>
+  <script src="/lib/DRACOLoader.js"></script>
+  <script src="/lib/meshopt_decoder.js?v=2"></script>
+  <script src="/lib/fflate.min.js"></script>
+  <script src="/lib/FBXLoader.js"></script>
+
+  <script>
+    // ══════════════════════════════════════════════════════════════════
+    // GLOBALS
+    // ══════════════════════════════════════════════════════════════════
+    let scene, camera, renderer, controls, clock;
+    let model = null, mixer = null, skeletonHelper = null;
+    let currentAction = null;
+    let allAnimations = [];
+    let wireframeMode = false;
+    let frameCount = 0, lastFpsTime = 0;
+
+    const logArea = document.getElementById('log-area');
+
+    function log(msg, type = '') {
+      const el = document.createElement('div');
+      el.className = 'log-entry ' + type;
+      el.textContent = msg;
+      logArea.appendChild(el);
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    function logClear() {
+      logArea.innerHTML = '';
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // THREE.JS SETUP
+    // ══════════════════════════════════════════════════════════════════
+    function initScene() {
+      const canvas = document.getElementById('canvas3d');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a2e);
+
+      camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.01, 500);
+      camera.position.set(0, 1.5, 4);
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+
+      controls = new THREE.OrbitControls(camera, canvas);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.target.set(0, 0.85, 0);
+
+      // Lighting
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const sun = new THREE.DirectionalLight(0xfff5e6, 1.0);
+      sun.position.set(5, 10, 7);
+      scene.add(sun);
+      const fill = new THREE.DirectionalLight(0x8888ff, 0.3);
+      fill.position.set(-3, 5, -5);
+      scene.add(fill);
+      scene.add(new THREE.HemisphereLight(0x87ceeb, 0x362d1b, 0.5));
+
+      // Grid
+      const grid = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
+      grid.material.transparent = true;
+      grid.material.opacity = 0.3;
+      scene.add(grid);
+
+      clock = new THREE.Clock();
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+        if (mixer) mixer.update(dt);
+        controls.update();
+        renderer.render(scene, camera);
+
+        // FPS counter
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsTime > 1000) {
+          document.getElementById('statFPS').textContent = frameCount;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+
+        // Live stats
+        if (mixer) {
+          document.getElementById('statMixer').textContent = `t=${mixer.time.toFixed(2)}`;
+          document.getElementById('statTime').textContent = mixer.time.toFixed(2) + 's';
+        }
+        if (currentAction) {
+          const a = currentAction;
+          document.getElementById('statAction').textContent =
+            `${a.isRunning() ? '▶' : '⏸'} w=${a.weight.toFixed(2)} t=${a.time.toFixed(2)}/${a.getClip().duration.toFixed(2)}`;
+        }
+      }
+      animate();
+
+      // Resize
+      window.addEventListener('resize', () => {
+        const w = canvas.parentElement.clientWidth;
+        const h = canvas.parentElement.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+
+      log('Three.js initialized', 'success');
+      log(`Renderer: ${renderer.getContext().getParameter(renderer.getContext().RENDERER)}`, 'dim');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // LOADER
+    // ══════════════════════════════════════════════════════════════════
+    function createLoader() {
+      const loader = new THREE.GLTFLoader();
+
+      // Draco
+      try {
+        const draco = new THREE.DRACOLoader();
+        draco.setDecoderPath('/lib/draco/');
+        draco.setDecoderConfig({ type: 'wasm' });
+        loader.setDRACOLoader(draco);
+        log('DRACOLoader: ready', 'dim');
+      } catch (e) {
+        log('DRACOLoader: ' + e.message, 'warn');
+      }
+
+      // Meshopt
+      if (typeof MeshoptDecoder !== 'undefined') {
+        loader.setMeshoptDecoder(MeshoptDecoder);
+        log('MeshoptDecoder: ready', 'dim');
+      }
+
+      return loader;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // LOAD AND ANALYZE MODEL
+    // ══════════════════════════════════════════════════════════════════
+    function loadGLB(source) {
+      // Clean up previous
+      if (model) {
+        scene.remove(model);
+        model = null;
+      }
+      if (mixer) {
+        mixer.stopAllAction();
+        mixer = null;
+      }
+      if (skeletonHelper) {
+        scene.remove(skeletonHelper);
+        skeletonHelper = null;
+      }
+      allAnimations = [];
+      currentAction = null;
+      document.getElementById('animControls').style.display = 'none';
+
+      logClear();
+      log('═══════════════════════════════════════════', 'header');
+      log('🔬 ANIMATION DEBUG ANALYSIS', 'header');
+      log('═══════════════════════════════════════════', 'header');
+
+      const loader = createLoader();
+      const startTime = performance.now();
+
+      const onLoaded = (gltf) => {
+        const loadTime = ((performance.now() - startTime) / 1000).toFixed(2);
+        log(`\nLoaded in ${loadTime}s`, 'success');
+        analyzeAndDisplay(gltf);
+      };
+
+      const onError = (err) => {
+        log(`\n✗ LOAD ERROR: ${err.message || err}`, 'error');
+        log('Check browser console (F12) for more details', 'warn');
+        console.error('Full error:', err);
+      };
+
+      const onProgress = (p) => {
+        if (p.total > 0) {
+          const pct = Math.round((p.loaded / p.total) * 100);
+          const mb = (p.loaded / 1024 / 1024).toFixed(1);
+          // Update header instead of spamming log
+          document.querySelector('#debug-header p').textContent = `Loading: ${pct}% (${mb}MB)`;
+        }
+      };
+
+      if (typeof source === 'string') {
+        // URL
+        log(`Loading from URL: ${source}`, 'info');
+        loader.load(source, onLoaded, onProgress, onError);
+      } else if (source instanceof ArrayBuffer) {
+        log(`Parsing ${(source.byteLength / 1024 / 1024).toFixed(1)}MB buffer...`, 'info');
+        loader.parse(source, '', onLoaded, onError);
+      }
+    }
+
+    function analyzeAndDisplay(gltf) {
+      const loadedModel = gltf.scene;
+      const animations = gltf.animations || [];
+
+      // ──── GEOMETRY ANALYSIS ────
+      log('\n📊 GEOMETRY', 'header');
+      let meshCount = 0, vertexCount = 0, skinnedMeshCount = 0;
+      let hasMorphTargets = false;
+
+      loadedModel.traverse(child => {
+        if (child.isMesh) {
+          meshCount++;
+          if (child.geometry) {
+            vertexCount += child.geometry.attributes.position?.count || 0;
+            if (child.geometry.morphAttributes && Object.keys(child.geometry.morphAttributes).length > 0) {
+              hasMorphTargets = true;
+            }
+          }
+          if (child.isSkinnedMesh) skinnedMeshCount++;
+        }
+      });
+
+      log(`  Meshes: ${meshCount}`);
+      log(`  Vertices: ${vertexCount.toLocaleString()}`);
+      log(`  SkinnedMeshes: ${skinnedMeshCount}`, skinnedMeshCount > 0 ? 'success' : 'warn');
+      if (hasMorphTargets) log(`  Morph Targets: present`, 'info');
+
+      // ──── SKELETON ANALYSIS ────
+      log('\n🦴 SKELETON', 'header');
+      let boneCount = 0;
+      const boneNames = [];
+      const bonesByDepth = {};
+
+      loadedModel.traverse(child => {
+        if (child.isBone || child.type === 'Bone') {
+          boneCount++;
+          boneNames.push(child.name);
+
+          // Calculate depth
+          let depth = 0;
+          let p = child.parent;
+          while (p) { depth++; p = p.parent; }
+          if (!bonesByDepth[depth]) bonesByDepth[depth] = [];
+          bonesByDepth[depth].push(child.name);
+        }
+      });
+
+      document.getElementById('statBones').textContent = boneCount;
+
+      if (boneCount === 0) {
+        log('  ✗ NO BONES FOUND', 'error');
+        log('  Model has no skeleton — cannot play bone-based animations', 'warn');
+      } else {
+        log(`  Total bones: ${boneCount}`, 'success');
+        log(`  First 15: ${boneNames.slice(0, 15).join(', ')}${boneNames.length > 15 ? '...' : ''}`);
+
+        // Show skeleton depth
+        const maxDepth = Math.max(...Object.keys(bonesByDepth).map(Number));
+        log(`  Hierarchy depth: ${maxDepth} levels`);
+      }
+
+      // Skinned mesh details
+      loadedModel.traverse(child => {
+        if (child.isSkinnedMesh) {
+          const skel = child.skeleton;
+          log(`\n  SkinnedMesh: "${child.name}"`, 'info');
+          log(`    Skeleton bones: ${skel?.bones?.length || 0}`);
+          log(`    Bind mode: ${child.bindMode}`);
+
+          // Check geometry for JOINTS/WEIGHTS
+          const geo = child.geometry;
+          const hasJoints = !!geo.attributes.skinIndex;
+          const hasWeights = !!geo.attributes.skinWeight;
+          log(`    skinIndex (JOINTS): ${hasJoints ? '✓ present' : '✗ MISSING'}`, hasJoints ? 'success' : 'error');
+          log(`    skinWeight (WEIGHTS): ${hasWeights ? '✓ present' : '✗ MISSING'}`, hasWeights ? 'success' : 'error');
+
+          if (hasWeights) {
+            // Sample weights to check validity
+            const weights = geo.attributes.skinWeight;
+            const count = weights.count;
+            let zeroWeights = 0;
+            let badNorm = 0;
+            const sampleSize = Math.min(count, 2000);
+            for (let i = 0; i < sampleSize; i++) {
+              const w = [weights.getX(i), weights.getY(i), weights.getZ(i), weights.getW(i)];
+              const sum = w.reduce((a, b) => a + b, 0);
+              if (sum < 0.001) zeroWeights++;
+              if (Math.abs(sum - 1.0) > 0.1 && sum > 0.001) badNorm++;
+            }
+            if (zeroWeights > 0) {
+              log(`    ⚠ ${zeroWeights}/${sampleSize} sampled vertices have ZERO weight!`, 'warn');
+            }
+            if (badNorm > 0) {
+              log(`    ⚠ ${badNorm}/${sampleSize} sampled vertices have non-normalized weights`, 'warn');
+            }
+            if (zeroWeights === 0 && badNorm === 0) {
+              log(`    ✓ Weights look healthy (sampled ${sampleSize})`, 'success');
+            }
+          }
+
+          if (!hasJoints || !hasWeights) {
+            log('    🔴 CRITICAL: Missing skin attributes! Mesh will NOT deform!', 'error');
+            log('    This usually happens when optimization strips JOINTS/WEIGHTS data', 'error');
+          }
+        }
+      });
+
+      // ──── ANIMATION ANALYSIS ────
+      log('\n🎬 ANIMATIONS', 'header');
+
+      if (animations.length === 0) {
+        log('  ✗ NO ANIMATION CLIPS FOUND', 'error');
+        log('  The model has no embedded animations.', 'warn');
+        log('', '');
+        log('  Possible causes:', 'warn');
+        log('    1. Animations were not baked before export from Blender', 'warn');
+        log('    2. Optimization (prune/simplify) removed animation data', 'warn');
+        log('    3. File was exported without "Include Animations" option', 'warn');
+        log('    4. Original model is static (no animations to begin with)', 'warn');
+      } else {
+        log(`  ✓ Found ${animations.length} clip(s)`, 'success');
+      }
+
+      // Build set of all node names in model for target matching
+      const modelNodeNames = new Set();
+      loadedModel.traverse(child => {
+        if (child.name) modelNodeNames.add(child.name);
+      });
+
+      let totalMatched = 0;
+      let totalMissing = 0;
+      let clipIssues = [];
+
+      animations.forEach((clip, i) => {
+        log(`\n  [${i}] "${clip.name}"`, 'info');
+        log(`      Tracks: ${clip.tracks.length} | Duration: ${clip.duration.toFixed(2)}s`);
+
+        // Analyze track targets
+        const targets = new Set();
+        const trackTypes = {};
+        let emptyTracks = 0;
+
+        clip.tracks.forEach(track => {
+          // Three.js track name format: "objectName.property"
+          const dotIndex = track.name.lastIndexOf('.');
+          if (dotIndex > -1) {
+            const objName = track.name.substring(0, dotIndex);
+            const prop = track.name.substring(dotIndex + 1);
+            targets.add(objName);
+            trackTypes[prop] = (trackTypes[prop] || 0) + 1;
+          }
+
+          if (!track.times || track.times.length === 0) {
+            emptyTracks++;
+          }
+        });
+
+        log(`      Properties: ${Object.entries(trackTypes).map(([k, v]) => `${k}(${v})`).join(', ')}`);
+        log(`      Unique targets: ${targets.size}`);
+
+        if (emptyTracks > 0) {
+          log(`      ⚠ ${emptyTracks} tracks have no keyframe data!`, 'warn');
+        }
+
+        // Match targets to model
+        let matched = 0;
+        let missing = [];
+        targets.forEach(target => {
+          // Three.js resolves targets by traversing with getObjectByName
+          let found = false;
+          loadedModel.traverse(child => {
+            if (child.name === target) found = true;
+          });
+          if (found) {
+            matched++;
+          } else {
+            missing.push(target);
+          }
+        });
+
+        totalMatched += matched;
+        totalMissing += missing.length;
+
+        if (missing.length === 0) {
+          log(`      ✓ All ${targets.size} targets matched!`, 'success');
+        } else if (matched === 0) {
+          log(`      ✗ NO targets matched (0/${targets.size})!`, 'error');
+          log(`      🔴 Animation will have NO visible effect!`, 'error');
+          clipIssues.push({ clip: clip.name, issue: 'zero_match' });
+        } else {
+          log(`      ⚡ Partial match: ${matched}/${targets.size}`, 'warn');
+          clipIssues.push({ clip: clip.name, issue: 'partial_match' });
+        }
+
+        if (missing.length > 0) {
+          log(`      Missing: ${missing.slice(0, 8).join(', ')}${missing.length > 8 ? ` (+${missing.length - 8})` : ''}`, 'warn');
+
+          // Try fuzzy matching to diagnose naming issues
+          const fuzzyMatches = [];
+          missing.slice(0, 3).forEach(m => {
+            let bestMatch = null;
+            let bestScore = 0;
+            modelNodeNames.forEach(name => {
+              // Simple similarity: check if one contains part of the other
+              const lower1 = m.toLowerCase();
+              const lower2 = name.toLowerCase();
+              if (lower1.includes(lower2) || lower2.includes(lower1)) {
+                const score = Math.min(lower1.length, lower2.length) / Math.max(lower1.length, lower2.length);
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestMatch = name;
+                }
+              }
+            });
+            if (bestMatch) {
+              fuzzyMatches.push(`"${m}" ≈ "${bestMatch}"`);
+            }
+          });
+          if (fuzzyMatches.length > 0) {
+            log(`      💡 Similar names found: ${fuzzyMatches.join(', ')}`, 'info');
+            log(`      💡 Naming mismatch! Animation was made for different skeleton`, 'warn');
+          }
+        }
+      });
+
+      // ──── DIAGNOSIS ────
+      log('\n═══════════════════════════════════════════', 'header');
+      log('📋 DIAGNOSIS', 'header');
+      log('═══════════════════════════════════════════', 'header');
+
+      const issues = [];
+
+      if (animations.length === 0) {
+        issues.push({
+          severity: 'critical',
+          msg: 'No animations in file',
+          fix: 'Re-export from Blender with animations, or check if optimization removed them'
+        });
+      }
+
+      if (boneCount === 0 && animations.length > 0) {
+        issues.push({
+          severity: 'critical',
+          msg: 'Animations exist but no skeleton/bones',
+          fix: 'Model needs armature/skeleton. Re-export with armature included.'
+        });
+      }
+
+      if (skinnedMeshCount === 0 && boneCount > 0) {
+        issues.push({
+          severity: 'critical',
+          msg: 'Has bones but no SkinnedMesh',
+          fix: 'Mesh needs to be skinned (bound to skeleton) in modeling software'
+        });
+      }
+
+      if (totalMissing > 0 && totalMatched === 0) {
+        issues.push({
+          severity: 'critical',
+          msg: 'Animation targets don\'t match ANY model nodes',
+          fix: 'Animation was made for a different model/skeleton. Re-target animations.'
+        });
+      } else if (totalMissing > 0) {
+        issues.push({
+          severity: 'warning',
+          msg: `${totalMissing} animation targets unmatched (partial animation)`,
+          fix: 'Some bones referenced in animation don\'t exist in the model'
+        });
+      }
+
+      if (vertexCount > 3000000) {
+        issues.push({
+          severity: 'warning',
+          msg: `Very high vertex count (${vertexCount.toLocaleString()}) may cause performance issues`,
+          fix: 'Consider optimizing with optimize_models.mjs'
+        });
+      }
+
+      // Check for "Retarget" clips
+      const retargetClips = animations.filter(a => a.name.includes('Retarget'));
+      if (retargetClips.length > 0 && retargetClips.length < animations.length) {
+        issues.push({
+          severity: 'info',
+          msg: `${retargetClips.length} "Retarget" variants found alongside original clips`,
+          fix: 'Try playing Retarget variants if originals don\'t work, or vice versa'
+        });
+      }
+
+      if (issues.length === 0 && animations.length > 0) {
+        log('\n  ✓ No issues detected! Animation should play correctly.', 'success');
+        log('  If it still doesn\'t work, check:', 'info');
+        log('    - Mixer is being updated in animation loop (mixer.update(dt))', 'info');
+        log('    - Model isn\'t being replaced after animation starts', 'info');
+        log('    - isRendering flag is true', 'info');
+      } else {
+        issues.forEach(issue => {
+          const color = issue.severity === 'critical' ? 'error' : (issue.severity === 'warning' ? 'warn' : 'info');
+          log(`\n  ${issue.severity === 'critical' ? '🔴' : '⚠'} ${issue.msg}`, color);
+          log(`    💡 Fix: ${issue.fix}`, 'dim');
+        });
+      }
+
+      // ──── SETUP 3D VIEW ────
+      model = loadedModel;
+
+      // Auto-resize
+      loadedModel.position.set(0, 0, 0);
+      loadedModel.scale.set(1, 1, 1);
+      loadedModel.updateMatrixWorld(true);
+
+      const box = new THREE.Box3().setFromObject(loadedModel);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      // Scale to ~2 units tall
+      const targetHeight = 2;
+      const scale = targetHeight / (size.y || 1);
+      loadedModel.scale.set(scale, scale, scale);
+      loadedModel.updateMatrixWorld(true);
+
+      const scaledBox = new THREE.Box3().setFromObject(loadedModel);
+      loadedModel.position.y = -scaledBox.min.y;
+      loadedModel.position.x = -center.x * scale;
+      loadedModel.position.z = -center.z * scale;
+
+      // Fix materials
+      loadedModel.traverse(child => {
+        if (child.isMesh && child.material) {
+          const fix = m => {
+            m.needsUpdate = true;
+            if (m.map) { m.map.encoding = THREE.sRGBEncoding; m.map.needsUpdate = true; }
+          };
+          if (Array.isArray(child.material)) child.material.forEach(fix);
+          else fix(child.material);
+        }
+      });
+
+      scene.add(loadedModel);
+
+      // Camera
+      camera.position.set(0, targetHeight * 0.5, targetHeight * 2.5);
+      controls.target.set(0, targetHeight * 0.4, 0);
+      controls.update();
+
+      // Skeleton helper
+      loadedModel.traverse(child => {
+        if (child.isSkinnedMesh && !skeletonHelper) {
+          skeletonHelper = new THREE.SkeletonHelper(loadedModel);
+          skeletonHelper.visible = false;
+          scene.add(skeletonHelper);
+        }
+      });
+
+      // Setup animation controls
+      allAnimations = animations;
+      if (animations.length > 0) {
+        const select = document.getElementById('animSelect');
+        select.innerHTML = '';
+        animations.forEach((clip, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = `[${i}] ${clip.name} (${clip.duration.toFixed(1)}s, ${clip.tracks.length} tracks)`;
+          select.appendChild(opt);
+        });
+
+        document.getElementById('animControls').style.display = 'block';
+
+        // Auto-play: prefer "Retarget" clips — originals often target wrong bone names
+        const retargetClips = animations.filter(a => a.name.includes('Retarget'));
+        const firstRetarget = retargetClips.length > 0 ? retargetClips[0] : null;
+        const autoClip = firstRetarget || animations[0];
+        const autoIdx = animations.indexOf(autoClip);
+
+        // Pre-select in dropdown
+        select.value = autoIdx;
+
+        mixer = new THREE.AnimationMixer(loadedModel);
+        currentAction = mixer.clipAction(autoClip);
+        currentAction.play();
+
+        if (firstRetarget) {
+          log(`\n▶ Auto-playing: "${autoClip.name}" (Retarget preferred)`, 'success');
+        } else {
+          log(`\n▶ Auto-playing: "${autoClip.name}"`, 'success');
+        }
+
+        // Debug mixer after 500ms
+        setTimeout(() => {
+          if (mixer && currentAction) {
+            log(`\n⏱ Mixer check (500ms):`, 'info');
+            log(`  mixer.time = ${mixer.time.toFixed(3)}`, mixer.time > 0 ? 'success' : 'warn');
+            log(`  action.time = ${currentAction.time.toFixed(3)}`, currentAction.time > 0 ? 'success' : 'warn');
+            log(`  action.enabled = ${currentAction.enabled}`, currentAction.enabled ? 'success' : 'error');
+            log(`  action.isRunning = ${currentAction.isRunning()}`, currentAction.isRunning() ? 'success' : 'error');
+            log(`  action.weight = ${currentAction.weight}`, currentAction.weight > 0 ? 'success' : 'error');
+
+            if (mixer.time === 0) {
+              log('  🔴 Mixer time is still 0 — animation loop may not be calling mixer.update()!', 'error');
+            }
+
+            // Check if any bone positions have changed (=animation is actually working)
+            let bonesMoved = 0;
+            if (skeletonHelper) {
+              skeletonHelper.bones?.forEach(bone => {
+                // If rotation is not exactly 0,0,0: bone has been animated
+                const r = bone.rotation;
+                if (Math.abs(r.x) > 0.001 || Math.abs(r.y) > 0.001 || Math.abs(r.z) > 0.001) {
+                  bonesMoved++;
+                }
+              });
+              log(`  Bones with non-zero rotation: ${bonesMoved}/${skeletonHelper.bones?.length || 0}`, bonesMoved > 0 ? 'success' : 'warn');
+            }
+
+            // Check internal bindings
+            if (mixer._actions && mixer._actions.length > 0) {
+              const action = mixer._actions[0];
+              const bindings = action._interpolants;
+              log(`  Internal interpolants: ${bindings?.length || 0}`, bindings?.length > 0 ? 'success' : 'warn');
+              if (action._propertyBindings) {
+                let boundCount = 0;
+                let unboundCount = 0;
+                action._propertyBindings.forEach(b => {
+                  if (b && b.binding && b.binding.node) {
+                    boundCount++;
+                  } else {
+                    unboundCount++;
+                  }
+                });
+                log(`  Property bindings: ${boundCount} bound, ${unboundCount} unbound`, unboundCount > 0 ? 'warn' : 'success');
+                if (unboundCount > 0) {
+                  log('  ⚠ Unbound properties = animation targets not found in model!', 'warn');
+                }
+              }
+            }
+          }
+        }, 500);
+
+        // Second check after 2s to see if animation is actually moving
+        setTimeout(() => {
+          if (mixer) {
+            log(`\n⏱ Animation check (2s):`, 'info');
+            log(`  mixer.time = ${mixer.time.toFixed(3)}`, mixer.time > 0.5 ? 'success' : 'error');
+
+            if (mixer.time < 0.1) {
+              log('  🔴 ANIMATION IS NOT ADVANCING!', 'error');
+              log('  Likely cause: mixer.update(delta) not being called in render loop', 'error');
+            } else {
+              log('  ✓ Animation is advancing normally', 'success');
+            }
+          }
+        }, 2000);
+      }
+
+      document.querySelector('#debug-header p').textContent = `Loaded: ${meshCount} meshes, ${vertexCount.toLocaleString()} verts, ${animations.length} anims`;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // CONTROLS
+    // ══════════════════════════════════════════════════════════════════
+    function playSelectedAnim() {
+      if (!mixer || allAnimations.length === 0) return;
+      const idx = parseInt(document.getElementById('animSelect').value);
+      const clip = allAnimations[idx];
+
+      if (currentAction) {
+        currentAction.stop();
+      }
+
+      currentAction = mixer.clipAction(clip);
+      currentAction.reset();
+      currentAction.play();
+      log(`\n▶ Playing: [${idx}] "${clip.name}"`, 'success');
+    }
+
+    function stopAnim() {
+      if (mixer) {
+        mixer.stopAllAction();
+        currentAction = null;
+        log('⏹ Stopped all animations', 'info');
+      }
+    }
+
+    function playAllAnims() {
+      if (!mixer || allAnimations.length === 0) return;
+      let idx = 0;
+
+      function playNext() {
+        if (idx >= allAnimations.length) {
+          log('\n🔄 Finished cycling all animations', 'info');
+          return;
+        }
+        if (currentAction) currentAction.stop();
+        const clip = allAnimations[idx];
+        currentAction = mixer.clipAction(clip);
+        currentAction.reset();
+        currentAction.clampWhenFinished = true;
+        currentAction.loop = THREE.LoopOnce;
+        currentAction.play();
+        log(`▶ [${idx}/${allAnimations.length}] "${clip.name}"`, 'info');
+
+        document.getElementById('animSelect').value = idx;
+
+        // Play for clip duration then next
+        setTimeout(() => {
+          idx++;
+          playNext();
+        }, Math.max(clip.duration * 1000, 2000));
+      }
+
+      log('\n🔄 Cycling through all animations...', 'info');
+      playNext();
+    }
+
+    function toggleWireframe() {
+      wireframeMode = !wireframeMode;
+      if (model) {
+        model.traverse(child => {
+          if (child.isMesh && child.material) {
+            const toggle = m => { m.wireframe = wireframeMode; };
+            if (Array.isArray(child.material)) child.material.forEach(toggle);
+            else toggle(child.material);
+          }
+        });
+      }
+      document.getElementById('btnWire').classList.toggle('active', wireframeMode);
+    }
+
+    function toggleSkeleton() {
+      if (skeletonHelper) {
+        skeletonHelper.visible = !skeletonHelper.visible;
+        document.getElementById('btnSkel').classList.toggle('active', skeletonHelper.visible);
+        log(`🦴 Skeleton helper: ${skeletonHelper.visible ? 'visible' : 'hidden'}`, 'info');
+      } else {
+        log('🦴 No skeleton helper available (no SkinnedMesh found)', 'warn');
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // FILE INPUT
+    // ══════════════════════════════════════════════════════════════════
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      log(`📂 Reading file: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`, 'info');
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        loadGLB(evt.target.result);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    function loadFromUrl() {
+      let url = document.getElementById('urlInput').value.trim();
+      if (!url) return;
+
+      // Handle /view/assetId format
+      const viewMatch = url.match(/\/view\/([a-zA-Z0-9_-]+)/);
+      if (viewMatch) {
+        const assetId = viewMatch[1];
+        log(`Fetching asset data for ID: ${assetId}`, 'info');
+        fetch(`/api/asset/${assetId}`)
+          .then(r => r.json())
+          .then(data => {
+            log(`Asset: ${data.characterName || 'Unnamed'}`, 'info');
+            log(`Model URL: ${data.model}`, 'info');
+            if (data.isOptimized) log('Model is OPTIMIZED version', 'info');
+            loadGLB(data.model);
+          })
+          .catch(err => log(`Error fetching asset: ${err.message}`, 'error'));
+        return;
+      }
+
+      // Handle asset ID directly
+      if (!url.includes('/') && !url.includes('.')) {
+        log(`Treating as asset ID: ${url}`, 'info');
+        fetch(`/api/asset/${url}`)
+          .then(r => r.json())
+          .then(data => {
+            log(`Asset: ${data.characterName || 'Unnamed'}`, 'info');
+            log(`Model URL: ${data.model}`, 'info');
+            loadGLB(data.model);
+          })
+          .catch(err => log(`Error: ${err.message}`, 'error'));
+        return;
+      }
+
+      loadGLB(url);
+    }
+
+    // Enter key for URL input
+    document.getElementById('urlInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadFromUrl();
+    });
+
+    // ══════════════════════════════════════════════════════════════════
+    // INIT
+    // ══════════════════════════════════════════════════════════════════
+    initScene();
+
+    // Auto-load if URL has ?file= or ?asset= parameter
+    const params = new URLSearchParams(location.search);
+    if (params.get('file')) {
+      loadGLB(params.get('file'));
+    } else if (params.get('asset')) {
+      document.getElementById('urlInput').value = params.get('asset');
+      loadFromUrl();
+    }
+  </script>
+</body>
+
+</html>
