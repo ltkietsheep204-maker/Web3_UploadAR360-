@@ -2587,9 +2587,9 @@
 
         // Check timeout
         if (Date.now() - startedWaiting > MAX_WAIT) {
-          console.warn('⏰ Optimization timeout, loading original model');
-          if (subtitle) subtitle.textContent = 'Hết thời gian chờ, tải bản gốc...';
-          return false; // Load original
+          console.warn('⏰ Optimization timeout');
+          if (subtitle) subtitle.textContent = 'Tối ưu hoá quá lâu. Vui lòng thử lại sau vài phút.';
+          return false; // Block load
         }
 
         // Wait before polling
@@ -2631,16 +2631,23 @@
     // ══════════════════════════════════════════════════════════════════════════════
     async function loadModel() {
       // ═══════════════════════════════════════════════════════════════
-      // WAIT for optimization ONLY on MOBILE devices
-      // Desktop/localhost: 300MB loads in ~2s from disk → no need to wait
-      // Mobile: 300MB over network would crash → must wait for 11MB version
+      // WAIT for optimization if model is large AND not yet optimized
+      // Both mobile AND desktop: 300MB over network is unacceptable for all
       // ═══════════════════════════════════════════════════════════════
-      // Check ACTUAL file size, not just the flag — flag is unreliable after server restart
       const rawSizeMB = assetData?.modelSize ? assetData.modelSize / (1024 * 1024) : 0;
-      const needsWait = IS_MOBILE && !assetData?.isOptimized && rawSizeMB > 50;
+      const needsWait = !assetData?.isOptimized && rawSizeMB > 50;
       if (needsWait) {
         console.log(`📦 Model is ${rawSizeMB.toFixed(1)}MB and not yet optimized — waiting for server optimization...`);
-        await waitForOptimization();
+        const subtitle = document.getElementById('loadingSubtitle');
+        if (subtitle) subtitle.textContent = `Model ${rawSizeMB.toFixed(0)}MB đang được tối ưu, vui lòng chờ...`;
+        const optimized = await waitForOptimization();
+        if (!optimized) {
+          // Optimization failed/timed out — block loading instead of serving 300MB
+          const subtitle2 = document.getElementById('loadingSubtitle');
+          if (subtitle2) subtitle2.textContent = 'Model chưa tối ưu xong. Vui lòng thử lại sau vài phút.';
+          console.warn('🚫 Model too large and optimization failed/timed out. Blocking load.');
+          return; // Do NOT load 300MB file
+        }
       }
 
       const modelPath = assetData?.model || '/uploads/default.glb';
