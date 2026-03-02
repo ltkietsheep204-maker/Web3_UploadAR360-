@@ -218,7 +218,13 @@ async function uploadVariantsToAzure(modelFile, assetId) {
   for (const v of variants) {
     if (fs.existsSync(v.local)) {
       const url = await uploadToBlob(v.local, v.blob);
-      if (url) { asset[v.key] = url; changed = true; }
+      if (url) {
+        asset[v.key] = url;
+        if (v.key === 'blobUrl') {
+          asset.blobOptimizedSize = fs.statSync(v.local).size; // store size for API fallback
+        }
+        changed = true;
+      }
     }
   }
   if (changed) {
@@ -420,9 +426,11 @@ app.post('/upload', (req, res, next) => {
       }
     }
 
+    const modelFullStat = modelFile ? fs.statSync(path.join(UPLOADS_DIR, modelFile)) : null;
     db[id] = {
       id,
       model: `/uploads/${modelFile}`,
+      rawModelSize: modelFullStat ? modelFullStat.size : 0, // original size in bytes — persisted for Azure
       audio: audioFile ? `/uploads/${audioFile}` : null,
       groundImage: groundFile ? `/uploads/${groundFile}` : null,
       envImage: envFile ? `/uploads/${envFile}` : null,
@@ -540,6 +548,17 @@ app.get('/api/asset/:id', (req, res) => {
     } else if (fs.existsSync(originalPath)) {
       modelSize = fs.statSync(originalPath).size;
       if (asset.blobOriginalUrl) asset.model = asset.blobOriginalUrl;
+    } else {
+      // File not on disk (Azure deploy) — use stored rawModelSize so viewer knows to wait
+      if (asset.blobUrl) {
+        // Optimized blob exists → treat as optimized (small file)
+        isOptimized = true;
+        modelSize = asset.blobOptimizedSize || 0; // use stored optimized size if available
+        asset.model = asset.blobUrl;
+      } else {
+        modelSize = asset.rawModelSize || 0;
+        if (asset.blobOriginalUrl) asset.model = asset.blobOriginalUrl;
+      }
     }
 
     // Mobile/preview: prefer Azure URLs
@@ -577,6 +596,11 @@ app.get('/api/optimize-status/:id', (req, res) => {
 
   const modelFile = asset.model ? path.basename(asset.model) : null;
   if (!modelFile) return res.json({ optimizing: false, ready: false });
+
+  // If optimized blob already exists on Azure → immediately ready
+  if (asset.blobUrl) {
+    return res.json({ optimizing: false, ready: true });
+  }
 
   let isStillOptimizing = optimizingModels.has(modelFile);
 
