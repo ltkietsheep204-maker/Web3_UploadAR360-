@@ -595,12 +595,21 @@ app.get('/api/optimize-status/:id', (req, res) => {
   const asset = db[req.params.id];
   if (!asset) return res.status(404).json({ error: 'Not found' });
 
-  const modelFile = asset.model ? path.basename(asset.model) : null;
-  if (!modelFile) return res.json({ optimizing: false, ready: false });
+  // ── Safe modelFile extraction: asset.model may have been mutated to a blob URL
+  // by a previous /api/asset/ call (in-memory mutation). Strip URL components.
+  let rawModel = asset.model || '';
+  // If it's a full URL (https://...) extract just the filename portion before any query params
+  if (rawModel.startsWith('http')) {
+    rawModel = rawModel.split('?')[0]; // strip SAS token
+  }
+  const modelFile = rawModel ? path.basename(rawModel) : null;
+  if (!modelFile || !modelFile.match(/\.(glb|gltf)$/i)) {
+    return res.json({ optimizing: false, ready: false, fallbackUrl: asset.blobOriginalUrl || null });
+  }
 
   // If optimized blob already exists on Azure → immediately ready
   if (asset.blobUrl) {
-    return res.json({ optimizing: false, ready: true });
+    return res.json({ optimizing: false, ready: true, fallbackUrl: asset.blobUrl });
   }
 
   let isStillOptimizing = optimizingModels.has(modelFile);
@@ -620,6 +629,11 @@ app.get('/api/optimize-status/:id', (req, res) => {
         spawnOptimizer(modelFile, asset.id || req.params.id);
         isStillOptimizing = true; // tell client to keep polling
       }
+    }
+    // If original not on disk either (cold Azure deploy without files) —
+    // return blobOriginalUrl as fallback so viewer can at least load something
+    if (!isStillOptimizing && asset.blobOriginalUrl) {
+      return res.json({ optimizing: false, ready: false, fallbackUrl: asset.blobOriginalUrl });
     }
   }
 
@@ -641,6 +655,7 @@ app.get('/api/optimize-status/:id', (req, res) => {
     mobileModel: mobileExists ? `/uploads/optimized/${baseName}.mobile${ext}` : null,
     optimizedSize,
     mobileSize,
+    fallbackUrl: asset.blobOriginalUrl || null, // always send fallback for viewer safety
     elapsedMs: isStillOptimizing ? Date.now() - optimizingModels.get(modelFile).startTime : 0
   });
 });

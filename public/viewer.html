@@ -2588,8 +2588,13 @@
         // Check timeout
         if (Date.now() - startedWaiting > MAX_WAIT) {
           console.warn('⏰ Optimization timeout');
-          if (subtitle) subtitle.textContent = 'Tối ưu hoá quá lâu. Vui lòng thử lại sau vài phút.';
-          return false; // Block load
+          if (subtitle) subtitle.textContent = 'Tối ưu hoá quá lâu. Đang tải model gốc...';
+          // Reload asset data for fallback URL before giving up
+          try {
+            const r = await fetch(`/api/asset/${assetId}`);
+            if (r.ok) assetData = await r.json();
+          } catch(_) {}
+          return false;
         }
 
         // Wait before polling
@@ -2616,9 +2621,19 @@
           }
 
           if (!status.optimizing && !status.ready) {
-            // Optimization failed or not running — load original
-            console.warn('⚠️ Optimization not running and not ready, loading original');
-            return false;
+            // Optimization not running and no optimized file — try to reload asset data
+            // so we can fall back to the original (blobOriginalUrl on Azure)
+            console.warn('⚠️ Optimization not running, trying to reload asset for fallback URL...');
+            // Use fallbackUrl from server response if available
+            if (status.fallbackUrl && assetData) {
+              assetData.model = status.fallbackUrl;
+              console.log('📦 Using fallbackUrl from server:', status.fallbackUrl);
+            }
+            try {
+              const fallbackRes = await fetch(`/api/asset/${assetId}`);
+              if (fallbackRes.ok) assetData = await fallbackRes.json();
+            } catch(_) {}
+            return false; // signal caller to load whatever URL is available
           }
         } catch (e) {
           console.log('Poll error:', e.message);
@@ -2642,11 +2657,27 @@
         if (subtitle) subtitle.textContent = `Model ${rawSizeMB.toFixed(0)}MB đang được tối ưu, vui lòng chờ...`;
         const optimized = await waitForOptimization();
         if (!optimized) {
-          // Optimization failed/timed out — block loading instead of serving 300MB
-          const subtitle2 = document.getElementById('loadingSubtitle');
-          if (subtitle2) subtitle2.textContent = 'Model chưa tối ưu xong. Vui lòng thử lại sau vài phút.';
-          console.warn('🚫 Model too large and optimization failed/timed out. Blocking load.');
-          return; // Do NOT load 300MB file
+          // Optimization failed/timed out.
+          // Still try to load whatever URL is available (blobOriginalUrl on Azure, local path otherwise).
+          // This ensures the loading screen is NEVER stuck permanently.
+          const modelAvailable = assetData?.model && assetData.model !== '/uploads/default.glb';
+          if (modelAvailable) {
+            const sub = document.getElementById('loadingSubtitle');
+            if (sub) sub.textContent = 'Model gốc đang được tải (chưa tối ưu)...';
+            console.warn('⚠️ Optimization failed/timed out — loading original model as fallback.');
+            // Continue below — do NOT return
+          } else {
+            // No model URL at all — nothing to load
+            const sub = document.getElementById('loadingSubtitle');
+            if (sub) sub.textContent = 'Không tìm thấy file model. Vui lòng thử lại sau.';
+            console.warn('🚫 No model URL available after optimization failure.');
+            // Dismiss loading screen so user is not stuck
+            setTimeout(() => {
+              const overlay = document.getElementById('loading-overlay');
+              if (overlay) overlay.style.display = 'none';
+            }, 3000);
+            return;
+          }
         }
       }
 
