@@ -487,21 +487,30 @@
     /* Loading Bar */
     .progress-container {
       width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      position: absolute;
-      bottom: 0;
-      left: 0;
+      height: 6px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
       overflow: hidden;
       display: none;
+      margin-top: 10px;
     }
 
     .progress-bar {
       height: 100%;
-      background: var(--accent);
+      background: linear-gradient(90deg, #ff6b35, #ffd700);
       width: 0%;
       transition: width 0.3s;
-      box-shadow: 0 0 10px var(--accent);
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+      border-radius: 3px;
+    }
+
+    .upload-stats {
+      display: none;
+      text-align: center;
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
@@ -652,10 +661,11 @@
       </form>
     </div>
 
-    <!-- Progress Bar at bottom -->
+    <!-- Progress Bar -->
     <div class="progress-container" id="uploadProgress">
       <div class="progress-bar" id="progressBar"></div>
     </div>
+    <div class="upload-stats" id="uploadStats"></div>
   </div>
 
   <!-- Result Overlay -->
@@ -820,6 +830,7 @@
     const form = document.getElementById('uploadForm');
     const progressBar = document.getElementById('progressBar');
     const progressContainer = document.getElementById('uploadProgress');
+    const uploadStats = document.getElementById('uploadStats');
     const resultOverlay = document.getElementById('result-overlay');
     const submitBtn = document.getElementById('submitBtn');
 
@@ -848,8 +859,10 @@
       }
 
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span>⏳ Uploading...</span>';
+      submitBtn.innerHTML = '<span>⏳ Đang tải lên...</span>';
       progressContainer.style.display = 'block';
+      uploadStats.style.display = 'block';
+      uploadStats.textContent = 'Đang chuẩn bị...';
       progressBar.style.width = '0%';
 
       const fd = new FormData(form);
@@ -867,38 +880,45 @@
           const pct = (e.loaded / e.total * 100);
           progressBar.style.width = pct + '%';
 
-          // Calculate upload speed
+          const loadedMB = (e.loaded / 1048576).toFixed(1);
+          const totalMB  = (e.total  / 1048576).toFixed(1);
+
+          // Update button text with % always
+          submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% (${loadedMB}/${totalMB} MB)</span>`;
+
+          // Speed + ETA every 0.5s
           const now = Date.now();
           const elapsed = (now - lastTime) / 1000;
           if (elapsed > 0.5) {
             const speed = (e.loaded - lastLoaded) / elapsed;
-            const remaining = (e.total - e.loaded) / speed;
             lastLoaded = e.loaded;
             lastTime = now;
 
-            const speedText = speed > 1048576
-              ? (speed / 1048576).toFixed(1) + ' MB/s'
-              : (speed / 1024).toFixed(0) + ' KB/s';
-            const remainText = remaining < 60
-              ? Math.ceil(remaining) + 's'
-              : Math.ceil(remaining / 60) + 'min';
-
-            if (pct < 100) {
-              submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% · ${speedText} · ~${remainText}</span>`;
+            if (speed > 0) {
+              const remaining = (e.total - e.loaded) / speed;
+              const speedText = speed > 1048576
+                ? (speed / 1048576).toFixed(1) + ' MB/s'
+                : (speed / 1024).toFixed(0) + ' KB/s';
+              const remainText = remaining < 60
+                ? Math.ceil(remaining) + 's'
+                : Math.floor(remaining / 60) + 'p' + (Math.ceil(remaining) % 60) + 's';
+              uploadStats.textContent = `${speedText}  ·  còn ~${remainText}`;
             }
           }
         }
       };
 
       xhr.upload.onload = () => {
-        submitBtn.innerHTML = '<span>⚡ Generating QR...</span>';
+        submitBtn.innerHTML = '<span>⚡ Đang tạo QR...</span>';
         progressBar.style.width = '100%';
+        uploadStats.textContent = 'Hoàn tất! Đang xử lý...';
       };
 
       xhr.onload = () => {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
         progressContainer.style.display = 'none';
+        uploadStats.style.display = 'none';
 
         if (xhr.status === 200) {
           const j = JSON.parse(xhr.responseText);
