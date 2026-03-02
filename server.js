@@ -94,18 +94,61 @@ function spawnOptimizer(modelFile, assetId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PERFORMANCE: Cache DB in memory instead of reading file every time
-// ═══════════════════════════════════════════════════════════════════
+// DB: In-memory cache + local file + Azure Blob for persistence
+// Azure Blob = source of truth (survives redeploys)
+// ═══════════════════════════════════════════════════════════════
+const DB_BLOB_NAME = 'db/db.json';
 let dbCache = null;
+
 function getDB() {
   if (!dbCache) {
-    dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    try { dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
+    catch (e) { dbCache = {}; }
   }
   return dbCache;
 }
+
 function saveDB(db) {
   dbCache = db;
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  // Async persist to Azure Blob (don't block request)
+  saveDBToAzure(db).catch(e => console.log('☁️ DB save to Azure failed:', e.message));
+}
+
+async function saveDBToAzure(db) {
+  if (!containerClient) return;
+  try {
+    const blob = containerClient.getBlockBlobClient(DB_BLOB_NAME);
+    const content = JSON.stringify(db, null, 2);
+    await blob.upload(content, Buffer.byteLength(content), {
+      blobHTTPHeaders: { blobContentType: 'application/json' },
+      overwrite: true
+    });
+  } catch (e) {
+    console.log('☁️ saveDBToAzure error:', e.message);
+  }
+}
+
+async function loadDBFromAzure() {
+  if (!containerClient) return;
+  try {
+    const blob = containerClient.getBlockBlobClient(DB_BLOB_NAME);
+    const exists = await blob.exists();
+    if (!exists) { console.log('☁️ No db.json on Azure yet, starting fresh'); return; }
+    const download = await blob.download();
+    const chunks = [];
+    for await (const chunk of download.readableStreamBody) chunks.push(chunk);
+    const content = Buffer.concat(chunks).toString('utf8');
+    const remoteDB = JSON.parse(content);
+    // Merge: Azure has priority, local adds anything new
+    const localDB = (() => { try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch { return {}; } })();
+    const merged = { ...localDB, ...remoteDB };
+    dbCache = merged;
+    fs.writeFileSync(DB_FILE, JSON.stringify(merged, null, 2));
+    console.log(`☁️ DB loaded from Azure (${Object.keys(merged).length} assets)`);
+  } catch (e) {
+    console.log('☁️ loadDBFromAzure error:', e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -648,8 +691,14 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+
+async function startServer() {
+  // Load DB from Azure Blob BEFORE accepting requests
+  await loadDBFromAzure();
+
+  const server = global._httpServer = require('http').createServer(app);
+  server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 
   // ── STARTUP SCAN: Re-trigger optimization for any models missing optimized files
   // This covers the case where Railway restarted and lost in-memory state
@@ -678,9 +727,15 @@ const server = app.listen(PORT, () => {
       console.log('Startup scan error:', e.message);
     }
   }, 5000); // wait 5s after server is ready
-});
+  });
 
-// Set server timeout to 10 minutes for large 3D model uploads
-server.timeout = 10 * 60 * 1000; // 10 minutes
-server.keepAliveTimeout = 120 * 1000; // 2 minutes
-server.headersTimeout = 10 * 60 * 1000 + 1000; // slightly more than server.timeout
+  // Set server timeout to 10 minutes for large 3D model uploads
+  server.timeout = 10 * 60 * 1000; // 10 minutes
+  server.keepAliveTimeout = 120 * 1000; // 2 minutes
+  server.headersTimeout = 10 * 60 * 1000 + 1000; // slightly more than server.timeout
+}
+
+startServer().catch(err => {
+  console.error('❌ Server startup failed:', err);
+  process.exit(1);
+});
