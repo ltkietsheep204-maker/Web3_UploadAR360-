@@ -360,7 +360,7 @@
     /* Submit Button */
     .submit-btn {
       width: 100%;
-      padding: 18px;
+      padding: 14px 18px;
       background: linear-gradient(135deg, #8B0000 0%, #c0392b 100%);
       border: none;
       border-radius: 12px;
@@ -375,6 +375,22 @@
       box-shadow: 0 10px 20px rgba(139, 0, 0, 0.3);
       letter-spacing: 1px;
       margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 58px;
+    }
+
+    .submit-btn .btn-sub {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 400;
+      letter-spacing: 1.5px;
+      opacity: 0.85;
+      text-transform: none;
+      color: rgba(255,255,255,0.9);
     }
 
     .submit-btn:hover {
@@ -659,14 +675,15 @@
         </button>
 
       </form>
-    </div>
 
-    <!-- Progress Bar -->
-    <div class="progress-container" id="uploadProgress">
-      <div class="progress-bar" id="progressBar"></div>
-    </div>
-    <div class="upload-stats" id="uploadStats"></div>
-  </div>
+      <!-- Progress Bar — inside form panel, right under button -->
+      <div class="progress-container" id="uploadProgress">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="upload-stats" id="uploadStats"></div>
+
+    </div><!-- /form-panel -->
+  </div><!-- /main-container -->
 
   <!-- Result Overlay -->
   <div id="result-overlay">
@@ -861,8 +878,7 @@
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span>⏳ Đang tải lên...</span>';
       progressContainer.style.display = 'block';
-      uploadStats.style.display = 'block';
-      uploadStats.textContent = 'Đang chuẩn bị...';
+      uploadStats.style.display = 'none'; // not needed — stats on button
       progressBar.style.width = '0%';
 
       const fd = new FormData(form);
@@ -883,17 +899,14 @@
           const loadedMB = (e.loaded / 1048576).toFixed(1);
           const totalMB  = (e.total  / 1048576).toFixed(1);
 
-          // Update button text with % always
-          submitBtn.innerHTML = `<span>⏳ ${Math.round(pct)}% (${loadedMB}/${totalMB} MB)</span>`;
-
           // Speed + ETA every 0.5s
           const now = Date.now();
           const elapsed = (now - lastTime) / 1000;
+          let speedLine = '';
           if (elapsed > 0.5) {
             const speed = (e.loaded - lastLoaded) / elapsed;
             lastLoaded = e.loaded;
             lastTime = now;
-
             if (speed > 0) {
               const remaining = (e.total - e.loaded) / speed;
               const speedText = speed > 1048576
@@ -901,17 +914,22 @@
                 : (speed / 1024).toFixed(0) + ' KB/s';
               const remainText = remaining < 60
                 ? Math.ceil(remaining) + 's'
-                : Math.floor(remaining / 60) + 'p' + (Math.ceil(remaining) % 60) + 's';
-              uploadStats.textContent = `${speedText}  ·  còn ~${remainText}`;
+                : Math.floor(remaining / 60) + 'p' + (Math.ceil(remaining % 60)) + 's';
+              speedLine = `${speedText}  ·  còn ~${remainText}`;
             }
           }
+
+          // Everything on the button
+          submitBtn.innerHTML = `
+            <span>⏳ ${Math.round(pct)}% &nbsp;(${loadedMB} / ${totalMB} MB)</span>
+            ${speedLine ? `<span class="btn-sub">${speedLine}</span>` : ''}
+          `;
         }
       };
 
       xhr.upload.onload = () => {
-        submitBtn.innerHTML = '<span>⚡ Đang tạo QR...</span>';
+        submitBtn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
         progressBar.style.width = '100%';
-        uploadStats.textContent = 'Hoàn tất! Đang xử lý...';
       };
 
       xhr.onload = () => {
