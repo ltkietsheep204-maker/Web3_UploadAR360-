@@ -2551,163 +2551,36 @@
       }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════
-    // WAIT FOR OPTIMIZATION - Poll server until optimized model is ready
-    // ══════════════════════════════════════════════════════════════════════════════
-    async function waitForOptimization() {
-      const pathParts = window.location.pathname.split('/');
-      const assetId = pathParts[pathParts.length - 1];
-      if (!assetId) return false;
-
-      const subtitle = document.querySelector('.loading-subtitle');
-      const title = document.querySelector('.loading-title');
-
-      console.log('⏳ Model is being optimized on server, waiting...');
-      if (title) title.textContent = 'ĐANG TỐI ƯU HÓA';
-      setLoadingProgress(45);
-
-      // Poll every 3 seconds, give up after 3 minutes (was 10)
-      const POLL_INTERVAL = 3000;
-      const MAX_WAIT = 3 * 60 * 1000; // 3 minutes — then load original
-      const SKIP_WAIT_AFTER = 60 * 1000; // After 60s, show "skip" link
-      const startedWaiting = Date.now();
-      let skipShown = false;
-
-      while (true) {
-        const waitedMs = Date.now() - startedWaiting;
-        const waitedSec = Math.round(waitedMs / 1000);
-        const elapsedMin = Math.floor(waitedSec / 60);
-        const elapsedSec = waitedSec % 60;
-        const timeStr = elapsedMin > 0 ? `${elapsedMin}p${elapsedSec}s` : `${elapsedSec}s`;
-
-        if (subtitle) {
-          subtitle.textContent = `Đang nén mô hình 3D từ server... ${timeStr}`;
-        }
-
-        // After 60s, add a skip link so user can load original manually
-        if (!skipShown && waitedMs > SKIP_WAIT_AFTER && subtitle) {
-          skipShown = true;
-          const skipLink = document.createElement('div');
-          skipLink.id = 'skip-optimize';
-          skipLink.innerHTML = '<a href="#" style="color:#FFD700;font-size:0.85rem;text-decoration:underline;margin-top:12px;display:inline-block">Bỏ qua, tải model gốc (chậm hơn)</a>';
-          skipLink.querySelector('a').onclick = (e) => {
-            e.preventDefault();
-            window._skipOptimize = true;
-          };
-          subtitle.parentElement.appendChild(skipLink);
-        }
-
-        // User clicked skip
-        if (window._skipOptimize) {
-          console.log('⏭ User skipped optimization wait');
-          if (subtitle) subtitle.textContent = 'Đang tải model gốc...';
-          try {
-            const r = await fetch(`/api/asset/${assetId}`);
-            if (r.ok) assetData = await r.json();
-          } catch(_) {}
-          const skip = document.getElementById('skip-optimize');
-          if (skip) skip.remove();
-          return false;
-        }
-
-        // Animate progress bar slowly (45% → 80%) during wait
-        const waitProgress = Math.min(80, 45 + (waitedSec / 180) * 35);
-        setLoadingProgress(Math.round(waitProgress));
-
-        // Check timeout
-        if (Date.now() - startedWaiting > MAX_WAIT) {
-          console.warn('⏰ Optimization timeout');
-          if (subtitle) subtitle.textContent = 'Tối ưu hoá quá lâu. Đang tải model gốc...';
-          // Reload asset data for fallback URL before giving up
-          try {
-            const r = await fetch(`/api/asset/${assetId}`);
-            if (r.ok) assetData = await r.json();
-          } catch(_) {}
-          return false;
-        }
-
-        // Wait before polling
-        await new Promise(r => setTimeout(r, POLL_INTERVAL));
-
-        try {
-          const res = await fetch(`/api/optimize-status/${assetId}`);
-          const status = await res.json();
-
-          if (status.ready) {
-            console.log('✅ Optimization complete! Reloading asset data...');
-            if (subtitle) subtitle.textContent = 'Tối ưu xong! Đang tải mô hình...';
-            setLoadingProgress(85);
-
-            // Reload asset data to get optimized model paths
-            const freshRes = await fetch(`/api/asset/${assetId}`);
-            if (freshRes.ok) {
-              assetData = await freshRes.json();
-              console.log('📦 Updated asset data with optimized model:', assetData.model);
-              const sizeMB = (assetData.modelSize / (1024 * 1024)).toFixed(1);
-              console.log(`📦 Optimized size: ${sizeMB}MB (was 300MB+)`);
-            }
-            return true; // Optimized model ready
-          }
-
-          if (!status.optimizing && !status.ready) {
-            // Optimization not running and no optimized file — try to reload asset data
-            // so we can fall back to the original (blobOriginalUrl on Azure)
-            console.warn('⚠️ Optimization not running, trying to reload asset for fallback URL...');
-            // Use fallbackUrl from server response if available
-            if (status.fallbackUrl && assetData) {
-              assetData.model = status.fallbackUrl;
-              console.log('📦 Using fallbackUrl from server:', status.fallbackUrl);
-            }
-            try {
-              const fallbackRes = await fetch(`/api/asset/${assetId}`);
-              if (fallbackRes.ok) assetData = await fallbackRes.json();
-            } catch(_) {}
-            return false; // signal caller to load whatever URL is available
-          }
-        } catch (e) {
-          console.log('Poll error:', e.message);
-        }
-      }
-    }
+    // (waitForOptimization removed — viewer now loads original immediately,
+    //  optimization runs in background, next viewer gets optimized version)
 
     // ══════════════════════════════════════════════════════════════════════════════
     // LOAD MODEL - Optimized with caching, Draco, streaming
     // ══════════════════════════════════════════════════════════════════════════════
     async function loadModel() {
       // ═══════════════════════════════════════════════════════════════
-      // WAIT for optimization if model is large AND not yet optimized
-      // Both mobile AND desktop: 300MB over network is unacceptable for all
+      // STRATEGY: Load model immediately — never block the viewer.
+      // Person 1 (uploader, usually on WiFi) → loads original model instantly
+      // Optimization runs in background on server
+      // Person 2+ (QR scanner) → gets the smaller optimized model
       // ═══════════════════════════════════════════════════════════════
       const rawSizeMB = assetData?.modelSize ? assetData.modelSize / (1024 * 1024) : 0;
-      const needsWait = !assetData?.isOptimized && rawSizeMB > 50;
-      if (needsWait) {
-        console.log(`📦 Model is ${rawSizeMB.toFixed(1)}MB and not yet optimized — waiting for server optimization...`);
-        const subtitle = document.getElementById('loadingSubtitle');
-        if (subtitle) subtitle.textContent = `Model ${rawSizeMB.toFixed(0)}MB đang được tối ưu, vui lòng chờ...`;
-        const optimized = await waitForOptimization();
-        if (!optimized) {
-          // Optimization failed/timed out.
-          // Still try to load whatever URL is available (blobOriginalUrl on Azure, local path otherwise).
-          // This ensures the loading screen is NEVER stuck permanently.
-          const modelAvailable = assetData?.model && assetData.model !== '/uploads/default.glb';
-          if (modelAvailable) {
-            const sub = document.getElementById('loadingSubtitle');
-            if (sub) sub.textContent = 'Model gốc đang được tải (chưa tối ưu)...';
-            console.warn('⚠️ Optimization failed/timed out — loading original model as fallback.');
-            // Continue below — do NOT return
-          } else {
-            // No model URL at all — nothing to load
-            const sub = document.getElementById('loadingSubtitle');
-            if (sub) sub.textContent = 'Không tìm thấy file model. Vui lòng thử lại sau.';
-            console.warn('🚫 No model URL available after optimization failure.');
-            // Dismiss loading screen so user is not stuck
-            setTimeout(() => {
-              const overlay = document.getElementById('loading-overlay');
-              if (overlay) overlay.style.display = 'none';
-            }, 3000);
-            return;
-          }
-        }
+
+      if (!assetData?.isOptimized && assetData?.optimizing) {
+        // Model is still being optimized — show a brief banner, but load original immediately
+        console.log(`📦 Model ${rawSizeMB.toFixed(1)}MB chưa tối ưu — tải bản gốc ngay, optimize chạy nền cho người sau.`);
+        const subtitle = document.querySelector('.loading-subtitle');
+        if (subtitle) subtitle.textContent = 'Đang tải model gốc... (đang tối ưu cho người xem sau)';
+
+        // Floating info toast (auto-dismiss after 6s)
+        setTimeout(() => {
+          const toast = document.createElement('div');
+          toast.id = 'optimize-toast';
+          toast.innerHTML = '🔄 Model đang được tối ưu trên server.<br>Người xem sau sẽ tải nhanh hơn!';
+          toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#FFD700;padding:12px 20px;border-radius:12px;font-size:0.85rem;z-index:99999;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,215,0,0.3);transition:opacity 0.5s';
+          document.body.appendChild(toast);
+          setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 600); }, 6000);
+        }, 2000);
       }
 
       const modelPath = assetData?.model || '/uploads/default.glb';
