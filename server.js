@@ -691,14 +691,11 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 
-async function startServer() {
-  // Load DB from Azure Blob BEFORE accepting requests
-  await loadDBFromAzure();
-
-  const server = global._httpServer = require('http').createServer(app);
-  server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  // Load DB from Azure Blob in background (don't block server startup)
+  loadDBFromAzure().catch(e => console.log('DB load error:', e.message));
 
   // ── STARTUP SCAN: Re-trigger optimization for any models missing optimized files
   // This covers the case where Railway restarted and lost in-memory state
@@ -726,16 +723,10 @@ async function startServer() {
     } catch (e) {
       console.log('Startup scan error:', e.message);
     }
-  }, 5000); // wait 5s after server is ready
-  });
-
-  // Set server timeout to 10 minutes for large 3D model uploads
-  server.timeout = 10 * 60 * 1000; // 10 minutes
-  server.keepAliveTimeout = 120 * 1000; // 2 minutes
-  server.headersTimeout = 10 * 60 * 1000 + 1000; // slightly more than server.timeout
-}
-
-startServer().catch(err => {
-  console.error('❌ Server startup failed:', err);
-  process.exit(1);
+  }, 8000); // wait 8s — give Azure DB time to load first
 });
+
+// Set server timeout to 10 minutes for large 3D model uploads
+server.timeout = 10 * 60 * 1000; // 10 minutes
+server.keepAliveTimeout = 120 * 1000; // 2 minutes
+server.headersTimeout = 10 * 60 * 1000 + 1000; // slightly more than server.timeout
