@@ -8,11 +8,13 @@
     "optimize:mobile": "node optimize_models.mjs --max-texture=512"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.31.0",
     "@gltf-transform/core": "^4.3.0",
     "@gltf-transform/extensions": "^4.3.0",
     "@gltf-transform/functions": "^4.3.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
     "draco3dgltf": "^1.5.7",
     "express": "^4.18.2",
     "meshoptimizer": "^1.0.1",

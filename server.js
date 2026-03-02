@@ -1,9 +1,11 @@
+require('dotenv').config(); // load .env for local dev (Railway uses env vars directly)
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { nanoid } = require('nanoid');
 const cors = require('cors');
+const { BlobServiceClient, BlobSASPermissions } = require('@azure/storage-blob');
 
 const app = express();
 app.use(cors());
@@ -77,6 +79,9 @@ function spawnOptimizer(modelFile, assetId) {
     optimizingModels.delete(modelFile);
     if (code === 0) {
       console.log(`✅ Optimization done: ${modelFile}`);
+      // Upload optimized variants to Azure Blob (fire and forget)
+      uploadVariantsToAzure(modelFile, assetId)
+        .catch(e => console.log('☁️ Post-optimize Azure upload error:', e.message));
     } else {
       console.log(`⚠️ Optimization failed (code ${code}): ${modelFile} — original will be served`);
     }
@@ -101,6 +106,82 @@ function getDB() {
 function saveDB(db) {
   dbCache = db;
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AZURE BLOB STORAGE - Persistent model storage (survives server restarts)
+// Connection string from AZURE_STORAGE_CONNECTION_STRING env var
+// ═══════════════════════════════════════════════════════════════════
+let containerClient = null;
+try {
+  const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  const containerName = process.env.AZURE_STORAGE_CONTAINER || 'models';
+  if (connStr) {
+    containerClient = BlobServiceClient
+      .fromConnectionString(connStr)
+      .getContainerClient(containerName);
+    console.log(`☁️ Azure Blob Storage connected (container: ${containerName})`);
+  } else {
+    console.log('⚠️ AZURE_STORAGE_CONNECTION_STRING not set — running without Azure Blob Storage');
+  }
+} catch (e) {
+  console.log('⚠️ Azure init error:', e.message);
+}
+
+// Upload a local file to Azure Blob, return a 2-year SAS URL (or null on error)
+async function uploadToBlob(localPath, blobName) {
+  if (!containerClient || !fs.existsSync(localPath)) return null;
+  try {
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    const ext = path.extname(blobName).toLowerCase();
+    const contentType = ext === '.glb' ? 'model/gltf-binary'
+      : ext === '.gltf' ? 'model/gltf+json'
+      : ext === '.png'  ? 'image/png'
+      : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
+      : 'application/octet-stream';
+    await blockBlobClient.uploadFile(localPath, {
+      blobHTTPHeaders: { blobContentType: contentType }
+    });
+    // Generate SAS URL valid for 2 years (no need for public container)
+    const expiresOn = new Date();
+    expiresOn.setFullYear(expiresOn.getFullYear() + 2);
+    const sasUrl = await blockBlobClient.generateSasUrl({
+      permissions: BlobSASPermissions.parse('r'),
+      expiresOn,
+    });
+    const sizeMB = (fs.statSync(localPath).size / 1024 / 1024).toFixed(1);
+    console.log(`☁️ Azure ↑ ${blobName} (${sizeMB}MB)`);
+    return sasUrl;
+  } catch (e) {
+    console.log(`☁️ Azure upload failed [${blobName}]: ${e.message}`);
+    return null;
+  }
+}
+
+// Upload all optimized variants to Azure and save URLs in db
+async function uploadVariantsToAzure(modelFile, assetId) {
+  if (!containerClient) return;
+  const ext = path.extname(modelFile);
+  const base = modelFile.slice(0, -ext.length);
+  const variants = [
+    { local: path.join(OPTIMIZED_DIR, modelFile),                  blob: `optimized/${modelFile}`,                  key: 'blobUrl' },
+    { local: path.join(OPTIMIZED_DIR, `${base}.mobile${ext}`),     blob: `optimized/${base}.mobile${ext}`,          key: 'blobMobileUrl' },
+    { local: path.join(OPTIMIZED_DIR, `${base}.preview${ext}`),    blob: `optimized/${base}.preview${ext}`,         key: 'blobPreviewUrl' },
+  ];
+  const db = getDB();
+  const asset = db[assetId];
+  if (!asset) return;
+  let changed = false;
+  for (const v of variants) {
+    if (fs.existsSync(v.local)) {
+      const url = await uploadToBlob(v.local, v.blob);
+      if (url) { asset[v.key] = url; changed = true; }
+    }
+  }
+  if (changed) {
+    saveDB(db);
+    console.log(`☁️ Azure URLs saved to db for asset ${assetId}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -328,8 +409,16 @@ app.post('/upload', (req, res, next) => {
       const modelSizeMB = (fs.statSync(modelFullPath).size / (1024 * 1024)).toFixed(1);
       if (parseFloat(modelSizeMB) > 500) {
         console.log(`⏭️ ${modelFile} is ${modelSizeMB}MB — too large to optimize, serving original`);
+        // Still upload original to Azure for persistence
+        uploadToBlob(modelFullPath, `originals/${modelFile}`)
+          .then(url => { if (url) { const d = getDB(); if (d[id]) { d[id].blobOriginalUrl = url; saveDB(d); } } })
+          .catch(() => {});
       } else {
         spawnOptimizer(modelFile, id);
+        // Also upload original immediately for backup / while optimization is running
+        uploadToBlob(modelFullPath, `originals/${modelFile}`)
+          .then(url => { if (url) { const d = getDB(); if (d[id]) { d[id].blobOriginalUrl = url; saveDB(d); } } })
+          .catch(() => {});
       }
     }
 
@@ -403,11 +492,16 @@ app.get('/api/asset/:id', (req, res) => {
     if (modelFile.endsWith('.glb') && fs.existsSync(optimizedPath)) {
       modelSize = fs.statSync(optimizedPath).size;
       isOptimized = true;
-      // Serve directly from optimized path (no query string - it breaks .glb detection on client)
-      asset.model = `/uploads/optimized/${modelFile}`;
+      // Prefer Azure Blob URL (survives server restarts) over local path
+      asset.model = asset.blobUrl || `/uploads/optimized/${modelFile}`;
     } else if (fs.existsSync(originalPath)) {
       modelSize = fs.statSync(originalPath).size;
+      if (asset.blobOriginalUrl) asset.model = asset.blobOriginalUrl;
     }
+
+    // Mobile/preview: prefer Azure URLs
+    if (asset.blobMobileUrl) mobileModel = asset.blobMobileUrl;
+    if (asset.blobPreviewUrl) previewModel = asset.blobPreviewUrl;
   }
 
   // Check if this model is currently being optimized
@@ -424,7 +518,9 @@ app.get('/api/asset/:id', (req, res) => {
     needsDraco: isOptimized,
     // Tell client if optimization is in progress
     optimizing: isCurrentlyOptimizing,
-    optimizeStartTime: optimizeInfo?.startTime || null
+    optimizeStartTime: optimizeInfo?.startTime || null,
+    // Whether files are safely backed up in Azure
+    onAzure: !!(asset.blobUrl || asset.blobOriginalUrl)
   });
 });
 
