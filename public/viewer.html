@@ -2530,9 +2530,11 @@
                 tex.mapping = THREE.EquirectangularReflectionMapping;
                 environmentDome.material.map = tex;
                 environmentDome.material.color.set(0xffffff);
+                environmentDome.material.opacity = 1;       // ← fix: was 0, dome was invisible
+                environmentDome.material.transparent = false;
                 environmentDome.material.needsUpdate = true;
               });
-            }, 3000);
+            }, 2000);
           }
         }
 
