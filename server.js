@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { nanoid } = require('nanoid');
 const cors = require('cors');
 const { BlobServiceClient, BlobSASPermissions } = require('@azure/storage-blob');
@@ -715,8 +716,23 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+
+// Get local LAN IP for mobile/device testing
+function getLanIP() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) return net.address;
+    }
+  }
+  return 'localhost';
+}
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  const lanIP = getLanIP();
+  console.log(`\n  Local:   http://localhost:${PORT}`);
+  console.log(`  LAN:     http://${lanIP}:${PORT}`);
+  console.log(`  Debug:   http://${lanIP}:${PORT}/debug-upload.html\n`);
 
   // Load DB from Azure Blob in background (don't block server startup)
   loadDBFromAzure().catch(e => console.log('DB load error:', e.message));
