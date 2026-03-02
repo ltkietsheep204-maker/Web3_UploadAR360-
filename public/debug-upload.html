@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>🔧 Upload Debug</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; color: #e0e0e0; font-family: monospace; padding: 20px; }
+
+    h2 { color: #FFD700; margin-bottom: 16px; font-size: 1rem; letter-spacing: 2px; }
+    h3 { color: #aaa; font-size: 0.8rem; letter-spacing: 1px; margin: 20px 0 8px; border-top: 1px solid #222; padding-top: 12px; }
+
+    /* ── Replicated from index.html ── */
+    .submit-btn {
+      width: 100%;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #8B0000 0%, #c0392b 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: 'Cinzel', serif, sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(139, 0, 0, 0.3);
+      letter-spacing: 1px;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 58px;
+    }
+    .submit-btn .btn-sub {
+      font-family: 'Inter', sans-serif, sans-serif;
+      font-size: 0.72rem;
+      font-weight: 400;
+      letter-spacing: 1.5px;
+      opacity: 0.85;
+      text-transform: none;
+      color: rgba(255,255,255,0.9);
+    }
+    .progress-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff6b35, #ffd700);
+      width: 0%;
+      transition: width 0.3s;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+      border-radius: 3px;
+    }
+
+    /* ── Debug UI ── */
+    .section {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      max-width: 500px;
+    }
+
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .dbg-btn {
+      padding: 6px 14px;
+      border: 1px solid #444;
+      background: #1a1a1a;
+      color: #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: monospace;
+    }
+    .dbg-btn:hover { background: #2a2a2a; color: #fff; border-color: #FFD700; }
+    .dbg-btn.active { background: #FFD700; color: #000; border-color: #FFD700; }
+
+    .log {
+      background: #000;
+      border: 1px solid #1a1a1a;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.72rem;
+      line-height: 1.7;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .log .ok   { color: #44ff88; }
+    .log .warn { color: #ffaa00; }
+    .log .err  { color: #ff4444; }
+    .log .info { color: #4488ff; }
+    .log .dim  { color: #555; }
+
+    label { font-size: 0.78rem; color: #888; margin-bottom: 4px; display: block; }
+    input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: #FFD700; }
+    input[type=file]  { font-size: 0.78rem; color: #aaa; }
+    .kv { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; padding: 3px 0; border-bottom: 1px solid #1a1a1a; }
+    .kv span:last-child { color: #FFD700; }
+    .checker { padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; margin: 4px 0; }
+    .checker.ok  { background: rgba(68,255,136,0.08); color: #44ff88; }
+    .checker.err { background: rgba(255,68,68,0.08); color: #ff6666; }
+    .checker.warn { background: rgba(255,170,0,0.08); color: #ffaa00; }
+  </style>
+</head>
+<body>
+
+<h2>🔧 UPLOAD BUTTON DEBUG</h2>
+
+<!-- SECTION 1: Visual Simulator -->
+<div class="section">
+  <h3>① Button Visual — Simulate States</h3>
+  <div class="controls">
+    <button class="dbg-btn" onclick="setIdle()">Idle</button>
+    <button class="dbg-btn" onclick="setStarting()">Starting</button>
+    <button class="dbg-btn" onclick="simProgress(20)">20%</button>
+    <button class="dbg-btn" onclick="simProgress(55)">55%</button>
+    <button class="dbg-btn" onclick="simProgress(90)">90%</button>
+    <button class="dbg-btn" onclick="setProcessing()">QR Processing</button>
+  </div>
+
+  <label>Simulate speed (KB/s)</label>
+  <input type="range" id="speedSlider" min="100" max="10240" value="1200" oninput="updateSpeedLabel()">
+  <div class="kv"><span>Speed</span><span id="speedLabel">1200 KB/s</span></div>
+  <div class="kv"><span>ETA at 55%</span><span id="etaLabel">—</span></div>
+
+  <!-- The actual button from index.html -->
+  <button class="submit-btn" id="simBtn">
+    <span>🏹 Launch WebAR Experience</span>
+  </button>
+  <div class="progress-container">
+    <div class="progress-bar" id="simBar"></div>
+  </div>
+</div>
+
+<!-- SECTION 2: DOM Check -->
+<div class="section">
+  <h3>② DOM Elements Check (from index.html when served)</h3>
+  <div id="domChecks"><em style="color:#555">Chỉ hoạt động khi mở từ server (localhost:3000/debug-upload.html)</em></div>
+  <button class="dbg-btn" style="margin-top:8px" onclick="runDomChecks()">▶ Chạy DOM Check</button>
+</div>
+
+<!-- SECTION 3: Real XHR upload test -->
+<div class="section">
+  <h3>③ Real Upload Test — Upload file thật, xem progress</h3>
+  <label>Chọn file GLB nhỏ để test:</label>
+  <input type="file" id="testFile" accept=".glb,.gltf" style="margin:8px 0">
+  <button class="dbg-btn" onclick="runRealUpload()" style="margin-top:4px">▶ Test Upload Thật</button>
+
+  <button class="submit-btn" id="realBtn" style="margin-top:12px; pointer-events:none; opacity:0.8">
+    <span>Chờ file...</span>
+  </button>
+  <div class="progress-container">
+    <div class="progress-bar" id="realBar"></div>
+  </div>
+  <div class="log" id="uploadLog"></div>
+</div>
+
+<!-- SECTION 4: Server Health -->
+<div class="section">
+  <h3>④ Server Health Check</h3>
+  <button class="dbg-btn" onclick="runServerCheck()">▶ Chạy</button>
+  <div class="log" id="serverLog"></div>
+</div>
+
+<!-- SECTION 5: CSS Audit -->
+<div class="section">
+  <h3>⑤ CSS Audit — .submit-btn computed styles</h3>
+  <button class="dbg-btn" onclick="runCssAudit()">▶ Chạy</button>
+  <div class="log" id="cssLog"></div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────
+function log(elId, msg, type = 'info') {
+  const el = document.getElementById(elId);
+  const line = document.createElement('div');
+  line.className = type;
+  line.textContent = `[${new Date().toLocaleTimeString('vi')}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function fmtBytes(b) {
+  return b > 1048576 ? (b/1048576).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
+}
+function fmtSpeed(bps) {
+  return bps > 1048576 ? (bps/1048576).toFixed(2)+' MB/s' : (bps/1024).toFixed(0)+' KB/s';
+}
+function fmtEta(sec) {
+  if (sec < 60) return Math.ceil(sec)+'s';
+  return Math.floor(sec/60)+'p'+Math.ceil(sec%60)+'s';
+}
+
+// ────────────────────────────────────────────────
+// SECTION 1 — Visual Simulator
+// ────────────────────────────────────────────────
+const simBtn = document.getElementById('simBtn');
+const simBar = document.getElementById('simBar');
+
+function setIdle() {
+  simBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
+  simBar.style.width = '0%';
+}
+function setStarting() {
+  simBtn.innerHTML = '<span>⏳ Đang tải lên...</span>';
+  simBar.style.width = '0%';
+}
+function setProcessing() {
+  simBtn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
+  simBar.style.width = '100%';
+}
+
+function simProgress(pct) {
+  const speedKB = parseInt(document.getElementById('speedSlider').value);
+  const speedBPS = speedKB * 1024;
+  const totalBytes = 100 * 1048576; // pretend 100MB
+  const loadedBytes = totalBytes * pct / 100;
+  const loadedMB = (loadedBytes / 1048576).toFixed(1);
+  const totalMB  = (totalBytes  / 1048576).toFixed(1);
+  const remaining = (totalBytes - loadedBytes) / speedBPS;
+  const speedText = fmtSpeed(speedBPS);
+  const etaText   = fmtEta(remaining);
+
+  simBar.style.width = pct + '%';
+  simBtn.innerHTML = `
+    <span>⏳ ${pct}% &nbsp;(${loadedMB} / ${totalMB} MB)</span>
+    <span class="btn-sub">${speedText}  ·  còn ~${etaText}</span>
+  `;
+
+  document.getElementById('etaLabel').textContent = etaText;
+}
+
+function updateSpeedLabel() {
+  const v = document.getElementById('speedSlider').value;
+  document.getElementById('speedLabel').textContent =
+    v > 1024 ? (v/1024).toFixed(1)+' MB/s' : v+' KB/s';
+  simProgress(55);
+}
+
+// ────────────────────────────────────────────────
+// SECTION 2 — DOM Check
+// ────────────────────────────────────────────────
+function runDomChecks() {
+  const container = document.getElementById('domChecks');
+  container.innerHTML = '';
+
+  const ids = [
+    'submitBtn', 'progressBar', 'uploadProgress', 'uploadStats',
+    'uploadForm', 'file-model'
+  ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    const div = document.createElement('div');
+    div.className = 'checker ' + (el ? 'ok' : 'err');
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const visible = rect.width > 0 && rect.height > 0;
+      div.textContent = `✓ #${id}  [${Math.round(rect.width)}×${Math.round(rect.height)}px]${!visible ? ' ⚠ zero size!' : ''}`;
+      if (!visible) div.className = 'checker warn';
+    } else {
+      div.textContent = `✗ #${id}  — KHÔNG TÌM THẤY`;
+    }
+    container.appendChild(div);
+  });
+
+  // Check progress-container is INSIDE form-panel
+  const prog = document.getElementById('uploadProgress');
+  const form = document.getElementById('uploadForm');
+  if (prog && form) {
+    const insideForm = form.parentElement?.contains(prog);
+    const div = document.createElement('div');
+    div.className = 'checker ' + (insideForm ? 'ok' : 'err');
+    div.textContent = insideForm
+      ? '✓ #uploadProgress nằm trong form-panel (đúng)'
+      : '✗ #uploadProgress nằm NGOÀI form-panel — layout bị lỗi!';
+    container.appendChild(div);
+  }
+}
+
+// ────────────────────────────────────────────────
+// SECTION 3 — Real Upload Test
+// ────────────────────────────────────────────────
+function runRealUpload() {
+  const fileInput = document.getElementById('testFile');
+  const btn = document.getElementById('realBtn');
+  const bar = document.getElementById('realBar');
+  const logEl = 'uploadLog';
+
+  if (!fileInput.files.length) {
+    log(logEl, 'Chưa chọn file!', 'warn'); return;
+  }
+
+  const file = fileInput.files[0];
+  log(logEl, `File: ${file.name}  (${fmtBytes(file.size)})`, 'info');
+
+  const fd = new FormData();
+  fd.append('model', file);
+  fd.append('characterName', 'Debug Test');
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/upload');
+
+  btn.style.pointerEvents = 'none';
+  btn.innerHTML = '<span>⏳ Đang tải lên...</span>';
+  bar.style.width = '0%';
+
+  const startTime = Date.now();
+  let lastLoaded = 0, lastTime = startTime;
+
+  xhr.upload.onprogress = (e) => {
+    if (!e.lengthComputable) {
+      log(logEl, '⚠ e.lengthComputable = false → không tính được %!', 'warn');
+      return;
+    }
+    const pct = e.loaded / e.total * 100;
+    bar.style.width = pct + '%';
+
+    const loadedMB = (e.loaded / 1048576).toFixed(1);
+    const totalMB  = (e.total  / 1048576).toFixed(1);
+
+    const now = Date.now();
+    const elapsed = (now - lastTime) / 1000;
+    let speedLine = '';
+
+    if (elapsed > 0.4) {
+      const speed = (e.loaded - lastLoaded) / elapsed;
+      lastLoaded = e.loaded;
+      lastTime = now;
+      if (speed > 0) {
+        const remaining = (e.total - e.loaded) / speed;
+        speedLine = `${fmtSpeed(speed)}  ·  còn ~${fmtEta(remaining)}`;
+      }
+    }
+
+    btn.innerHTML = `
+      <span>⏳ ${Math.round(pct)}% &nbsp;(${loadedMB} / ${totalMB} MB)</span>
+      ${speedLine ? `<span class="btn-sub">${speedLine}</span>` : ''}
+    `;
+
+    log(logEl, `progress ${Math.round(pct)}%  ${loadedMB}/${totalMB}MB  ${speedLine}`, 'ok');
+  };
+
+  xhr.upload.onload = () => {
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    log(logEl, `upload.onload → ${elapsed}s tổng`, 'ok');
+    btn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
+    bar.style.width = '100%';
+  };
+
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      const j = JSON.parse(xhr.responseText);
+      log(logEl, `Server OK → id=${j.id}  url=${j.url}`, 'ok');
+      btn.innerHTML = `<span>✅ Done — id: ${j.id}</span>`;
+    } else {
+      log(logEl, `Server lỗi HTTP ${xhr.status}: ${xhr.responseText.slice(0,200)}`, 'err');
+      btn.innerHTML = `<span>❌ Lỗi ${xhr.status}</span>`;
+    }
+    btn.style.pointerEvents = 'auto';
+  };
+
+  xhr.onerror = () => {
+    log(logEl, 'xhr.onerror — network error hoặc CORS', 'err');
+    btn.innerHTML = '<span>❌ Network Error</span>';
+    btn.style.pointerEvents = 'auto';
+  };
+
+  xhr.ontimeout = () => {
+    log(logEl, 'xhr.ontimeout sau 10 phút', 'err');
+    btn.innerHTML = '<span>❌ Timeout</span>';
+    btn.style.pointerEvents = 'auto';
+  };
+
+  xhr.timeout = 10 * 60 * 1000;
+  log(logEl, 'Bắt đầu gửi...', 'dim');
+  xhr.send(fd);
+}
+
+// ────────────────────────────────────────────────
+// SECTION 4 — Server Health
+// ────────────────────────────────────────────────
+async function runServerCheck() {
+  const logEl = 'serverLog';
+  const endpoints = [
+    ['GET', '/api/assets'],
+    ['GET', '/api/asset/FAKE_ID_TEST'],
+    ['GET', '/lib/three.min.js'],
+  ];
+
+  for (const [method, url] of endpoints) {
+    try {
+      const t0 = Date.now();
+      const r = await fetch(url, { method });
+      const ms = Date.now() - t0;
+      const type = r.headers.get('content-type') || '';
+      if (r.ok || r.status === 404) {
+        log(logEl, `${r.status} ${method} ${url}  (${ms}ms)  ${type.split(';')[0]}`,
+          r.ok ? 'ok' : 'warn');
+      } else {
+        log(logEl, `${r.status} ${method} ${url}  (${ms}ms)`, 'err');
+      }
+    } catch(e) {
+      log(logEl, `FAIL ${method} ${url}: ${e.message}`, 'err');
+    }
+  }
+
+  // Check upload endpoint accepts POST
+  try {
+    const t0 = Date.now();
+    const r = await fetch('/upload', { method: 'POST', body: new FormData() });
+    const ms = Date.now() - t0;
+    const text = await r.text();
+    log(logEl, `POST /upload (empty) → ${r.status} (${ms}ms): ${text.slice(0,80)}`,
+      r.status === 400 ? 'warn' : r.ok ? 'ok' : 'err');
+  } catch(e) {
+    log(logEl, `POST /upload FAIL: ${e.message}`, 'err');
+  }
+}
+
+// ────────────────────────────────────────────────
+// SECTION 5 — CSS Audit
+// ────────────────────────────────────────────────
+function runCssAudit() {
+  const logEl = 'cssLog';
+
+  // Audit this page's simBtn
+  const btn = document.getElementById('simBtn');
+  const style = window.getComputedStyle(btn);
+
+  const checks = [
+    ['display', style.display, 'flex'],
+    ['flex-direction', style.flexDirection, 'column'],
+    ['align-items', style.alignItems, 'center'],
+    ['min-height', style.minHeight, '58px'],
+    ['width', style.width, ''],
+    ['overflow', style.overflow, 'hidden'],
+  ];
+
+  checks.forEach(([prop, val, expected]) => {
+    const ok = expected === '' || val === expected;
+    log(logEl, `${prop}: ${val}${expected ? '  (expect: '+expected+')' : ''}`,
+      ok ? 'ok' : 'err');
+  });
+
+  // Check .btn-sub if present
+  const sub = btn.querySelector('.btn-sub');
+  if (sub) {
+    const ss = window.getComputedStyle(sub);
+    log(logEl, `.btn-sub font-size: ${ss.fontSize}  opacity: ${ss.opacity}`, 'info');
+  } else {
+    log(logEl, '.btn-sub không có trong DOM hiện tại (bình thường khi idle)', 'dim');
+  }
+
+  // Inject .btn-sub temporarily
+  btn.innerHTML = '<span>⏳ 55% (55 / 100 MB)</span><span class="btn-sub">1.2 MB/s · còn ~38s</span>';
+  simBar.style.width = '55%';
+  setTimeout(() => {
+    const sub2 = btn.querySelector('.btn-sub');
+    if (sub2) {
+      const ss2 = window.getComputedStyle(sub2);
+      log(logEl, `.btn-sub visible: fontSize=${ss2.fontSize} color=${ss2.color}`, 'ok');
+    }
+  }, 50);
+}
+
+// Auto-run server check if on localhost
+if (location.hostname === 'localhost' || location.hostname.includes('azurewebsites')) {
+  setTimeout(runServerCheck, 500);
+}
+</script>
+</body>
+</html>

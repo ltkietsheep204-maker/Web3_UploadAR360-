@@ -878,7 +878,7 @@
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span>⏳ Đang tải lên...</span>';
       progressContainer.style.display = 'block';
-      uploadStats.style.display = 'none'; // not needed — stats on button
+      uploadStats.style.display = 'none';
       progressBar.style.width = '0%';
 
       const fd = new FormData(form);
@@ -886,50 +886,55 @@
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/upload');
 
-      // Track upload start time for speed calculation
-      const uploadStartTime = Date.now();
-      let lastLoaded = 0;
-      let lastTime = uploadStartTime;
+      // ── Upload state: updated by XHR events, rendered by interval ──
+      const up = { loaded: 0, total: 0, speed: 0, pct: 0, done: false };
+      let _lastLoaded = 0, _lastTime = Date.now();
+
+      // Render loop at 120ms — decoupled from sparse XHR onprogress events
+      const _renderInterval = setInterval(() => {
+        if (up.done) { clearInterval(_renderInterval); return; }
+        if (up.total === 0) return;
+
+        const loadedMB = (up.loaded / 1048576).toFixed(1);
+        const totalMB  = (up.total  / 1048576).toFixed(1);
+        let speedLine  = '';
+        if (up.speed > 0) {
+          const remaining = Math.max(0, (up.total - up.loaded) / up.speed);
+          const speedText = up.speed > 1048576
+            ? (up.speed / 1048576).toFixed(1) + ' MB/s'
+            : (up.speed / 1024).toFixed(0) + ' KB/s';
+          const remainText = remaining < 60
+            ? Math.ceil(remaining) + 's'
+            : Math.floor(remaining / 60) + 'p' + Math.ceil(remaining % 60) + 's';
+          speedLine = speedText + '  ·  còn ~' + remainText;
+        }
+        progressBar.style.width = up.pct + '%';
+        submitBtn.innerHTML =
+          '<span>⏳ ' + Math.round(up.pct) + '%  (' + loadedMB + ' / ' + totalMB + ' MB)</span>' +
+          (speedLine ? '<span class="btn-sub">' + speedLine + '</span>' : '');
+      }, 120);
 
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = (e.loaded / e.total * 100);
-          progressBar.style.width = pct + '%';
+        if (!e.lengthComputable) return;
+        up.loaded = e.loaded;
+        up.total  = e.total;
+        up.pct    = (e.loaded / e.total) * 100;
 
-          const loadedMB = (e.loaded / 1048576).toFixed(1);
-          const totalMB  = (e.total  / 1048576).toFixed(1);
-
-          // Speed + ETA every 0.5s
-          const now = Date.now();
-          const elapsed = (now - lastTime) / 1000;
-          let speedLine = '';
-          if (elapsed > 0.5) {
-            const speed = (e.loaded - lastLoaded) / elapsed;
-            lastLoaded = e.loaded;
-            lastTime = now;
-            if (speed > 0) {
-              const remaining = (e.total - e.loaded) / speed;
-              const speedText = speed > 1048576
-                ? (speed / 1048576).toFixed(1) + ' MB/s'
-                : (speed / 1024).toFixed(0) + ' KB/s';
-              const remainText = remaining < 60
-                ? Math.ceil(remaining) + 's'
-                : Math.floor(remaining / 60) + 'p' + (Math.ceil(remaining % 60)) + 's';
-              speedLine = `${speedText}  ·  còn ~${remainText}`;
-            }
-          }
-
-          // Everything on the button
-          submitBtn.innerHTML = `
-            <span>⏳ ${Math.round(pct)}% &nbsp;(${loadedMB} / ${totalMB} MB)</span>
-            ${speedLine ? `<span class="btn-sub">${speedLine}</span>` : ''}
-          `;
+        const now = Date.now();
+        const elapsed = (now - _lastTime) / 1000;
+        if (elapsed >= 0.4) {
+          const rawSpeed = (e.loaded - _lastLoaded) / elapsed;
+          up.speed    = up.speed > 0 ? rawSpeed * 0.7 + up.speed * 0.3 : rawSpeed;
+          _lastLoaded = e.loaded;
+          _lastTime   = now;
         }
       };
 
       xhr.upload.onload = () => {
-        submitBtn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
+        up.done = true;
+        clearInterval(_renderInterval);
         progressBar.style.width = '100%';
+        submitBtn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
       };
 
       xhr.onload = () => {
