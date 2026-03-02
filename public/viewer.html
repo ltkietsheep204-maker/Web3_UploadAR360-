@@ -2556,6 +2556,69 @@
     // Runs after original model is loaded. Polls server until optimization finishes,
     // then shows a reload banner so user can get the smaller optimized version.
     // ══════════════════════════════════════════════════════════════════════════════
+    // WAIT FOR OPTIMIZATION - QR scanners wait until server finishes optimizing
+    // then get the smaller model directly (no reload needed)
+    // ══════════════════════════════════════════════════════════════════════════════
+    async function waitForOptimization(assetId) {
+      if (!assetId) return false;
+
+      const subtitle = document.querySelector('.loading-subtitle');
+      const title = document.querySelector('.loading-title');
+
+      console.log('⏳ QR scanner: waiting for optimization to finish...');
+      if (title) title.textContent = 'ĐANG TỐI ƯU HÓA';
+      if (subtitle) subtitle.textContent = 'Server đang nén model 3D, vui lòng chờ...';
+      setLoadingProgress(45);
+
+      const POLL_INTERVAL = 5000;
+      const MAX_WAIT = 15 * 60 * 1000; // 15 min max
+      const startedWaiting = Date.now();
+
+      while (true) {
+        const waitedSec = Math.round((Date.now() - startedWaiting) / 1000);
+        const mm = Math.floor(waitedSec / 60);
+        const ss = waitedSec % 60;
+        const timeStr = mm > 0 ? `${mm}p${ss}s` : `${ss}s`;
+        if (subtitle) subtitle.textContent = `Đang nén mô hình 3D... ${timeStr}`;
+
+        // Animate progress bar slowly (45% → 85%) while waiting
+        setLoadingProgress(Math.min(85, 45 + (waitedSec / 900) * 40));
+
+        if (Date.now() - startedWaiting > MAX_WAIT) {
+          console.warn('⏰ QR Scanner: optimization timeout, loading original.');
+          if (subtitle) subtitle.textContent = 'Quá lâu — đang tải model gốc...';
+          try { const r = await fetch(`/api/asset/${assetId}`); if (r.ok) assetData = await r.json(); } catch(_) {}
+          return false;
+        }
+
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+
+        try {
+          const res = await fetch(`/api/optimize-status/${assetId}`);
+          const status = await res.json();
+
+          if (status.ready) {
+            console.log('✅ Optimization done! Loading optimized model...');
+            if (subtitle) subtitle.textContent = 'Tối ưu xong! Đang tải mô hình...';
+            setLoadingProgress(88);
+            const freshRes = await fetch(`/api/asset/${assetId}`);
+            if (freshRes.ok) assetData = await freshRes.json();
+            return true;
+          }
+
+          if (!status.optimizing && !status.ready) {
+            // Optimization ended without result — use fallback
+            if (status.fallbackUrl && assetData) assetData.model = status.fallbackUrl;
+            try { const r = await fetch(`/api/asset/${assetId}`); if (r.ok) assetData = await r.json(); } catch(_) {}
+            return false;
+          }
+        } catch(e) {
+          console.log('Poll error:', e.message);
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
     function startBgOptimizationCheck(assetId) {
       if (!assetId || window._bgOptimizeRunning) return;
       window._bgOptimizeRunning = true;
@@ -2616,23 +2679,34 @@
     // ══════════════════════════════════════════════════════════════════════════════
     async function loadModel() {
       // ═══════════════════════════════════════════════════════════════
-      // STRATEGY: Load model immediately — never block the viewer.
-      // Person 1 (uploader, usually on WiFi) → loads original model instantly
-      // Optimization runs in background on server
-      // Person 2+ (QR scanner) → gets the smaller optimized model
+      // STRATEGY:
+      // ?uploader=1  → uploader (WiFi) tải bản gốc ngay, không chờ
+      //                bg watcher sẽ show banner khi optimize xong
+      // (no param)   → QR scanner chờ optimize xong rồi tải bản nhỏ
       // ═══════════════════════════════════════════════════════════════
       const rawSizeMB = assetData?.modelSize ? assetData.modelSize / (1024 * 1024) : 0;
+      const isUploader = new URLSearchParams(window.location.search).get('uploader') === '1';
+      const pathParts0 = window.location.pathname.split('/');
+      const _assetIdCur = pathParts0[pathParts0.length - 1];
 
       if (!assetData?.isOptimized && assetData?.optimizing) {
-        // Model is still being optimized — load original immediately, watch in background
-        console.log(`📦 Model ${rawSizeMB.toFixed(1)}MB chưa tối ưu — tải bản gốc ngay, theo dõi nền.`);
-        const subtitle = document.querySelector('.loading-subtitle');
-        if (subtitle) subtitle.textContent = 'Đang tải model gốc... (đang tối ưu cho người xem sau)';
-
-        // Start background watcher — will show reload banner when optimization finishes
-        const pathParts = window.location.pathname.split('/');
-        const _assetId = pathParts[pathParts.length - 1];
-        startBgOptimizationCheck(_assetId);
+        if (isUploader) {
+          // Uploader: load original immediately, watch in background
+          console.log(`📦 [Uploader] Model ${rawSizeMB.toFixed(1)}MB — tải bản gốc ngay, bg watcher bật.`);
+          const subtitle = document.querySelector('.loading-subtitle');
+          if (subtitle) subtitle.textContent = 'Đang tải model gốc... (đang tối ưu cho người xem sau)';
+          startBgOptimizationCheck(_assetIdCur);
+          // continue to load model below
+        } else {
+          // QR scanner: wait for optimization then load small model
+          console.log(`📦 [QR Scanner] Model ${rawSizeMB.toFixed(1)}MB đang optimize — chờ bản nhỏ...`);
+          const optimized = await waitForOptimization(_assetIdCur);
+          if (!optimized) {
+            // Timed out or failed — still load whatever is available
+            console.warn('⚠️ Optimization timed out — loading original as fallback.');
+          }
+          // fall through to load model (assetData may have been refreshed with optimized URL)
+        }
       }
 
       const modelPath = assetData?.model || '/uploads/default.glb';
