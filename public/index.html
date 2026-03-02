@@ -887,16 +887,20 @@
       xhr.open('POST', '/upload');
 
       // ── Upload state: updated by XHR events, rendered by interval ──
-      const up = { loaded: 0, total: 0, speed: 0, pct: 0, done: false, started: false };
+      const up = { loaded: 0, total: 0, speed: 0, pct: 0, done: false };
       let _lastLoaded = 0, _lastTime = Date.now();
       const _uploadStart = Date.now();
 
-      // Render loop at 120ms — decoupled from sparse XHR onprogress events
+      // Render loop at 200ms — starts immediately, NO waiting for onprogress.
+      // This fixes Azure App Service where nginx may buffer the request and
+      // onprogress fires 0 times or only fires at 100% after onload.
       const _renderInterval = setInterval(() => {
         if (up.done) { clearInterval(_renderInterval); return; }
-        if (!up.started) return; // wait for first onprogress
 
+        const elapsed = ((Date.now() - _uploadStart) / 1000);
+        const elapsedText = elapsed.toFixed(0) + 's';
         const loadedMB = (up.loaded / 1048576).toFixed(1);
+
         let speedLine = '';
         if (up.speed > 0) {
           const speedText = up.speed > 1048576
@@ -906,7 +910,7 @@
         }
 
         if (up.total > 0) {
-          // Known total — show % and ETA
+          // onprogress fired with known total — show %
           const totalMB = (up.total / 1048576).toFixed(1);
           if (up.speed > 0) {
             const remaining = Math.max(0, (up.total - up.loaded) / up.speed);
@@ -919,27 +923,30 @@
           submitBtn.innerHTML =
             '<span>⏳ ' + Math.round(up.pct) + '%  (' + loadedMB + ' / ' + totalMB + ' MB)</span>' +
             (speedLine ? '<span class="btn-sub">' + speedLine + '</span>' : '');
-        } else {
-          // Unknown total (Azure proxy strips Content-Length) — show loaded + elapsed
-          const elapsed = ((Date.now() - _uploadStart) / 1000).toFixed(0);
-          // Indeterminate progress bar animation
-          const spin = ((Date.now() / 20) % 100);
-          progressBar.style.width = Math.min(spin, 95) + '%';
+        } else if (up.loaded > 0) {
+          // onprogress fired but no total (Azure proxy) — show bytes + elapsed
+          const spin = Math.min((elapsed / 0.3 * 5) % 100, 95);
+          progressBar.style.width = spin + '%';
           submitBtn.innerHTML =
-            '<span>⏳ Đang tải... ' + loadedMB + ' MB (' + elapsed + 's)</span>' +
+            '<span>⏳ ' + loadedMB + ' MB  (' + elapsedText + ')</span>' +
             (speedLine ? '<span class="btn-sub">' + speedLine + '</span>' : '');
+        } else {
+          // onprogress never fired yet — show animated elapsed time only
+          // (Azure may buffer entire upload before first event)
+          const spin = Math.min(elapsed * 2, 90);
+          progressBar.style.width = spin + '%';
+          submitBtn.innerHTML =
+            '<span>⏳ Đang tải lên...  ' + elapsedText + '</span>' +
+            '<span class="btn-sub">Vui lòng chờ, đừng tắt trang</span>';
         }
-      }, 120);
+      }, 200);
 
       xhr.upload.onprogress = (e) => {
-        up.started = true;
-        up.loaded  = e.loaded;
-
+        up.loaded = e.loaded;
         if (e.lengthComputable) {
           up.total = e.total;
           up.pct   = (e.loaded / e.total) * 100;
         }
-
         const now = Date.now();
         const elapsed = (now - _lastTime) / 1000;
         if (elapsed >= 0.4) {
@@ -1006,6 +1013,8 @@
       };
 
       xhr.onerror = () => {
+        up.done = true;
+        clearInterval(_renderInterval);
         alert('❌ Lỗi kết nối mạng! Vui lòng kiểm tra kết nối internet và thử lại.');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
@@ -1013,6 +1022,8 @@
       };
 
       xhr.ontimeout = () => {
+        up.done = true;
+        clearInterval(_renderInterval);
         alert('⏱️ Upload quá lâu!\n\nFile có thể quá lớn hoặc kết nối mạng yếu. Vui lòng thử lại với file nhỏ hơn.');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
