@@ -2551,8 +2551,65 @@
       }
     }
 
-    // (waitForOptimization removed — viewer now loads original immediately,
-    //  optimization runs in background, next viewer gets optimized version)
+    // ══════════════════════════════════════════════════════════════════════════════
+    // BACKGROUND OPTIMIZATION CHECK
+    // Runs after original model is loaded. Polls server until optimization finishes,
+    // then shows a reload banner so user can get the smaller optimized version.
+    // ══════════════════════════════════════════════════════════════════════════════
+    function startBgOptimizationCheck(assetId) {
+      if (!assetId || window._bgOptimizeRunning) return;
+      window._bgOptimizeRunning = true;
+      console.log('🔄 Background: watching optimization for', assetId);
+
+      const POLL_MS = 12000; // poll every 12s
+      const MAX_WAIT_MS = 30 * 60 * 1000; // give up after 30 min
+      const started = Date.now();
+
+      async function poll() {
+        if (Date.now() - started > MAX_WAIT_MS) { window._bgOptimizeRunning = false; return; }
+        try {
+          const res = await fetch(`/api/optimize-status/${assetId}`);
+          const status = await res.json();
+
+          if (status.ready) {
+            console.log('✅ Background: optimization finished! Showing reload banner.');
+            window._bgOptimizeRunning = false;
+            showOptimizedReloadBanner();
+            return;
+          }
+          if (!status.optimizing && !status.ready) {
+            // Check asset directly — might already be optimized
+            try {
+              const ar = await fetch(`/api/asset/${assetId}`);
+              if (ar.ok) {
+                const ad = await ar.json();
+                if (ad.isOptimized) { showOptimizedReloadBanner(); window._bgOptimizeRunning = false; return; }
+              }
+            } catch(_) {}
+            window._bgOptimizeRunning = false; // optimization gave up
+            return;
+          }
+        } catch(e) { console.log('bg poll error:', e.message); }
+        setTimeout(poll, POLL_MS);
+      }
+
+      setTimeout(poll, POLL_MS); // first check after 12s
+    }
+
+    function showOptimizedReloadBanner() {
+      if (document.getElementById('opt-reload-banner')) return;
+      const banner = document.createElement('div');
+      banner.id = 'opt-reload-banner';
+      banner.innerHTML = `
+        <span>✅ Model đã được tối ưu! Lần sau quét QR sẽ tải nhanh hơn nhiều.</span>
+        <button onclick="location.reload()" style="margin-left:14px;background:#FFD700;color:#000;border:none;padding:6px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem">Tải lại ngay ↺</button>
+        <button onclick="this.parentElement.remove()" style="margin-left:8px;background:transparent;color:#aaa;border:none;cursor:pointer;font-size:1.1rem">✕</button>
+      `;
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,120,0,0.92);color:#fff;padding:12px 16px;font-size:0.88rem;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);flex-wrap:wrap;gap:4px';
+      document.body.appendChild(banner);
+      // Auto-dismiss after 2 min if user ignores it
+      setTimeout(() => { const b = document.getElementById('opt-reload-banner'); if (b) { b.style.transition='opacity 0.5s'; b.style.opacity='0'; setTimeout(()=>b.remove(),600); } }, 120000);
+    }
 
     // ══════════════════════════════════════════════════════════════════════════════
     // LOAD MODEL - Optimized with caching, Draco, streaming
@@ -2567,20 +2624,15 @@
       const rawSizeMB = assetData?.modelSize ? assetData.modelSize / (1024 * 1024) : 0;
 
       if (!assetData?.isOptimized && assetData?.optimizing) {
-        // Model is still being optimized — show a brief banner, but load original immediately
-        console.log(`📦 Model ${rawSizeMB.toFixed(1)}MB chưa tối ưu — tải bản gốc ngay, optimize chạy nền cho người sau.`);
+        // Model is still being optimized — load original immediately, watch in background
+        console.log(`📦 Model ${rawSizeMB.toFixed(1)}MB chưa tối ưu — tải bản gốc ngay, theo dõi nền.`);
         const subtitle = document.querySelector('.loading-subtitle');
         if (subtitle) subtitle.textContent = 'Đang tải model gốc... (đang tối ưu cho người xem sau)';
 
-        // Floating info toast (auto-dismiss after 6s)
-        setTimeout(() => {
-          const toast = document.createElement('div');
-          toast.id = 'optimize-toast';
-          toast.innerHTML = '🔄 Model đang được tối ưu trên server.<br>Người xem sau sẽ tải nhanh hơn!';
-          toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#FFD700;padding:12px 20px;border-radius:12px;font-size:0.85rem;z-index:99999;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,215,0,0.3);transition:opacity 0.5s';
-          document.body.appendChild(toast);
-          setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 600); }, 6000);
-        }, 2000);
+        // Start background watcher — will show reload banner when optimization finishes
+        const pathParts = window.location.pathname.split('/');
+        const _assetId = pathParts[pathParts.length - 1];
+        startBgOptimizationCheck(_assetId);
       }
 
       const modelPath = assetData?.model || '/uploads/default.glb';
