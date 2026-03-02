@@ -887,38 +887,58 @@
       xhr.open('POST', '/upload');
 
       // ── Upload state: updated by XHR events, rendered by interval ──
-      const up = { loaded: 0, total: 0, speed: 0, pct: 0, done: false };
+      const up = { loaded: 0, total: 0, speed: 0, pct: 0, done: false, started: false };
       let _lastLoaded = 0, _lastTime = Date.now();
+      const _uploadStart = Date.now();
 
       // Render loop at 120ms — decoupled from sparse XHR onprogress events
       const _renderInterval = setInterval(() => {
         if (up.done) { clearInterval(_renderInterval); return; }
-        if (up.total === 0) return;
+        if (!up.started) return; // wait for first onprogress
 
         const loadedMB = (up.loaded / 1048576).toFixed(1);
-        const totalMB  = (up.total  / 1048576).toFixed(1);
-        let speedLine  = '';
+        let speedLine = '';
         if (up.speed > 0) {
-          const remaining = Math.max(0, (up.total - up.loaded) / up.speed);
           const speedText = up.speed > 1048576
             ? (up.speed / 1048576).toFixed(1) + ' MB/s'
             : (up.speed / 1024).toFixed(0) + ' KB/s';
-          const remainText = remaining < 60
-            ? Math.ceil(remaining) + 's'
-            : Math.floor(remaining / 60) + 'p' + Math.ceil(remaining % 60) + 's';
-          speedLine = speedText + '  ·  còn ~' + remainText;
+          speedLine = speedText;
         }
-        progressBar.style.width = up.pct + '%';
-        submitBtn.innerHTML =
-          '<span>⏳ ' + Math.round(up.pct) + '%  (' + loadedMB + ' / ' + totalMB + ' MB)</span>' +
-          (speedLine ? '<span class="btn-sub">' + speedLine + '</span>' : '');
+
+        if (up.total > 0) {
+          // Known total — show % and ETA
+          const totalMB = (up.total / 1048576).toFixed(1);
+          if (up.speed > 0) {
+            const remaining = Math.max(0, (up.total - up.loaded) / up.speed);
+            const remainText = remaining < 60
+              ? Math.ceil(remaining) + 's'
+              : Math.floor(remaining / 60) + 'p' + Math.ceil(remaining % 60) + 's';
+            speedLine += '  ·  còn ~' + remainText;
+          }
+          progressBar.style.width = up.pct + '%';
+          submitBtn.innerHTML =
+            '<span>⏳ ' + Math.round(up.pct) + '%  (' + loadedMB + ' / ' + totalMB + ' MB)</span>' +
+            (speedLine ? '<span class="btn-sub">' + speedLine + '</span>' : '');
+        } else {
+          // Unknown total (Azure proxy strips Content-Length) — show loaded + elapsed
+          const elapsed = ((Date.now() - _uploadStart) / 1000).toFixed(0);
+          // Indeterminate progress bar animation
+          const spin = ((Date.now() / 20) % 100);
+          progressBar.style.width = Math.min(spin, 95) + '%';
+          submitBtn.innerHTML =
+            '<span>⏳ Đang tải... ' + loadedMB + ' MB (' + elapsed + 's)</span>' +
+            (speedLine ? '<span class="btn-sub">' + speedLine + '</span>' : '');
+        }
       }, 120);
 
       xhr.upload.onprogress = (e) => {
-        if (!e.lengthComputable) return;
-        up.loaded = e.loaded;
-        up.total  = e.total;
-        up.pct    = (e.loaded / e.total) * 100;
+        up.started = true;
+        up.loaded  = e.loaded;
+
+        if (e.lengthComputable) {
+          up.total = e.total;
+          up.pct   = (e.loaded / e.total) * 100;
+        }
 
         const now = Date.now();
         const elapsed = (now - _lastTime) / 1000;

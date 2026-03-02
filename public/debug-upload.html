@@ -127,6 +127,7 @@
     <button class="dbg-btn" onclick="simProgress(55)">55%</button>
     <button class="dbg-btn" onclick="simProgress(90)">90%</button>
     <button class="dbg-btn" onclick="setProcessing()">QR Processing</button>
+    <button class="dbg-btn" style="border-color:#ff6b35;color:#ff6b35" onclick="simAzure()">☁ Azure (no total)</button>
   </div>
 
   <label>Simulate speed (KB/s)</label>
@@ -213,14 +214,75 @@ const simBar = document.getElementById('simBar');
 function setIdle() {
   simBtn.innerHTML = '<span>🏹 Launch WebAR Experience</span>';
   simBar.style.width = '0%';
+  clearInterval(window._azureSim);
 }
 function setStarting() {
   simBtn.innerHTML = '<span>⏳ Đang tải lên...</span>';
   simBar.style.width = '0%';
+  clearInterval(window._azureSim);
 }
 function setProcessing() {
   simBtn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
   simBar.style.width = '100%';
+  clearInterval(window._azureSim);
+}
+
+// Simulate Azure case: onprogress fires but lengthComputable=false
+function simAzure() {
+  clearInterval(window._azureSim);
+  const speedBPS = 5 * 1024 * 1024; // 5 MB/s
+  const totalBytes = 317 * 1048576;
+  const startTime = Date.now();
+  const up = { loaded: 0, total: 0, speed: speedBPS, pct: 0, done: false, started: false };
+  let _lastLoaded = 0, _lastTime = Date.now();
+  const _uploadStart = Date.now();
+
+  // Simulate onprogress firing every 300ms WITHOUT lengthComputable
+  let fakeTick = setInterval(() => {
+    const elapsed = (Date.now() - startTime) / 1000;
+    up.loaded = Math.min(speedBPS * elapsed, totalBytes);
+    up.started = true;
+    // Note: up.total stays 0 (simulating !lengthComputable)
+    const now = Date.now();
+    const e = (now - _lastTime) / 1000;
+    if (e >= 0.4) {
+      const rawSpeed = (up.loaded - _lastLoaded) / e;
+      up.speed = up.speed > 0 ? rawSpeed * 0.7 + up.speed * 0.3 : rawSpeed;
+      _lastLoaded = up.loaded; _lastTime = now;
+    }
+    if (up.loaded >= totalBytes) { clearInterval(fakeTick); up.done = true; }
+  }, 300);
+
+  // Render loop (same logic as index.html)
+  window._azureSim = setInterval(() => {
+    if (up.done) {
+      clearInterval(window._azureSim);
+      simBar.style.width = '100%';
+      simBtn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
+      return;
+    }
+    if (!up.started) return;
+    const loadedMB = (up.loaded / 1048576).toFixed(1);
+    let speedLine = '';
+    if (up.speed > 0) {
+      const speedText = up.speed > 1048576 ? (up.speed/1048576).toFixed(1)+' MB/s' : (up.speed/1024).toFixed(0)+' KB/s';
+      speedLine = speedText;
+    }
+    if (up.total > 0) {
+      const totalMB = (up.total/1048576).toFixed(1);
+      if (up.speed > 0) {
+        const rem = Math.max(0,(up.total-up.loaded)/up.speed);
+        speedLine += '  ·  còn ~' + (rem<60 ? Math.ceil(rem)+'s' : Math.floor(rem/60)+'p'+Math.ceil(rem%60)+'s');
+      }
+      simBar.style.width = up.pct + '%';
+      simBtn.innerHTML = '<span>⏳ '+Math.round(up.pct)+'%  ('+loadedMB+' / '+totalMB+' MB)</span>'+(speedLine?'<span class="btn-sub">'+speedLine+'</span>':'');
+    } else {
+      const elapsed = ((Date.now() - _uploadStart)/1000).toFixed(0);
+      const spin = ((Date.now()/20) % 100);
+      simBar.style.width = Math.min(spin,95) + '%';
+      simBtn.innerHTML = '<span>⏳ Đang tải... '+loadedMB+' MB ('+elapsed+'s)</span>'+(speedLine?'<span class="btn-sub">'+speedLine+'</span>':'');
+    }
+  }, 120);
 }
 
 function simProgress(pct) {
@@ -318,44 +380,59 @@ function runRealUpload() {
   btn.innerHTML = '<span>⏳ Đang tải lên...</span>';
   bar.style.width = '0%';
 
-  const startTime = Date.now();
-  let lastLoaded = 0, lastTime = startTime;
+  // Same upload state pattern as index.html
+  const up3 = { loaded: 0, total: 0, speed: 0, pct: 0, done: false, started: false };
+  let _l3 = 0, _t3 = Date.now();
+  const _start3 = Date.now();
+
+  const _ri3 = setInterval(() => {
+    if (up3.done) { clearInterval(_ri3); return; }
+    if (!up3.started) return;
+    const loadedMB = (up3.loaded / 1048576).toFixed(1);
+    let speedLine = '';
+    if (up3.speed > 0) {
+      const st = up3.speed > 1048576 ? (up3.speed/1048576).toFixed(1)+' MB/s' : (up3.speed/1024).toFixed(0)+' KB/s';
+      speedLine = st;
+    }
+    if (up3.total > 0) {
+      const totalMB = (up3.total/1048576).toFixed(1);
+      if (up3.speed > 0) {
+        const rem = Math.max(0,(up3.total-up3.loaded)/up3.speed);
+        speedLine += '  ·  còn ~' + (rem<60 ? Math.ceil(rem)+'s' : Math.floor(rem/60)+'p'+Math.ceil(rem%60)+'s');
+      }
+      bar.style.width = up3.pct + '%';
+      btn.innerHTML = '<span>⏳ '+Math.round(up3.pct)+'%  ('+loadedMB+' / '+totalMB+' MB)</span>'+(speedLine?'<span class="btn-sub">'+speedLine+'</span>':'');
+    } else {
+      const elapsed = ((Date.now()-_start3)/1000).toFixed(0);
+      const spin = Math.min((Date.now()/20)%100, 95);
+      bar.style.width = spin + '%';
+      btn.innerHTML = '<span>⏳ Đang tải... '+loadedMB+' MB ('+elapsed+'s)</span>'+(speedLine?'<span class="btn-sub">'+speedLine+'</span>':'');
+    }
+  }, 120);
 
   xhr.upload.onprogress = (e) => {
-    if (!e.lengthComputable) {
-      log(logEl, '⚠ e.lengthComputable = false → không tính được %!', 'warn');
-      return;
+    up3.started = true;
+    up3.loaded  = e.loaded;
+    if (e.lengthComputable) {
+      up3.total = e.total;
+      up3.pct   = (e.loaded / e.total) * 100;
+      log(logEl, `progress ${Math.round(up3.pct)}%  ${(e.loaded/1048576).toFixed(1)}/${(e.total/1048576).toFixed(1)}MB  [lengthComputable=true]`, 'ok');
+    } else {
+      log(logEl, `progress loaded=${(e.loaded/1048576).toFixed(1)}MB  [lengthComputable=FALSE ← Azure mode]`, 'warn');
     }
-    const pct = e.loaded / e.total * 100;
-    bar.style.width = pct + '%';
-
-    const loadedMB = (e.loaded / 1048576).toFixed(1);
-    const totalMB  = (e.total  / 1048576).toFixed(1);
-
     const now = Date.now();
-    const elapsed = (now - lastTime) / 1000;
-    let speedLine = '';
-
-    if (elapsed > 0.4) {
-      const speed = (e.loaded - lastLoaded) / elapsed;
-      lastLoaded = e.loaded;
-      lastTime = now;
-      if (speed > 0) {
-        const remaining = (e.total - e.loaded) / speed;
-        speedLine = `${fmtSpeed(speed)}  ·  còn ~${fmtEta(remaining)}`;
-      }
+    const el = (now - _t3) / 1000;
+    if (el >= 0.4) {
+      const r = (e.loaded - _l3) / el;
+      up3.speed = up3.speed > 0 ? r*0.7 + up3.speed*0.3 : r;
+      _l3 = e.loaded; _t3 = now;
     }
-
-    btn.innerHTML = `
-      <span>⏳ ${Math.round(pct)}% &nbsp;(${loadedMB} / ${totalMB} MB)</span>
-      ${speedLine ? `<span class="btn-sub">${speedLine}</span>` : ''}
-    `;
-
-    log(logEl, `progress ${Math.round(pct)}%  ${loadedMB}/${totalMB}MB  ${speedLine}`, 'ok');
   };
 
   xhr.upload.onload = () => {
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    up3.done = true;
+    clearInterval(_ri3);
+    const elapsed = ((Date.now() - _start3) / 1000).toFixed(1);
     log(logEl, `upload.onload → ${elapsed}s tổng`, 'ok');
     btn.innerHTML = '<span>⚡ Đang tạo QR...</span><span class="btn-sub">Server đang xử lý...</span>';
     bar.style.width = '100%';
