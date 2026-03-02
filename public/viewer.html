@@ -2566,13 +2566,16 @@
       if (title) title.textContent = 'ĐANG TỐI ƯU HÓA';
       setLoadingProgress(45);
 
-      // Poll every 3 seconds
+      // Poll every 3 seconds, give up after 3 minutes (was 10)
       const POLL_INTERVAL = 3000;
-      const MAX_WAIT = 10 * 60 * 1000; // 10 minutes max
+      const MAX_WAIT = 3 * 60 * 1000; // 3 minutes — then load original
+      const SKIP_WAIT_AFTER = 60 * 1000; // After 60s, show "skip" link
       const startedWaiting = Date.now();
+      let skipShown = false;
 
       while (true) {
-        const waitedSec = Math.round((Date.now() - startedWaiting) / 1000);
+        const waitedMs = Date.now() - startedWaiting;
+        const waitedSec = Math.round(waitedMs / 1000);
         const elapsedMin = Math.floor(waitedSec / 60);
         const elapsedSec = waitedSec % 60;
         const timeStr = elapsedMin > 0 ? `${elapsedMin}p${elapsedSec}s` : `${elapsedSec}s`;
@@ -2581,8 +2584,34 @@
           subtitle.textContent = `Đang nén mô hình 3D từ server... ${timeStr}`;
         }
 
+        // After 60s, add a skip link so user can load original manually
+        if (!skipShown && waitedMs > SKIP_WAIT_AFTER && subtitle) {
+          skipShown = true;
+          const skipLink = document.createElement('div');
+          skipLink.id = 'skip-optimize';
+          skipLink.innerHTML = '<a href="#" style="color:#FFD700;font-size:0.85rem;text-decoration:underline;margin-top:12px;display:inline-block">Bỏ qua, tải model gốc (chậm hơn)</a>';
+          skipLink.querySelector('a').onclick = (e) => {
+            e.preventDefault();
+            window._skipOptimize = true;
+          };
+          subtitle.parentElement.appendChild(skipLink);
+        }
+
+        // User clicked skip
+        if (window._skipOptimize) {
+          console.log('⏭ User skipped optimization wait');
+          if (subtitle) subtitle.textContent = 'Đang tải model gốc...';
+          try {
+            const r = await fetch(`/api/asset/${assetId}`);
+            if (r.ok) assetData = await r.json();
+          } catch(_) {}
+          const skip = document.getElementById('skip-optimize');
+          if (skip) skip.remove();
+          return false;
+        }
+
         // Animate progress bar slowly (45% → 80%) during wait
-        const waitProgress = Math.min(80, 45 + (waitedSec / 300) * 35);
+        const waitProgress = Math.min(80, 45 + (waitedSec / 180) * 35);
         setLoadingProgress(Math.round(waitProgress));
 
         // Check timeout

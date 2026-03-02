@@ -91,18 +91,18 @@ async function optimizeModel(inputPath) {
     const textures = root.listTextures();
     console.log(`   🖼  Found ${textures.length} textures`);
 
-    // Step 1: Compress textures using sharp (High-Res WebP)
-    console.log('   🖼  Compressing textures to High-Res WebP...');
-    for (const texture of textures) {
+    // Step 1: Compress textures using sharp (High-Res WebP) — PARALLEL for speed
+    console.log('   🖼  Compressing textures to High-Res WebP (parallel)...');
+    const textureJobs = textures.map(async (texture, idx) => {
       const imageData = texture.getImage();
-      if (!imageData || imageData.byteLength === 0) continue;
+      if (!imageData || imageData.byteLength === 0) return;
 
       try {
         const buffer = Buffer.from(imageData);
         let img = sharp(buffer);
         const metadata = await img.metadata();
 
-        if (!metadata.width || !metadata.height) continue;
+        if (!metadata.width || !metadata.height) return;
 
         const origSize = imageData.byteLength;
         const origDim = `${metadata.width}x${metadata.height}`;
@@ -118,17 +118,21 @@ async function optimizeModel(inputPath) {
         // Convert to WebP for massive space savings & rendering performance
         const compressedBuffer = await img.webp({
           quality: TEXTURE_QUALITY,
-          effort: 4
+          effort: 2  // lower effort = faster (was 4)
         }).toBuffer();
 
         const newSize = compressedBuffer.byteLength;
         texture.setImage(new Uint8Array(compressedBuffer));
         texture.setMimeType('image/webp');
 
-        console.log(`      ${origDim} → resized, WebP ${formatSize(origSize)} → ${formatSize(newSize)} (${Math.round((1 - newSize / origSize) * 100)}% smaller)`);
+        console.log(`      [${idx+1}/${textures.length}] ${origDim} → WebP ${formatSize(origSize)} → ${formatSize(newSize)} (${Math.round((1 - newSize / origSize) * 100)}%↓)`);
       } catch (texErr) {
-        console.log(`      ⚠ Could not compress texture: ${texErr.message}`);
+        console.log(`      ⚠ tex[${idx}]: ${texErr.message}`);
       }
+    });
+    // Process up to 4 textures in parallel (balance speed vs RAM)
+    for (let i = 0; i < textureJobs.length; i += 4) {
+      await Promise.all(textureJobs.slice(i, i + 4));
     }
 
     // Step 2: Deduplicate

@@ -70,17 +70,27 @@ function spawnOptimizer(modelFile, assetId) {
   console.log(`🔧 Optimizing ${modelFile} (${modelSizeMB}MB) for asset ${assetId}...`);
   optimizingModels.set(modelFile, { startTime: Date.now(), assetId });
   const { spawn } = require('child_process');
-  // --max-old-space-size=768 → caps Node RAM at 768MB, prevents Railway OOM kill
-  const child = spawn('node', ['--max-old-space-size=768', 'optimize_models.mjs', modelFullPath], {
+  // Scale RAM limit to file size: at least 1536MB, cap at 3072MB
+  const heapMB = Math.min(3072, Math.max(1536, Math.ceil(modelSizeMB * 8)));
+  const child = spawn('node', [`--max-old-space-size=${heapMB}`, 'optimize_models.mjs', modelFullPath], {
     cwd: __dirname,
     stdio: 'inherit',
     detached: false
   });
+
+  // Hard kill after 5 minutes to prevent Azure stuck processes
+  const KILL_TIMEOUT = 5 * 60 * 1000;
+  const killTimer = setTimeout(() => {
+    console.log(`⏰ Optimizer killed after 5min timeout: ${modelFile}`);
+    try { child.kill('SIGKILL'); } catch(_) {}
+    optimizingModels.delete(modelFile);
+  }, KILL_TIMEOUT);
+
   child.on('close', (code) => {
+    clearTimeout(killTimer);
     optimizingModels.delete(modelFile);
     if (code === 0) {
       console.log(`✅ Optimization done: ${modelFile}`);
-      // Upload optimized variants to Azure Blob (fire and forget)
       uploadVariantsToAzure(modelFile, assetId)
         .catch(e => console.log('☁️ Post-optimize Azure upload error:', e.message));
     } else {
@@ -88,6 +98,7 @@ function spawnOptimizer(modelFile, assetId) {
     }
   });
   child.on('error', (err) => {
+    clearTimeout(killTimer);
     optimizingModels.delete(modelFile);
     console.log(`❌ Optimizer spawn error: ${err.message}`);
   });
