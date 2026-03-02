@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📱 iPhone Preview</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --panel: #18181c;
+      --border: #2e2e38;
+      --accent: #FFD700;
+      --text: #e8e8f0;
+      --muted: #666;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ─── TOP BAR ─────────────────────────────────────────────── */
+    .topbar {
+      width: 100%;
+      max-width: 1400px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .topbar-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--accent);
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    .sep { width: 1px; height: 20px; background: var(--border); }
+
+    /* URL bar */
+    .url-row {
+      display: flex;
+      flex: 1;
+      min-width: 200px;
+      gap: 6px;
+    }
+    .url-row input {
+      flex: 1;
+      background: #0d0d0f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .url-row input:focus { border-color: var(--accent); }
+    .url-row button, .btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity .15s;
+    }
+    .url-row button:hover, .btn:hover { opacity: .8; }
+
+    /* Quick links */
+    .quicklinks {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .ql {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .ql:hover, .ql.active { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── DEVICE SWITCHER ─────────────────────────────────────── */
+    .device-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      background: var(--panel);
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+    }
+    .dv-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .dv-btn:hover { color: var(--text); border-color: #555; }
+    .dv-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(255,215,0,.07); }
+
+    /* ─── MAIN AREA ───────────────────────────────────────────── */
+    .stage {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px 60px;
+      gap: 60px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── PHONE SHELL ─────────────────────────────────────────── */
+    .phone-wrap {
+      position: relative;
+      transition: transform .3s ease;
+    }
+    .phone-wrap.landscape { transform: rotate(90deg); }
+
+    .phone {
+      position: relative;
+      border-radius: 54px;
+      background: #1a1a1e;
+      box-shadow:
+        0 0 0 1.5px #3a3a3e,
+        0 0 0 3px #111,
+        0 0 0 4.5px #2e2e32,
+        0 40px 80px rgba(0,0,0,.7),
+        0 10px 30px rgba(0,0,0,.5),
+        inset 0 0 0 1px rgba(255,255,255,.06);
+      transition: all .3s;
+    }
+
+    /* Side buttons */
+    .phone::before {
+      content: '';
+      position: absolute;
+      right: -4px;
+      top: 130px;
+      width: 4px;
+      height: 80px;
+      background: #2e2e32;
+      border-radius: 0 3px 3px 0;
+      box-shadow: 0 100px 0 #2e2e32;
+    }
+    .phone::after {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: 110px;
+      width: 4px;
+      height: 36px;
+      background: #2e2e32;
+      border-radius: 3px 0 0 3px;
+      box-shadow: 0 50px 0 #2e2e32, 0 94px 0 #2e2e32;
+    }
+
+    /* Screen bezel */
+    .screen-bezel {
+      position: relative;
+      margin: 12px;
+      border-radius: 44px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 34px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 10;
+      box-shadow: 0 0 0 1px #222;
+    }
+
+    /* Status bar */
+    .status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 24px 6px;
+      z-index: 9;
+      pointer-events: none;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-time { letter-spacing: -.01em; }
+    .status-icons { display: flex; align-items: center; gap: 5px; }
+    .status-icons svg { width: 16px; height: 16px; fill: #fff; }
+
+    /* Content iframe */
+    .screen-iframe {
+      display: block;
+      border: none;
+      width: 100%;
+      background: #000;
+    }
+
+    /* Home indicator */
+    .home-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255,255,255,.45);
+      border-radius: 3px;
+      z-index: 10;
+    }
+
+    /* Overlay blocker for status bar area click-through */
+    .notch-blocker {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    /* ─── CONTROLS PANEL ──────────────────────────────────────── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 220px;
+      max-width: 260px;
+      padding-top: 8px;
+    }
+    .ctrl-group {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .ctrl-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 10px;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.82rem;
+    }
+    .ctrl-row:last-child { margin-bottom: 0; }
+    input[type=range] {
+      flex: 1;
+      margin-left: 10px;
+      accent-color: var(--accent);
+    }
+    .toggle {
+      position: relative;
+      width: 40px; height: 22px;
+    }
+    .toggle input { display: none; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: #333;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--accent); }
+    .toggle-knob {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+      pointer-events: none;
+    }
+    .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
+
+    .info-row {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .info-row span { color: var(--accent); }
+
+    /* ─── ZOOM INDICATOR ──────────────────────────────────────── */
+    .zoom-badge {
+      position: absolute;
+      bottom: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,215,0,.12);
+      border: 1px solid rgba(255,215,0,.25);
+      color: var(--accent);
+      font-size: 0.72rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* Reload button on phone */
+    .reload-btn {
+      position: absolute;
+      bottom: -52px;
+      right: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color .2s;
+    }
+    .reload-btn:hover { border-color: var(--accent); }
+
+    @media (max-width: 700px) {
+      .controls { display: none; }
+      .stage { padding: 20px 10px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-title">📱 iPhone Preview</div>
+  <div class="sep"></div>
+  <div class="url-row">
+    <input id="urlInput" type="text" placeholder="Nhập URL để preview... vd: /view/abc123" value="/" />
+    <button onclick="navigate()">Go ↵</button>
+  </div>
+  <div class="sep"></div>
+  <div class="quicklinks">
+    <button class="ql active" onclick="setPage('/', this)">🏠 Home</button>
+    <button class="ql" onclick="setPage('/viewer.html', this)">👁 Viewer</button>
+    <button class="ql" onclick="promptViewId(this)">🔗 View ID...</button>
+  </div>
+</div>
+
+<!-- DEVICE SWITCHER -->
+<div class="device-bar">
+  <button class="dv-btn" onclick="setDevice('iPhone SE',  375, 667, 40, this)">iPhone SE</button>
+  <button class="dv-btn active" onclick="setDevice('iPhone 15 Pro', 393, 852, 54, this)">iPhone 15 Pro</button>
+  <button class="dv-btn" onclick="setDevice('iPhone 15 Pro Max', 430, 932, 54, this)">iPhone 15 Pro Max</button>
+  <button class="dv-btn" onclick="setDevice('iPhone 14', 390, 844, 47, this)">iPhone 14</button>
+  <button class="dv-btn" onclick="setDevice('iPad Mini', 768, 1024, 20, this)">iPad Mini</button>
+</div>
+
+<!-- STAGE -->
+<div class="stage">
+
+  <!-- PHONE -->
+  <div style="position:relative">
+    <div class="phone-wrap" id="phoneWrap">
+      <div class="phone" id="phoneShell">
+        <div class="screen-bezel" id="screenBezel">
+          <!-- Dynamic Island -->
+          <div class="dynamic-island" id="dynIsland"></div>
+
+          <!-- Status bar -->
+          <div class="status-bar" id="statusBar">
+            <div class="status-time" id="statusTime">9:41</div>
+            <div class="status-icons">
+              <!-- Signal -->
+              <svg viewBox="0 0 24 24"><rect x="1" y="15" width="3" height="7" rx="1"/><rect x="6" y="11" width="3" height="11" rx="1"/><rect x="11" y="7" width="3" height="15" rx="1"/><rect x="16" y="3" width="3" height="19" rx="1" opacity=".3"/></svg>
+              <!-- WiFi -->
+              <svg viewBox="0 0 24 24"><path d="M1.5 9.5C5.2 5.8 10.3 3.5 12 3.5s6.8 2.3 10.5 6"/><path d="M4.5 12.5C7.1 9.9 9.7 8 12 8s4.9 1.9 7.5 4.5"/><path d="M7.5 15.5C9.2 13.8 10.7 13 12 13s2.8.8 4.5 2.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              <!-- Battery -->
+              <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" stroke="#fff" stroke-width="1.5" fill="none"/><rect x="23" y="4" width="3" height="6" rx="1.5" fill="#fff" opacity=".5"/><rect x="2.5" y="2.5" width="17" height="9" rx="2" fill="#fff"/></svg>
+            </div>
+          </div>
+
+          <!-- The actual iframe -->
+          <iframe id="previewFrame" class="screen-iframe"
+            src="/"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+            allow="camera; microphone; accelerometer; gyroscope; xr-spatial-tracking"
+            scrolling="yes">
+          </iframe>
+
+          <!-- Home indicator -->
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zoom badge -->
+    <div class="zoom-badge" id="zoomBadge">100%</div>
+
+    <!-- Reload -->
+    <button class="reload-btn" onclick="reloadFrame()">↺ Reload</button>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">🔭 Zoom</div>
+      <div class="ctrl-row">
+        <span id="zoomVal">75%</span>
+        <input id="zoomRange" type="range" min="30" max="110" value="75" oninput="setZoom(this.value)" />
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn" style="padding:4px 10px;font-size:0.75rem" onclick="setZoom(50)">50%</button>
+        <button class="btn" style="padding:4px 10px;font-size:0.75rem" onclick="setZoom(75)">75%</button>
+        <button class="btn" style="padding:4px 10px;font-size:0.75rem" onclick="setZoom(100)">100%</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">🔄 Orientation</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="flex:1" onclick="setOrientation('portrait')">◻ Portrait</button>
+        <button class="btn" style="flex:1;background:#333;color:#fff" id="btnLandscape" onclick="setOrientation('landscape')">⬜ Landscape</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">📋 Thông tin</div>
+      <div class="info-row" id="deviceInfo">iPhone 15 Pro<br><span>393 × 852 pt</span></div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">🎨 Shell</div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:4px">
+        <div style="width:26px;height:26px;border-radius:50%;background:#1a1a1e;border:2px solid #555;cursor:pointer" onclick="setShellColor('#1a1a1e','#3a3a3e')" title="Black"></div>
+        <div style="width:26px;height:26px;border-radius:50%;background:#e8e5df;border:2px solid #ddd;cursor:pointer" onclick="setShellColor('#e8e5df','#c8c5bf')" title="White"></div>
+        <div style="width:26px;height:26px;border-radius:50%;background:#4a9b8e;border:2px solid #3a8b7e;cursor:pointer" onclick="setShellColor('#4a9b8e','#3a8b7e')" title="Green"></div>
+        <div style="width:26px;height:26px;border-radius:50%;background:#8b6c9c;border:2px solid #7b5c8c;cursor:pointer" onclick="setShellColor('#8b6c9c','#7b5c8c')" title="Purple"></div>
+        <div style="width:26px;height:26px;border-radius:50%;background:#c8a97e;border:2px solid #b89a6e;cursor:pointer" onclick="setShellColor('#c8a97e','#b89a6e')" title="Gold"></div>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">🔗 Share</div>
+      <button class="btn" style="width:100%;font-size:0.8rem" onclick="copyPreviewLink()">📋 Copy preview URL</button>
+      <div style="margin-top:8px">
+        <button class="btn" style="width:100%;font-size:0.8rem;background:#333;color:#fff" onclick="openInNewTab()">🚀 Mở tab mới</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ─── State ─────────────────────────────────────────────────────────
+  let currentDevice = { name: 'iPhone 15 Pro', w: 393, h: 852, radius: 54 };
+  let currentZoom = 75;
+  let orientation = 'portrait';
+
+  const phoneShell  = document.getElementById('phoneShell');
+  const screenBezel = document.getElementById('screenBezel');
+  const frame       = document.getElementById('previewFrame');
+  const dynIsland   = document.getElementById('dynIsland');
+  const statusBar   = document.getElementById('statusBar');
+  const phoneWrap   = document.getElementById('phoneWrap');
+  const zoomBadge   = document.getElementById('zoomBadge');
+  const zoomRange   = document.getElementById('zoomRange');
+  const zoomVal     = document.getElementById('zoomVal');
+
+  // ─── Apply device dimensions ─────────────────────────────────────
+  function applyDevice() {
+    const d = currentDevice;
+    const z = currentZoom / 100;
+    const w = orientation === 'portrait' ? d.w : d.h;
+    const h = orientation === 'portrait' ? d.h : d.w;
+    const r = d.radius;
+
+    phoneShell.style.borderRadius = `${r}px`;
+    screenBezel.style.borderRadius = `${r - 6}px`;
+    screenBezel.style.width  = `${w}px`;
+    screenBezel.style.height = `${h}px`;
+
+    frame.style.width  = `${w}px`;
+    frame.style.height = `${h}px`;
+    frame.style.marginTop = '56px'; // below status bar
+
+    // Status bar height offset
+    frame.style.height = `${h - 56 - 30}px`; // minus status + home bar
+
+    phoneWrap.style.transform = `scale(${z})`;
+    phoneWrap.style.transformOrigin = 'top center';
+    // Compensate for scale so wrapper takes less vertical space
+    const scaledH = h * z + 60;
+    phoneWrap.parentElement.style.height = `${scaledH}px`;
+
+    // Dynamic island: only on modern iPhones (radius ≥ 47)
+    dynIsland.style.display = r >= 47 ? 'block' : 'none';
+
+    document.getElementById('deviceInfo').innerHTML = `${d.name}<br><span>${w} × ${h} pt</span>`;
+    zoomBadge.textContent = currentZoom + '%';
+    zoomRange.value = currentZoom;
+    zoomVal.textContent = currentZoom + '%';
+  }
+
+  function setDevice(name, w, h, radius, btn) {
+    currentDevice = { name, w, h, radius };
+    document.querySelectorAll('.dv-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyDevice();
+  }
+
+  function setZoom(v) {
+    currentZoom = parseInt(v);
+    zoomRange.value = currentZoom;
+    zoomVal.textContent = currentZoom + '%';
+    applyDevice();
+  }
+
+  function setOrientation(o) {
+    orientation = o;
+    document.getElementById('btnLandscape').style.background = o === 'landscape' ? 'var(--accent)' : '#333';
+    document.getElementById('btnLandscape').style.color = o === 'landscape' ? '#000' : '#fff';
+    applyDevice();
+  }
+
+  function setShellColor(bg, border) {
+    phoneShell.style.background = bg;
+    phoneShell.style.boxShadow = `
+      0 0 0 1.5px ${border},
+      0 0 0 3px #111,
+      0 0 0 4.5px ${border},
+      0 40px 80px rgba(0,0,0,.7),
+      0 10px 30px rgba(0,0,0,.5),
+      inset 0 0 0 1px rgba(255,255,255,.06)
+    `;
+  }
+
+  // ─── Navigation ──────────────────────────────────────────────────
+  function navigate() {
+    const val = document.getElementById('urlInput').value.trim();
+    if (!val) return;
+    frame.src = val;
+  }
+
+  function setPage(url, btn) {
+    document.getElementById('urlInput').value = url;
+    frame.src = url;
+    document.querySelectorAll('.ql').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+
+  function promptViewId(btn) {
+    const id = prompt('Nhập Asset ID (vd: 0uoVKPtM):');
+    if (id) setPage(`/view/${id.trim()}`, btn);
+  }
+
+  function reloadFrame() {
+    frame.src = frame.src;
+  }
+
+  function copyPreviewLink() {
+    const url = window.location.origin + frame.src.replace(window.location.origin, '');
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = event.target;
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => btn.textContent = '📋 Copy preview URL', 2000);
+    });
+  }
+
+  function openInNewTab() {
+    const src = frame.getAttribute('src') || '/';
+    window.open(src, '_blank');
+  }
+
+  // ─── Live clock ──────────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2, '0');
+    const m = now.getMinutes().toString().padStart(2, '0');
+    document.getElementById('statusTime').textContent = `${h}:${m}`;
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+
+  // ─── URL input: Enter key ─────────────────────────────────────────
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') navigate();
+  });
+
+  // ─── Keyboard shortcuts ───────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'r' && !e.target.tagName.match(/INPUT|TEXTAREA/i)) reloadFrame();
+  });
+
+  // ─── Init ─────────────────────────────────────────────────────────
+  applyDevice();
+</script>
+</body>
+</html>
