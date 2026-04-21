@@ -1,0 +1,12 @@
+
+> webar-demo@0.1.0 start
+> node server.js
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+⚠️ AZURE_STORAGE_CONNECTION_STRING not set — running without Azure Blob Storage
+
+  Local:   http://localhost:3000
+  LAN:     http://192.168.11.120:3000
+  Debug:   http://192.168.11.120:3000/debug-upload.html
+
+✅ Startup scan: all models already optimized

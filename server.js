@@ -13,6 +13,11 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Lightweight health endpoint for Render health checks.
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ ok: true, uptime: Math.round(process.uptime()) });
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // PERFORMANCE: Compression & Caching
 // ═══════════════════════════════════════════════════════════════════
@@ -27,7 +32,7 @@ try {
       // and strips Content-Length header → progress bar can't show accurate %
       if (req.path.match(/\.(glb)$/i)) return false;
       // Compress text-based formats normally
-      if (req.path.match(/\.(gltf|fbx|json)$/i)) return true;
+      if (req.path.match(/\.(gltf|fbx|obj|mtl|json)$/i)) return true;
       return compression.filter(req, res);
     }
   }));
@@ -191,6 +196,7 @@ async function uploadToBlob(localPath, blobName) {
     const ext = path.extname(blobName).toLowerCase();
     const contentType = ext === '.glb' ? 'model/gltf-binary'
       : ext === '.gltf' ? 'model/gltf+json'
+      : ext === '.stl' ? 'model/stl'
       : ext === '.png'  ? 'image/png'
       : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
       : 'application/octet-stream';
@@ -283,11 +289,35 @@ function deduplicateAnimations(rawAnims) {
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const isObjBundle = file.fieldname === 'objAssets' || (file.fieldname === 'model' && ext === '.obj');
+    if (isObjBundle) {
+      const id = req._uploadId || nanoid(8);
+      const objDir = path.join(UPLOADS_DIR, id);
+      if (!fs.existsSync(objDir)) fs.mkdirSync(objDir, { recursive: true });
+      cb(null, objDir);
+      return;
+    }
     cb(null, UPLOADS_DIR);
   },
   filename: function (req, file, cb) {
     const id = req._uploadId || nanoid(8);
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeBase = path.basename(file.originalname || 'file')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/^_+/, '') || 'file';
+
+    if (file.fieldname === 'objAssets' || (file.fieldname === 'model' && ext === '.obj')) {
+      cb(null, safeBase);
+      return;
+    }
+
+    if (file.fieldname === 'props') {
+      const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      cb(null, `${id}-${file.fieldname}-${unique}${ext}`);
+      return;
+    }
+
     cb(null, `${id}-${file.fieldname}${ext}`);
   }
 });
@@ -303,7 +333,7 @@ const upload = multer({
 // ═══════════════════════════════════════════════════════════════════
 function serveModelFile(req, res, next) {
   const filename = req.params.filename || req.params[0];
-  if (!filename || !filename.match(/\.(glb|gltf)$/i)) return next();
+  if (!filename || !filename.match(/\.(glb|gltf|stl|obj)$/i)) return next();
 
   // Determine file path - check optimized first, then original
   const optimizedPath = path.join(OPTIMIZED_DIR, filename);
@@ -324,7 +354,13 @@ function serveModelFile(req, res, next) {
   // PERF: Model files have unique IDs in filename (nanoid) → they NEVER change
   // Safe to cache immutably for 1 year — browser will never re-download
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  res.setHeader('Content-Type', filename.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json');
+  res.setHeader('Content-Type', filename.endsWith('.glb')
+    ? 'model/gltf-binary'
+    : filename.endsWith('.gltf')
+      ? 'model/gltf+json'
+      : filename.endsWith('.stl')
+        ? 'model/stl'
+        : 'model/obj');
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('Last-Modified', stat.mtime.toUTCString());
   res.setHeader('X-Optimized', fs.existsSync(optimizedPath) ? 'true' : 'false');
@@ -358,7 +394,7 @@ app.use('/uploads', express.static(path.join(PUBLIC_DIR, 'uploads'), {
   lastModified: true,
   setHeaders: (res, filePath) => {
     // Upload files have unique nanoid names → immutable for models, 1-week for others
-    if (filePath.match(/\.(glb|gltf|fbx)$/i)) {
+    if (filePath.match(/\.(glb|gltf|fbx|stl|obj|mtl)$/i)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=604800'); // 1 week
@@ -381,6 +417,7 @@ app.post('/upload', (req, res, next) => {
   next();
 }, upload.fields([
   { name: 'model', maxCount: 1 },
+  { name: 'objAssets', maxCount: 50 },
   { name: 'audio', maxCount: 1 },
   { name: 'groundImage', maxCount: 1 },
   { name: 'envImage', maxCount: 1 },
@@ -388,13 +425,41 @@ app.post('/upload', (req, res, next) => {
 ]), (req, res) => {
   try {
     const id = req._uploadId;
-    const modelFile = req.files['model'] && req.files['model'][0] ? path.basename(req.files['model'][0].filename) : null;
-    const audioFile = req.files['audio'] && req.files['audio'][0] ? path.basename(req.files['audio'][0].filename) : null;
-    const groundFile = req.files['groundImage'] && req.files['groundImage'][0] ? path.basename(req.files['groundImage'][0].filename) : null;
-    const envFile = req.files['envImage'] && req.files['envImage'][0] ? path.basename(req.files['envImage'][0].filename) : null;
-    const propsFiles = req.files['props'] ? req.files['props'].map(f => `/uploads/${path.basename(f.filename)}`) : [];
+    const modelUpload = req.files['model'] && req.files['model'][0] ? req.files['model'][0] : null;
+    const audioUpload = req.files['audio'] && req.files['audio'][0] ? req.files['audio'][0] : null;
+    const groundUpload = req.files['groundImage'] && req.files['groundImage'][0] ? req.files['groundImage'][0] : null;
+    const envUpload = req.files['envImage'] && req.files['envImage'][0] ? req.files['envImage'][0] : null;
+    const objAssetsUploads = req.files['objAssets'] || [];
 
-    if (!modelFile) return res.status(400).json({ error: 'Model file is required (glb/gltf).' });
+    const toPublicUploadPath = (f) => {
+      if (!f || !f.path) return null;
+      const rel = path.relative(PUBLIC_DIR, f.path).replace(/\\/g, '/');
+      return rel.startsWith('uploads/') ? `/${rel}` : `/uploads/${path.basename(f.filename)}`;
+    };
+
+    const modelFile = modelUpload ? path.basename(modelUpload.filename) : null;
+    const modelExt = modelUpload ? path.extname(modelUpload.originalname || modelUpload.filename).toLowerCase() : '';
+    const modelUrl = toPublicUploadPath(modelUpload);
+    const audioUrl = toPublicUploadPath(audioUpload);
+    const groundUrl = toPublicUploadPath(groundUpload);
+    const envUrl = toPublicUploadPath(envUpload);
+    const propsFiles = req.files['props'] ? req.files['props'].map(toPublicUploadPath).filter(Boolean) : [];
+    const objAssets = objAssetsUploads.map(toPublicUploadPath).filter(Boolean);
+    const objMtl = objAssets.find(p => p.toLowerCase().endsWith('.mtl')) || null;
+
+    // Skybox images must be browser-decodable formats.
+    if (envUpload) {
+      const envExt = path.extname(envUpload.originalname || envUpload.filename).toLowerCase();
+      const allowedSkyExt = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+      if (!allowedSkyExt.has(envExt)) {
+        try { fs.unlinkSync(envUpload.path); } catch (_) {}
+        return res.status(400).json({
+          error: 'Skybox chỉ hỗ trợ .jpg/.jpeg/.png/.webp. Vui lòng chuyển ảnh sang JPG hoặc PNG rồi upload lại.'
+        });
+      }
+    }
+
+    if (!modelUpload) return res.status(400).json({ error: 'Model file is required (glb/gltf/fbx/stl/obj).' });
 
     const db = getDB();
 
@@ -426,9 +491,9 @@ app.post('/upload', (req, res, next) => {
 
     // Extract animations from GLB file (server-side, reliable)
     let detectedAnimations = [];
-    if (modelFile && modelFile.endsWith('.glb')) {
+    if (modelExt === '.glb') {
       try {
-        const rawAnims = extractGLBAnimations(path.join(UPLOADS_DIR, modelFile));
+        const rawAnims = extractGLBAnimations(modelUpload.path);
         detectedAnimations = deduplicateAnimations(rawAnims);
         if (detectedAnimations.length > 0) {
           console.log(`🎬 Detected ${rawAnims.length} clips → ${detectedAnimations.length} unique after dedup`);
@@ -438,15 +503,17 @@ app.post('/upload', (req, res, next) => {
       }
     }
 
-    const modelFullStat = modelFile ? fs.statSync(path.join(UPLOADS_DIR, modelFile)) : null;
+    const modelFullStat = modelUpload ? fs.statSync(modelUpload.path) : null;
     db[id] = {
       id,
-      model: `/uploads/${modelFile}`,
+      model: modelUrl,
       rawModelSize: modelFullStat ? modelFullStat.size : 0, // original size in bytes — persisted for Azure
-      audio: audioFile ? `/uploads/${audioFile}` : null,
-      groundImage: groundFile ? `/uploads/${groundFile}` : null,
-      envImage: envFile ? `/uploads/${envFile}` : null,
+      audio: audioUrl,
+      groundImage: groundUrl,
+      envImage: envUrl,
       props: propsFiles,
+      objMtl: modelExt === '.obj' ? objMtl : null,
+      objAssets: modelExt === '.obj' ? objAssets : [],
       modelY: parseFloat(req.body.modelY) || 0,
       caption: req.body.caption || null,
       // Character info for AR HUD
@@ -467,8 +534,8 @@ app.post('/upload', (req, res, next) => {
 
     // Auto-optimize GLB on upload — always run, no size skip
     // spawnOptimizer handles memory limit + dedup guard internally
-    if (modelFile && modelFile.endsWith('.glb')) {
-      const modelFullPath = path.join(UPLOADS_DIR, modelFile);
+    if (modelExt === '.glb') {
+      const modelFullPath = modelUpload.path;
       const modelSizeMB = (fs.statSync(modelFullPath).size / (1024 * 1024)).toFixed(1);
       if (parseFloat(modelSizeMB) > 500) {
         console.log(`⏭️ ${modelFile} is ${modelSizeMB}MB — too large to optimize, serving original`);
@@ -526,7 +593,11 @@ app.get('/api/asset/:id', (req, res) => {
   if (!asset) return res.status(404).json({ error: 'Not found' });
 
   // Include optimized model path info
-  const modelFile = asset.model ? path.basename(asset.model) : null;
+  const modelPath = asset.model || null;
+  const modelFile = modelPath ? path.basename(modelPath) : null;
+  const modelRelativePath = (typeof modelPath === 'string' && modelPath.startsWith('/uploads/'))
+    ? modelPath.slice('/uploads/'.length)
+    : null;
   let modelSize = 0;
   let isOptimized = false;
   let previewModel = null;
@@ -534,30 +605,33 @@ app.get('/api/asset/:id', (req, res) => {
 
   if (modelFile) {
     const optimizedPath = path.join(OPTIMIZED_DIR, modelFile);
-    const originalPath = path.join(UPLOADS_DIR, modelFile);
+    const originalPath = modelRelativePath ? path.join(UPLOADS_DIR, modelRelativePath) : null;
 
     const isGltf = modelFile.toLowerCase().endsWith('.gltf');
-    const ext = isGltf ? '.gltf' : '.glb';
-    const baseName = modelFile.substring(0, modelFile.length - ext.length);
-    const previewFileName = `${baseName}.preview${ext}`;
-    const previewPath = path.join(OPTIMIZED_DIR, previewFileName);
-    const mobileFileName = `${baseName}.mobile${ext}`;
-    const mobilePath = path.join(OPTIMIZED_DIR, mobileFileName);
+    const isGlb = modelFile.toLowerCase().endsWith('.glb');
+    if (isGltf || isGlb) {
+      const ext = isGltf ? '.gltf' : '.glb';
+      const baseName = modelFile.substring(0, modelFile.length - ext.length);
+      const previewFileName = `${baseName}.preview${ext}`;
+      const previewPath = path.join(OPTIMIZED_DIR, previewFileName);
+      const mobileFileName = `${baseName}.mobile${ext}`;
+      const mobilePath = path.join(OPTIMIZED_DIR, mobileFileName);
 
-    if (fs.existsSync(previewPath)) {
-      previewModel = `/uploads/optimized/${previewFileName}`;
+      if (fs.existsSync(previewPath)) {
+        previewModel = `/uploads/optimized/${previewFileName}`;
+      }
+
+      if (fs.existsSync(mobilePath)) {
+        mobileModel = `/uploads/optimized/${mobileFileName}`;
+      }
     }
 
-    if (fs.existsSync(mobilePath)) {
-      mobileModel = `/uploads/optimized/${mobileFileName}`;
-    }
-
-    if (modelFile.endsWith('.glb') && fs.existsSync(optimizedPath)) {
+    if (modelFile.toLowerCase().endsWith('.glb') && fs.existsSync(optimizedPath)) {
       modelSize = fs.statSync(optimizedPath).size;
       isOptimized = true;
       // Prefer Azure Blob URL (survives server restarts) over local path
       asset.model = asset.blobUrl || `/uploads/optimized/${modelFile}`;
-    } else if (fs.existsSync(originalPath)) {
+    } else if (originalPath && fs.existsSync(originalPath)) {
       modelSize = fs.statSync(originalPath).size;
       if (asset.blobOriginalUrl) asset.model = asset.blobOriginalUrl;
     } else {
@@ -672,6 +746,11 @@ app.get('/api/optimize-status/:id', (req, res) => {
 });
 
 app.get('/view/:id', (req, res) => {
+  // Always serve latest viewer shell; model files are versioned separately.
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
   res.sendFile(path.join(PUBLIC_DIR, 'viewer.html'));
 });
 

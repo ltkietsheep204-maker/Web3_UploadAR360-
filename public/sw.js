@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // WEBAR Service Worker - Cache models & assets for instant load
 // ═══════════════════════════════════════════════════════════════
-const STATIC_CACHE = 'webar-static-v2';
+const STATIC_CACHE = 'webar-static-v3';
 
 // PERF: MODEL_CACHE uses a STABLE name (no version suffix)
 // Model files have unique nanoid-based filenames → they NEVER change

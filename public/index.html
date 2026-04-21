@@ -543,7 +543,7 @@
         <!-- User provided Dragon Image -->
         <img src="7e170b92-fab9-464b-8673-2c1fbe370e2c.png" class="dragon-icon" alt="Dragon Logo">
         <h1>WEBAR</h1>
-        <p class="subtitle">Next-Gen 3D Visualization</p>
+        <p class="subtitle">Nhat Thong Dai Viet 3D Visualization</p>
         <p
           style="font-size: 1rem; color: #ccc; max-width: 340px; margin: 20px auto 0; line-height: 1.6; font-weight: 300;">
           Upload your 3D models and experience them in Augmented Reality instantly.
@@ -566,10 +566,20 @@
             <div class="upload-icon">💠</div>
             <div class="upload-info">
               <div class="upload-title">3D Model (Required)</div>
-              <div class="upload-desc">.glb, .gltf, .fbx</div>
+              <div class="upload-desc">.glb, .gltf, .fbx, .stl, .obj</div>
               <div class="file-status" id="status-model">selected</div>
             </div>
-            <input type="file" id="file-model" name="model" accept=".glb,.gltf,.fbx" required>
+            <input type="file" id="file-model" name="model" accept=".glb,.gltf,.fbx,.stl,.obj" required>
+          </div>
+
+          <div class="upload-card" onclick="document.getElementById('file-obj-assets').click()">
+            <div class="upload-icon">🎨</div>
+            <div class="upload-info">
+              <div class="upload-title">OBJ Materials / Textures</div>
+              <div class="upload-desc">Dùng cho .obj: .mtl + ảnh texture</div>
+              <div class="file-status" id="status-obj-assets">0 items</div>
+            </div>
+            <input type="file" id="file-obj-assets" name="objAssets" accept=".mtl,.png,.jpg,.jpeg,.webp,.bmp,.gif" multiple>
           </div>
 
           <!-- Audio -->
@@ -606,10 +616,10 @@
             <div class="upload-icon">🌅</div>
             <div class="upload-info">
               <div class="upload-title">360° Skybox</div>
-              <div class="upload-desc">Equirectangular panoramic image</div>
+              <div class="upload-desc">Equirectangular image (.jpg/.png/.webp)</div>
               <div class="file-status" id="status-env">selected</div>
             </div>
-            <input type="file" id="file-env" name="envImage" accept="image/*">
+            <input type="file" id="file-env" name="envImage" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
           </div>
 
           <!-- Props -->
@@ -738,6 +748,7 @@
     setupFileInput('file-audio', 'status-audio');
     setupFileInput('file-ground', 'status-ground');
     setupFileInput('file-env', 'status-env');
+    setupFileInput('file-obj-assets', 'status-obj-assets', true);
     setupFileInput('file-props', 'status-props', true);
 
     // Height Adjustment

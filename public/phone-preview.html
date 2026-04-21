@@ -3,624 +3,1144 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>📱 iPhone Preview</title>
+  <title>📱 Phone Preview — WEBAR</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0d0d0f;
-      --panel: #18181c;
-      --border: #2e2e38;
-      --accent: #FFD700;
+      --bg: #080810;
+      --panel: #10101a;
+      --panel2: #14141f;
+      --border: #252535;
+      --accent: #D4AF37;
+      --accent2: #F1C40F;
+      --red: #c0392b;
       --text: #e8e8f0;
-      --muted: #666;
+      --muted: #6b6b88;
+      --success: #2ecc71;
+      --radius: 14px;
     }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      overflow-x: hidden;
+      overflow: hidden;
     }
 
-    /* ─── TOP BAR ─────────────────────────────────────────────── */
+    /* ── TOP BAR ───────────────────────────────────────── */
     .topbar {
-      width: 100%;
-      max-width: 1400px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 14px 20px;
-      background: var(--panel);
+      gap: 16px;
+      padding: 12px 24px;
+      background: rgba(10,10,18,0.95);
       border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
+      backdrop-filter: blur(20px);
+      z-index: 100;
+      flex-shrink: 0;
     }
-    .topbar-title {
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--accent);
-      letter-spacing: .04em;
-      white-space: nowrap;
+    .topbar-logo {
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, #FFF1CD, #D4AF37);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 3px;
     }
-    .sep { width: 1px; height: 20px; background: var(--border); }
-
-    /* URL bar */
-    .url-row {
-      display: flex;
-      flex: 1;
-      min-width: 200px;
-      gap: 6px;
-    }
-    .url-row input {
-      flex: 1;
-      background: #0d0d0f;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 7px 12px;
-      color: var(--text);
-      font-size: 0.82rem;
-      outline: none;
-      transition: border-color .2s;
-    }
-    .url-row input:focus { border-color: var(--accent); }
-    .url-row button, .btn {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      border-radius: 8px;
-      padding: 7px 14px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: opacity .15s;
-    }
-    .url-row button:hover, .btn:hover { opacity: .8; }
-
-    /* Quick links */
-    .quicklinks {
-      display: flex; gap: 6px; flex-wrap: wrap;
-    }
-    .ql {
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text);
-      border-radius: 6px;
-      padding: 5px 10px;
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: border-color .2s, color .2s;
-    }
-    .ql:hover, .ql.active { border-color: var(--accent); color: var(--accent); }
-
-    /* ─── DEVICE SWITCHER ─────────────────────────────────────── */
-    .device-bar {
-      display: flex;
-      gap: 8px;
-      padding: 10px 20px;
-      flex-wrap: wrap;
-      justify-content: center;
-      background: var(--panel);
-      width: 100%;
-      border-bottom: 1px solid var(--border);
-    }
-    .dv-btn {
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--muted);
-      border-radius: 6px;
-      padding: 5px 12px;
+    .topbar-sep { width: 1px; height: 22px; background: var(--border); }
+    .topbar-sub {
       font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+    .topbar-btn {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-family: inherit;
       cursor: pointer;
       transition: all .2s;
     }
-    .dv-btn:hover { color: var(--text); border-color: #555; }
-    .dv-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(255,215,0,.07); }
+    .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* ─── MAIN AREA ───────────────────────────────────────────── */
-    .stage {
+    /* ── MAIN LAYOUT ───────────────────────────────────── */
+    .layout {
       flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      min-height: 0;
+      height: 0; /* force grid to respect flex:1 without growing */
+      overflow: hidden;
+    }
+
+    /* ── LEFT PANEL ────────────────────────────────────── */
+    .left-panel {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
       display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 40px 20px 60px;
-      gap: 60px;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    .left-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 14px 8px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: .5px;
+      cursor: pointer;
+      transition: all .2s;
+      border-bottom: 2px solid transparent;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    .tab-pane { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .tab-pane.active { display: flex; }
+
+    /* Upload tab */
+    .upload-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .upload-scroll::-webkit-scrollbar { width: 4px; }
+    .upload-scroll::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(212,175,55,.15);
+    }
+
+    .upload-card {
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: all .25s;
+    }
+    .upload-card:hover { border-color: rgba(212,175,55,.4); background: rgba(212,175,55,.04); transform: translateY(-1px); }
+    .upload-card.selected { border-color: var(--success); background: rgba(46,204,113,.06); }
+
+    .upload-icon {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.05);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .upload-info { flex: 1; min-width: 0; }
+    .upload-name { font-weight: 600; font-size: 0.88rem; color: var(--text); }
+    .upload-hint { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .upload-file-name {
+      font-size: 0.68rem; color: var(--success); margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: none;
+    }
+    .upload-card.selected .upload-file-name { display: block; }
+    input[type="file"] { display: none; }
+
+    .styled-input {
+      width: 100%;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color .2s;
+    }
+    .styled-input:focus { outline: none; border-color: rgba(212,175,55,.5); }
+    textarea.styled-input { resize: vertical; min-height: 60px; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #8B0000, #c0392b);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all .3s;
+      position: relative;
+      overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .submit-btn .sub { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.7rem; font-weight: 400; opacity: .8; }
+    .submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(192,57,43,.4); }
+    .submit-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .progress-bar-wrap { width: 100%; height: 4px; background: rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; display: none; }
+    .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--red), var(--accent)); transition: width .3s; border-radius: 4px; }
+    #uploadStatus { font-size: 0.75rem; color: var(--muted); text-align: center; display: none; }
+
+    /* Results tab */
+    .results-pane {
+      flex: 1; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; gap: 20px;
+      text-align: center;
+    }
+    .results-pane.empty-state { color: var(--muted); }
+    .empty-icon { font-size: 48px; margin-bottom: 8px; opacity: .4; }
+    .empty-text { font-size: 0.82rem; }
+
+    .qr-outer {
+      background: rgba(255,255,255,.97);
+      padding: 16px; border-radius: 16px;
+      display: inline-block;
+      box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    }
+    .result-url {
+      background: rgba(255,255,255,.04);
+      border: 1px dashed rgba(255,255,255,.12);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: var(--accent);
+      word-break: break-all;
+      width: 100%;
+    }
+    .result-actions { display: flex; gap: 8px; width: 100%; }
+    .r-btn {
+      flex: 1; padding: 10px; border-radius: 10px; font-family: inherit;
+      font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all .2s;
+    }
+    .r-btn-primary { background: var(--accent); color: #000; border: none; }
+    .r-btn-primary:hover { background: var(--accent2); }
+    .r-btn-secondary { background: rgba(255,255,255,.05); color: var(--text); border: 1px solid var(--border); }
+    .r-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .r-btn-preview { background: rgba(33,37,130,.3); color: #88aaff; border: 1px solid rgba(88,120,255,.25); }
+    .r-btn-preview:hover { background: rgba(88,120,255,.2); border-color: rgba(88,120,255,.5); }
+
+    .char-name-badge {
+      font-family: 'Cinzel', serif;
+      font-size: 1.1rem;
+      color: #FFF1CD;
+      text-shadow: 0 0 20px rgba(212,175,55,.5);
+      margin-bottom: 4px;
+    }
+    .char-era-badge { font-size: 0.72rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+    /* Navigate tab */
+    .nav-pane-inner {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .nav-input-row { display: flex; gap: 8px; }
+    .nav-input {
+      flex: 1;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 14px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .nav-input:focus { outline: none; border-color: rgba(212,175,55,.5); }
+    .nav-go {
+      padding: 9px 16px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .nav-quick { display: flex; flex-direction: column; gap: 6px; }
+    .nav-quick-label { font-size: 0.65rem; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+    .nav-ql-btn {
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 9px 14px;
+      text-align: left;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: inherit;
+    }
+    .nav-ql-btn:hover { border-color: rgba(212,175,55,.4); color: var(--accent); }
+
+    /* ── DEVICE SWITCHER BAR ────────────────────────────── */
+    .device-bar {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
       flex-wrap: wrap;
     }
+    .dv-btn {
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .dv-btn:hover { color: var(--text); border-color: #444; }
+    .dv-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(212,175,55,.07); }
 
-    /* ─── PHONE SHELL ─────────────────────────────────────────── */
+    /* ── RIGHT PANEL (PHONE STAGE) ─────────────────────── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(ellipse at 50% 30%, #1a1428 0%, #080810 70%);
+      overflow: hidden;
+      min-height: 0;
+    }
+    .right-top-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,10,18,.8);
+      flex-shrink: 0;
+    }
+    .right-top-bar .zoom-label { font-size: 0.7rem; color: var(--muted); }
+    .zoom-btns { display: flex; gap: 4px; }
+    .zoom-pill {
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .zoom-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(212,175,55,.07); }
+    .orient-btns { display: flex; gap: 4px; }
+    .orient-pill {
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .orient-pill.active { border-color: var(--accent); color: var(--accent); }
+    .shell-dots { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+    .shell-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.2);
+      cursor: pointer; transition: border-color .2s;
+    }
+    .shell-dot:hover { border-color: rgba(255,255,255,.6); }
+    .reload-btn-sm {
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .reload-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+    .phone-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .phone-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(212,175,55,.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    /* grid lines subtle */
+    .phone-stage::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
     .phone-wrap {
       position: relative;
-      transition: transform .3s ease;
+      transition: transform .5s cubic-bezier(.16,1,.3,1);
+      z-index: 1;
     }
-    .phone-wrap.landscape { transform: rotate(90deg); }
-
-    .phone {
+    .phone-shell {
       position: relative;
-      border-radius: 54px;
       background: #1a1a1e;
       box-shadow:
         0 0 0 1.5px #3a3a3e,
         0 0 0 3px #111,
-        0 0 0 4.5px #2e2e32,
-        0 40px 80px rgba(0,0,0,.7),
-        0 10px 30px rgba(0,0,0,.5),
+        0 0 0 4.5px #2a2a2e,
+        0 50px 100px rgba(0,0,0,.8),
+        0 20px 40px rgba(0,0,0,.5),
         inset 0 0 0 1px rgba(255,255,255,.06);
-      transition: all .3s;
+      transition: all .4s;
     }
-
     /* Side buttons */
-    .phone::before {
+    .phone-shell::before {
       content: '';
       position: absolute;
-      right: -4px;
-      top: 130px;
-      width: 4px;
-      height: 80px;
+      right: -4px; top: 130px;
+      width: 4px; height: 80px;
       background: #2e2e32;
       border-radius: 0 3px 3px 0;
       box-shadow: 0 100px 0 #2e2e32;
     }
-    .phone::after {
+    .phone-shell::after {
       content: '';
       position: absolute;
-      left: -4px;
-      top: 110px;
-      width: 4px;
-      height: 36px;
+      left: -4px; top: 110px;
+      width: 4px; height: 36px;
       background: #2e2e32;
       border-radius: 3px 0 0 3px;
       box-shadow: 0 50px 0 #2e2e32, 0 94px 0 #2e2e32;
     }
-
-    /* Screen bezel */
     .screen-bezel {
-      position: relative;
       margin: 12px;
       border-radius: 44px;
       overflow: hidden;
       background: #000;
+      position: relative;
     }
-
-    /* Dynamic Island */
     .dynamic-island {
       position: absolute;
-      top: 12px;
-      left: 50%;
+      top: 12px; left: 50%;
       transform: translateX(-50%);
-      width: 120px;
-      height: 34px;
+      width: 120px; height: 34px;
       background: #000;
       border-radius: 20px;
       z-index: 10;
       box-shadow: 0 0 0 1px #222;
     }
-
-    /* Status bar */
     .status-bar {
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 56px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      padding: 0 24px 6px;
-      z-index: 9;
-      pointer-events: none;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
+      top: 0; left: 0; right: 0; height: 56px;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding: 0 22px 7px;
+      z-index: 9; pointer-events: none;
+      color: #fff; font-size:12px; font-weight: 600;
     }
-    .status-time { letter-spacing: -.01em; }
     .status-icons { display: flex; align-items: center; gap: 5px; }
     .status-icons svg { width: 16px; height: 16px; fill: #fff; }
-
-    /* Content iframe */
     .screen-iframe {
-      display: block;
-      border: none;
-      width: 100%;
-      background: #000;
+      display: block; border: none; width: 100%; background: #000;
     }
-
-    /* Home indicator */
     .home-bar {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
+      position: absolute; bottom: 8px; left: 50%;
       transform: translateX(-50%);
-      width: 134px;
-      height: 5px;
-      background: rgba(255,255,255,.45);
-      border-radius: 3px;
-      z-index: 10;
+      width: 134px; height: 5px;
+      background: rgba(255,255,255,.4); border-radius: 3px; z-index: 10;
     }
 
-    /* Overlay blocker for status bar area click-through */
-    .notch-blocker {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 56px;
-      z-index: 8;
-      pointer-events: none;
-    }
-
-    /* ─── CONTROLS PANEL ──────────────────────────────────────── */
-    .controls {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      min-width: 220px;
-      max-width: 260px;
-      padding-top: 8px;
-    }
-    .ctrl-group {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 16px;
-    }
-    .ctrl-label {
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      margin-bottom: 10px;
-    }
-    .ctrl-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 0.82rem;
-    }
-    .ctrl-row:last-child { margin-bottom: 0; }
-    input[type=range] {
-      flex: 1;
-      margin-left: 10px;
-      accent-color: var(--accent);
-    }
-    .toggle {
-      position: relative;
-      width: 40px; height: 22px;
-    }
-    .toggle input { display: none; }
-    .toggle-track {
+    /* placeholder when no model loaded */
+    .phone-placeholder {
       position: absolute; inset: 0;
-      background: #333;
-      border-radius: 11px;
-      cursor: pointer;
-      transition: background .2s;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; color: rgba(255,255,255,.15);
+      pointer-events: none; z-index: 5;
     }
-    .toggle input:checked + .toggle-track { background: var(--accent); }
-    .toggle-knob {
-      position: absolute;
-      top: 3px; left: 3px;
-      width: 16px; height: 16px;
-      background: #fff;
+    .phone-placeholder.hidden { display: none; }
+    .ph-icon { font-size: 56px; }
+    .ph-text { font-size: 0.8rem; letter-spacing: 1px; }
+
+    /* upload overlay loading placeholder */
+    .phone-loading {
+      position: absolute; inset: 0;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(8,8,16,.92);
+      gap: 16px; z-index: 20;
+    }
+    .phone-loading.active { display: flex; }
+    .spin-ring {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(212,175,55,.15);
+      border-top-color: var(--accent);
       border-radius: 50%;
-      transition: transform .2s;
-      pointer-events: none;
+      animation: spin .9s linear infinite;
     }
-    .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
-
-    .info-row {
-      font-size: 0.75rem;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.5;
-    }
-    .info-row span { color: var(--accent); }
-
-    /* ─── ZOOM INDICATOR ──────────────────────────────────────── */
-    .zoom-badge {
-      position: absolute;
-      bottom: -28px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255,215,0,.12);
-      border: 1px solid rgba(255,215,0,.25);
-      color: var(--accent);
-      font-size: 0.72rem;
-      padding: 2px 10px;
-      border-radius: 20px;
-      white-space: nowrap;
-    }
-
-    /* Reload button on phone */
-    .reload-btn {
-      position: absolute;
-      bottom: -52px;
-      right: 0;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 5px 12px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: border-color .2s;
-    }
-    .reload-btn:hover { border-color: var(--accent); }
-
-    @media (max-width: 700px) {
-      .controls { display: none; }
-      .stage { padding: 20px 10px 40px; }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .phone-loading-text { font-size: 0.78rem; color: var(--muted); letter-spacing: 1px; }
   </style>
 </head>
 <body>
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <div class="topbar-title">📱 iPhone Preview</div>
-  <div class="sep"></div>
-  <div class="url-row">
-    <input id="urlInput" type="text" placeholder="Nhập URL để preview... vd: /view/abc123" value="/" />
-    <button onclick="navigate()">Go ↵</button>
-  </div>
-  <div class="sep"></div>
-  <div class="quicklinks">
-    <button class="ql active" onclick="setPage('/', this)">🏠 Home</button>
-    <button class="ql" onclick="setPage('/viewer.html', this)">👁 Viewer</button>
-    <button class="ql" onclick="promptViewId(this)">🔗 View ID...</button>
+  <div class="topbar-logo">WEBAR</div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-sub">📱 Phone Preview Studio</div>
+  <div class="topbar-actions">
+    <button class="topbar-btn" onclick="openInNewTab()">🚀 Mở trình duyệt</button>
+    <button class="topbar-btn" id="btnCopyLink" onclick="copyCurrentLink()">📋 Copy link</button>
   </div>
 </div>
 
-<!-- DEVICE SWITCHER -->
-<div class="device-bar">
-  <button class="dv-btn" onclick="setDevice('iPhone SE',  375, 667, 40, this)">iPhone SE</button>
-  <button class="dv-btn active" onclick="setDevice('iPhone 15 Pro', 393, 852, 54, this)">iPhone 15 Pro</button>
-  <button class="dv-btn" onclick="setDevice('iPhone 15 Pro Max', 430, 932, 54, this)">iPhone 15 Pro Max</button>
-  <button class="dv-btn" onclick="setDevice('iPhone 14', 390, 844, 47, this)">iPhone 14</button>
-  <button class="dv-btn" onclick="setDevice('iPad Mini', 768, 1024, 20, this)">iPad Mini</button>
-</div>
+<!-- MAIN LAYOUT -->
+<div class="layout">
 
-<!-- STAGE -->
-<div class="stage">
+  <!-- ─── LEFT PANEL ─── -->
+  <div class="left-panel">
+    <div class="left-tabs">
+      <button class="tab-btn active" onclick="switchTab('upload', this)">⬆ Upload Model</button>
+      <button class="tab-btn" onclick="switchTab('results', this)">📱 Kết quả</button>
+      <button class="tab-btn" onclick="switchTab('navigate', this)">🔗 Điều hướng</button>
+    </div>
 
-  <!-- PHONE -->
-  <div style="position:relative">
-    <div class="phone-wrap" id="phoneWrap">
-      <div class="phone" id="phoneShell">
-        <div class="screen-bezel" id="screenBezel">
-          <!-- Dynamic Island -->
-          <div class="dynamic-island" id="dynIsland"></div>
-
-          <!-- Status bar -->
-          <div class="status-bar" id="statusBar">
-            <div class="status-time" id="statusTime">9:41</div>
-            <div class="status-icons">
-              <!-- Signal -->
-              <svg viewBox="0 0 24 24"><rect x="1" y="15" width="3" height="7" rx="1"/><rect x="6" y="11" width="3" height="11" rx="1"/><rect x="11" y="7" width="3" height="15" rx="1"/><rect x="16" y="3" width="3" height="19" rx="1" opacity=".3"/></svg>
-              <!-- WiFi -->
-              <svg viewBox="0 0 24 24"><path d="M1.5 9.5C5.2 5.8 10.3 3.5 12 3.5s6.8 2.3 10.5 6"/><path d="M4.5 12.5C7.1 9.9 9.7 8 12 8s4.9 1.9 7.5 4.5"/><path d="M7.5 15.5C9.2 13.8 10.7 13 12 13s2.8.8 4.5 2.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-              <!-- Battery -->
-              <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" stroke="#fff" stroke-width="1.5" fill="none"/><rect x="23" y="4" width="3" height="6" rx="1.5" fill="#fff" opacity=".5"/><rect x="2.5" y="2.5" width="17" height="9" rx="2" fill="#fff"/></svg>
-            </div>
+    <!-- UPLOAD TAB -->
+    <div class="tab-pane active" id="tab-upload">
+      <div class="upload-scroll">
+        <div class="section-label">📦 File bắt buộc</div>
+        <div class="upload-card" id="card-model" onclick="document.getElementById('file-model').click()">
+          <div class="upload-icon">💠</div>
+          <div class="upload-info">
+            <div class="upload-name">3D Model (Bắt buộc)</div>
+            <div class="upload-hint">.glb · .gltf · .fbx · .stl · .obj — max 500MB</div>
+            <div class="upload-file-name" id="fname-model"></div>
           </div>
+          <input type="file" id="file-model" accept=".glb,.gltf,.fbx,.stl,.obj">
+        </div>
 
-          <!-- The actual iframe -->
-          <iframe id="previewFrame" class="screen-iframe"
-            src="/"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-            allow="camera; microphone; accelerometer; gyroscope; xr-spatial-tracking"
-            scrolling="yes">
-          </iframe>
+        <div class="upload-card" id="card-obj-assets" onclick="document.getElementById('file-obj-assets').click()">
+          <div class="upload-icon">🎨</div>
+          <div class="upload-info">
+            <div class="upload-name">OBJ Materials / Textures</div>
+            <div class="upload-hint">Nếu upload .obj: thêm .mtl và ảnh texture</div>
+            <div class="upload-file-name" id="fname-obj-assets"></div>
+          </div>
+          <input type="file" id="file-obj-assets" accept=".mtl,.png,.jpg,.jpeg,.webp,.bmp,.gif" multiple>
+        </div>
 
-          <!-- Home indicator -->
-          <div class="home-bar"></div>
+        <div class="section-label" style="margin-top:4px">🌍 Môi trường (tuỳ chọn)</div>
+        <div class="upload-card" id="card-ground" onclick="document.getElementById('file-ground').click()">
+          <div class="upload-icon">🪵</div>
+          <div class="upload-info">
+            <div class="upload-name">Floor Texture</div>
+            <div class="upload-hint">Ảnh nền sàn dưới model</div>
+            <div class="upload-file-name" id="fname-ground"></div>
+          </div>
+          <input type="file" id="file-ground" accept="image/*">
+        </div>
+        <div class="upload-card" id="card-env" onclick="document.getElementById('file-env').click()">
+          <div class="upload-icon">🌅</div>
+          <div class="upload-info">
+            <div class="upload-name">360° Skybox</div>
+            <div class="upload-hint">Panoramic equirectangular image</div>
+            <div class="upload-file-name" id="fname-env"></div>
+          </div>
+          <input type="file" id="file-env" accept="image/*">
+        </div>
+        <div class="upload-card" id="card-audio" onclick="document.getElementById('file-audio').click()">
+          <div class="upload-icon">🎵</div>
+          <div class="upload-info">
+            <div class="upload-name">Background Audio</div>
+            <div class="upload-hint">.mp3 · .wav</div>
+            <div class="upload-file-name" id="fname-audio"></div>
+          </div>
+          <input type="file" id="file-audio" accept="audio/*">
+        </div>
+
+        <div class="section-label" style="margin-top:4px">⚔️ Thông tin nhân vật</div>
+        <input type="text" class="styled-input" id="inp-name" placeholder="Tên vị tướng (vd: Trần Hưng Đạo)">
+        <input type="text" class="styled-input" id="inp-era" placeholder="Triều đại / Thời kỳ (vd: Nhà Trần)">
+        <textarea class="styled-input" id="inp-bio" rows="2" placeholder="Mô tả ngắn về nhân vật..."></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-size:.82rem;color:var(--muted)">Chiều cao (cm)</span>
+          <input type="number" class="styled-input" id="inp-height" value="170" min="50" max="300" style="max-width:100px;text-align:center">
+        </div>
+
+        <button class="submit-btn" id="submitBtn" onclick="doUpload()">
+          <span>🏹 Upload & Preview</span>
+          <span class="sub">Tự động tạo QR sau khi upload</span>
+        </button>
+        <div class="progress-bar-wrap" id="progressWrap"><div class="progress-bar-fill" id="progressFill"></div></div>
+        <div id="uploadStatus"></div>
+      </div>
+    </div>
+
+    <!-- RESULTS TAB -->
+    <div class="tab-pane" id="tab-results">
+      <div class="results-pane" id="resultsContent" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px;gap:16px;text-align:center;">
+        <div id="emptyResults">
+          <div class="empty-icon">📲</div>
+          <div class="empty-text" style="color:var(--muted)">Upload một model để xem QR code và link preview</div>
+        </div>
+        <div id="loadedResults" style="display:none;width:100%;display:none;flex-direction:column;align-items:center;gap:14px">
+          <div id="charNameBadge" class="char-name-badge"></div>
+          <div id="charEraBadge" class="char-era-badge"></div>
+          <div class="qr-outer"><div id="qrcode"></div></div>
+          <div class="result-url" id="resultUrl"></div>
+          <div class="result-actions">
+            <button class="r-btn r-btn-preview" onclick="previewInPhone()">📱 Preview</button>
+            <button class="r-btn r-btn-primary" onclick="openViewer()">🚀 Mở mới</button>
+            <button class="r-btn r-btn-secondary" onclick="copyResultLink()">📋 Copy</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Zoom badge -->
-    <div class="zoom-badge" id="zoomBadge">100%</div>
-
-    <!-- Reload -->
-    <button class="reload-btn" onclick="reloadFrame()">↺ Reload</button>
+    <!-- NAVIGATE TAB -->
+    <div class="tab-pane" id="tab-navigate">
+      <div class="nav-pane-inner">
+        <div class="section-label">🔗 Điều hướng thủ công</div>
+        <div class="nav-input-row">
+          <input class="nav-input" id="navUrl" type="text" placeholder="Nhập URL hoặc /view/ID..." value="/">
+          <button class="nav-go" onclick="navGo()">Go</button>
+        </div>
+        <div class="nav-quick">
+          <div class="nav-quick-label">Quick links</div>
+          <button class="nav-ql-btn" onclick="navTo('/')">🏠 Trang chủ (Upload)</button>
+          <button class="nav-ql-btn" onclick="promptAssetId()">🔗 Nhập Asset ID...</button>
+        </div>
+        <div class="section-label" style="margin-top:8px">🖥️ LAN Preview</div>
+        <div style="font-size:0.75rem;color:var(--muted);line-height:1.6">
+          Để xem trên điện thoại thật:<br>
+          1. Chắc chắn điện thoại cùng mạng WiFi<br>
+          2. Mở <span style="color:var(--accent)" id="lanUrlDisplay">http://192.168.x.x:3000</span><br>
+          3. Hoặc quét QR code bên tab "Kết quả"
+        </div>
+        <button class="nav-ql-btn" style="margin-top:8px" onclick="refreshLanUrl()">🔄 Lấy LAN URL</button>
+      </div>
+    </div>
   </div>
 
-  <!-- CONTROLS -->
-  <div class="controls">
+  <!-- ─── RIGHT PANEL ─── -->
+  <div class="right-panel">
 
-    <div class="ctrl-group">
-      <div class="ctrl-label">🔭 Zoom</div>
-      <div class="ctrl-row">
-        <span id="zoomVal">75%</span>
-        <input id="zoomRange" type="range" min="30" max="110" value="75" oninput="setZoom(this.value)" />
+    <!-- Controls bar -->
+    <div class="right-top-bar">
+      <span class="zoom-label">Zoom</span>
+      <div class="zoom-btns">
+        <button class="zoom-pill" onclick="setZoom(50, this)">50%</button>
+        <button class="zoom-pill active" onclick="setZoom(70, this)">70%</button>
+        <button class="zoom-pill" onclick="setZoom(90, this)">90%</button>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-        <button class="btn" style="padding:4px 10px;font-size:0.75rem" onclick="setZoom(50)">50%</button>
-        <button class="btn" style="padding:4px 10px;font-size:0.75rem" onclick="setZoom(75)">75%</button>
-        <button class="btn" style="padding:4px 10px;font-size:0.75rem" onclick="setZoom(100)">100%</button>
+      <div class="topbar-sep" style="margin-left:6px"></div>
+      <div class="orient-btns">
+        <button class="orient-pill active" onclick="setOrientation('portrait', this)">◻ Portrait</button>
+        <button class="orient-pill" onclick="setOrientation('landscape', this)">⬜ Landscape</button>
+      </div>
+      <div class="shell-dots">
+        <div class="shell-dot" style="background:#1a1a1e" onclick="setShell('#1a1a1e','#3a3a3e')" title="Đen"></div>
+        <div class="shell-dot" style="background:#e8e5df" onclick="setShell('#e8e5df','#c8c5bf')" title="Trắng"></div>
+        <div class="shell-dot" style="background:#4a9b8e" onclick="setShell('#4a9b8e','#3a8b7e')" title="Xanh lá"></div>
+        <div class="shell-dot" style="background:#c8a97e" onclick="setShell('#c8a97e','#b89a6e')" title="Vàng"></div>
+        <div class="shell-dot" style="background:#8b6c9c" onclick="setShell('#8b6c9c','#7b5c8c')" title="Tím"></div>
+      </div>
+      <button class="reload-btn-sm" onclick="reloadFrame()">↺ Reload</button>
+    </div>
+
+    <!-- Device bar -->
+    <div class="device-bar">
+      <span style="font-size:.65rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-right:4px">DEVICE</span>
+      <button class="dv-btn" onclick="setDevice('iPhone SE',375,667,40,this)">SE</button>
+      <button class="dv-btn active" onclick="setDevice('iPhone 15 Pro',393,852,54,this)">15 Pro</button>
+      <button class="dv-btn" onclick="setDevice('iPhone 15 Pro Max',430,932,54,this)">15 Pro Max</button>
+      <button class="dv-btn" onclick="setDevice('iPhone 14',390,844,47,this)">14</button>
+      <button class="dv-btn" onclick="setDevice('Samsung S24',384,854,45,this)">Galaxy S24</button>
+      <button class="dv-btn" onclick="setDevice('iPad Mini',768,1024,20,this)">iPad Mini</button>
+      <span style="margin-left:auto;font-size:.7rem;color:var(--muted)" id="deviceInfoLabel">iPhone 15 Pro · 393×852</span>
+    </div>
+
+    <!-- Phone stage -->
+    <div class="phone-stage" id="phoneStage">
+      <div class="phone-placeholder" id="phonePlaceholder">
+        <div class="ph-icon">📵</div>
+        <div class="ph-text">Upload một model để preview</div>
+      </div>
+
+      <div class="phone-loading" id="phoneLoading">
+        <div class="spin-ring"></div>
+        <div class="phone-loading-text">Đang upload model...</div>
+      </div>
+
+      <div class="phone-wrap" id="phoneWrap">
+        <div class="phone-shell" id="phoneShell">
+          <div class="screen-bezel" id="screenBezel">
+            <div class="dynamic-island" id="dynIsland"></div>
+            <div class="status-bar">
+              <span id="statusTime" style="letter-spacing:-.01em">12:24</span>
+              <div class="status-icons">
+                <svg viewBox="0 0 24 24"><rect x="1" y="15" width="3" height="7" rx="1"/><rect x="6" y="11" width="3" height="11" rx="1"/><rect x="11" y="7" width="3" height="15" rx="1"/><rect x="16" y="3" width="3" height="19" rx="1" opacity=".3"/></svg>
+                <svg viewBox="0 0 24 24"><path d="M1.5 9.5C5.2 5.8 10.3 3.5 12 3.5s6.8 2.3 10.5 6"/><path d="M4.5 12.5C7.1 9.9 9.7 8 12 8s4.9 1.9 7.5 4.5"/><path d="M7.5 15.5C9.2 13.8 10.7 13 12 13s2.8.8 4.5 2.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" stroke="#fff" stroke-width="1.5" fill="none"/><rect x="23" y="4" width="3" height="6" rx="1.5" fill="#fff" opacity=".5"/><rect x="2.5" y="2.5" width="17" height="9" rx="2" fill="#fff"/></svg>
+              </div>
+            </div>
+            <iframe id="previewFrame" class="screen-iframe"
+              src="about:blank"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+              allow="camera; microphone; accelerometer; gyroscope; xr-spatial-tracking">
+            </iframe>
+            <div class="home-bar"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="ctrl-group">
-      <div class="ctrl-label">🔄 Orientation</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1" onclick="setOrientation('portrait')">◻ Portrait</button>
-        <button class="btn" style="flex:1;background:#333;color:#fff" id="btnLandscape" onclick="setOrientation('landscape')">⬜ Landscape</button>
-      </div>
-    </div>
+  </div><!-- /right-panel -->
+</div><!-- /layout -->
 
-    <div class="ctrl-group">
-      <div class="ctrl-label">📋 Thông tin</div>
-      <div class="info-row" id="deviceInfo">iPhone 15 Pro<br><span>393 × 852 pt</span></div>
-    </div>
-
-    <div class="ctrl-group">
-      <div class="ctrl-label">🎨 Shell</div>
-      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:4px">
-        <div style="width:26px;height:26px;border-radius:50%;background:#1a1a1e;border:2px solid #555;cursor:pointer" onclick="setShellColor('#1a1a1e','#3a3a3e')" title="Black"></div>
-        <div style="width:26px;height:26px;border-radius:50%;background:#e8e5df;border:2px solid #ddd;cursor:pointer" onclick="setShellColor('#e8e5df','#c8c5bf')" title="White"></div>
-        <div style="width:26px;height:26px;border-radius:50%;background:#4a9b8e;border:2px solid #3a8b7e;cursor:pointer" onclick="setShellColor('#4a9b8e','#3a8b7e')" title="Green"></div>
-        <div style="width:26px;height:26px;border-radius:50%;background:#8b6c9c;border:2px solid #7b5c8c;cursor:pointer" onclick="setShellColor('#8b6c9c','#7b5c8c')" title="Purple"></div>
-        <div style="width:26px;height:26px;border-radius:50%;background:#c8a97e;border:2px solid #b89a6e;cursor:pointer" onclick="setShellColor('#c8a97e','#b89a6e')" title="Gold"></div>
-      </div>
-    </div>
-
-    <div class="ctrl-group">
-      <div class="ctrl-label">🔗 Share</div>
-      <button class="btn" style="width:100%;font-size:0.8rem" onclick="copyPreviewLink()">📋 Copy preview URL</button>
-      <div style="margin-top:8px">
-        <button class="btn" style="width:100%;font-size:0.8rem;background:#333;color:#fff" onclick="openInNewTab()">🚀 Mở tab mới</button>
-      </div>
-    </div>
-
-  </div>
-</div>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-  // ─── State ─────────────────────────────────────────────────────────
-  let currentDevice = { name: 'iPhone 15 Pro', w: 393, h: 852, radius: 54 };
-  let currentZoom = 75;
-  let orientation = 'portrait';
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let device = { name: 'iPhone 15 Pro', w: 393, h: 852, radius: 54 };
+let zoom = 70;
+let orientation = 'portrait';
+let currentAssetUrl = null;
+let qrInstance = null;
 
-  const phoneShell  = document.getElementById('phoneShell');
-  const screenBezel = document.getElementById('screenBezel');
-  const frame       = document.getElementById('previewFrame');
-  const dynIsland   = document.getElementById('dynIsland');
-  const statusBar   = document.getElementById('statusBar');
-  const phoneWrap   = document.getElementById('phoneWrap');
-  const zoomBadge   = document.getElementById('zoomBadge');
-  const zoomRange   = document.getElementById('zoomRange');
-  const zoomVal     = document.getElementById('zoomVal');
+function withNoCache(url) {
+  if (!url) return url;
+  if (!/\/view\//.test(url)) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}t=${Date.now()}`;
+}
 
-  // ─── Apply device dimensions ─────────────────────────────────────
-  function applyDevice() {
-    const d = currentDevice;
-    const z = currentZoom / 100;
-    const w = orientation === 'portrait' ? d.w : d.h;
-    const h = orientation === 'portrait' ? d.h : d.w;
-    const r = d.radius;
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
 
-    phoneShell.style.borderRadius = `${r}px`;
-    screenBezel.style.borderRadius = `${r - 6}px`;
-    screenBezel.style.width  = `${w}px`;
-    screenBezel.style.height = `${h}px`;
+// ═══════════════════════════════════════════════════════════════
+// FILE INPUTS
+// ═══════════════════════════════════════════════════════════════
+function setupFile(inputId, cardId, fnameId) {
+  document.getElementById(inputId).addEventListener('change', function() {
+    const f = this.files[0];
+    const card = document.getElementById(cardId);
+    const fname = document.getElementById(fnameId);
+    if (f) {
+      card.classList.add('selected');
+      if (this.multiple && this.files.length > 1) {
+        fname.textContent = `${this.files.length} files selected`;
+      } else {
+        fname.textContent = f.name.length > 28 ? '...' + f.name.slice(-22) : f.name;
+      }
+    } else {
+      card.classList.remove('selected');
+      fname.textContent = '';
+    }
+  });
+}
+setupFile('file-model',  'card-model',  'fname-model');
+setupFile('file-obj-assets', 'card-obj-assets', 'fname-obj-assets');
+setupFile('file-ground', 'card-ground', 'fname-ground');
+setupFile('file-env',    'card-env',    'fname-env');
+setupFile('file-audio',  'card-audio',  'fname-audio');
 
-    frame.style.width  = `${w}px`;
-    frame.style.height = `${h}px`;
-    frame.style.marginTop = '56px'; // below status bar
-
-    // Status bar height offset
-    frame.style.height = `${h - 56 - 30}px`; // minus status + home bar
-
-    phoneWrap.style.transform = `scale(${z})`;
-    phoneWrap.style.transformOrigin = 'top center';
-    // Compensate for scale so wrapper takes less vertical space
-    const scaledH = h * z + 60;
-    phoneWrap.parentElement.style.height = `${scaledH}px`;
-
-    // Dynamic island: only on modern iPhones (radius ≥ 47)
-    dynIsland.style.display = r >= 47 ? 'block' : 'none';
-
-    document.getElementById('deviceInfo').innerHTML = `${d.name}<br><span>${w} × ${h} pt</span>`;
-    zoomBadge.textContent = currentZoom + '%';
-    zoomRange.value = currentZoom;
-    zoomVal.textContent = currentZoom + '%';
+// ═══════════════════════════════════════════════════════════════
+// UPLOAD
+// ═══════════════════════════════════════════════════════════════
+async function doUpload() {
+  if (window.location.protocol === 'file:') {
+    alert('Trang preview đang mở bằng file:// nên không thể gọi API upload. Hãy mở qua server, ví dụ: http://localhost:3000/phone-preview.html');
+    return;
   }
 
-  function setDevice(name, w, h, radius, btn) {
-    currentDevice = { name, w, h, radius };
-    document.querySelectorAll('.dv-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    applyDevice();
+  const modelFile = document.getElementById('file-model').files[0];
+  if (!modelFile) {
+    alert('⚠️ Vui lòng chọn file 3D model (.glb/.gltf/.fbx/.stl/.obj) trước!');
+    return;
   }
 
-  function setZoom(v) {
-    currentZoom = parseInt(v);
-    zoomRange.value = currentZoom;
-    zoomVal.textContent = currentZoom + '%';
-    applyDevice();
-  }
+  const btn = document.getElementById('submitBtn');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const statusEl = document.getElementById('uploadStatus');
 
-  function setOrientation(o) {
-    orientation = o;
-    document.getElementById('btnLandscape').style.background = o === 'landscape' ? 'var(--accent)' : '#333';
-    document.getElementById('btnLandscape').style.color = o === 'landscape' ? '#000' : '#fff';
-    applyDevice();
-  }
+  btn.disabled = true;
+  progressWrap.style.display = 'block';
+  statusEl.style.display = 'block';
+  document.getElementById('phoneLoading').classList.add('active');
+  document.getElementById('phonePlaceholder').classList.add('hidden');
 
-  function setShellColor(bg, border) {
-    phoneShell.style.background = bg;
-    phoneShell.style.boxShadow = `
-      0 0 0 1.5px ${border},
-      0 0 0 3px #111,
-      0 0 0 4.5px ${border},
-      0 40px 80px rgba(0,0,0,.7),
-      0 10px 30px rgba(0,0,0,.5),
-      inset 0 0 0 1px rgba(255,255,255,.06)
-    `;
+  const fd = new FormData();
+  fd.append('model', modelFile);
+  const objAssetsFiles = document.getElementById('file-obj-assets').files;
+  const groundF = document.getElementById('file-ground').files[0];
+  const envF    = document.getElementById('file-env').files[0];
+  const audioF  = document.getElementById('file-audio').files[0];
+  if (objAssetsFiles && objAssetsFiles.length > 0) {
+    for (const f of objAssetsFiles) fd.append('objAssets', f);
   }
+  if (groundF) fd.append('groundImage', groundF);
+  if (envF)    fd.append('envImage', envF);
+  if (audioF)  fd.append('audio', audioF);
 
-  // ─── Navigation ──────────────────────────────────────────────────
-  function navigate() {
-    const val = document.getElementById('urlInput').value.trim();
-    if (!val) return;
-    frame.src = val;
-  }
+  fd.append('characterName',   document.getElementById('inp-name').value || 'Vị Tướng');
+  fd.append('characterEra',    document.getElementById('inp-era').value || '');
+  fd.append('characterBio',    document.getElementById('inp-bio').value || '');
+  fd.append('characterHeight', document.getElementById('inp-height').value || '170');
 
-  function setPage(url, btn) {
-    document.getElementById('urlInput').value = url;
-    frame.src = url;
-    document.querySelectorAll('.ql').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-  }
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload');
 
-  function promptViewId(btn) {
-    const id = prompt('Nhập Asset ID (vd: 0uoVKPtM):');
-    if (id) setPage(`/view/${id.trim()}`, btn);
-  }
-
-  function reloadFrame() {
-    frame.src = frame.src;
-  }
-
-  function copyPreviewLink() {
-    const url = window.location.origin + frame.src.replace(window.location.origin, '');
-    navigator.clipboard.writeText(url).then(() => {
-      const btn = event.target;
-      btn.textContent = '✅ Copied!';
-      setTimeout(() => btn.textContent = '📋 Copy preview URL', 2000);
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded / e.total * 100);
+        progressFill.style.width = pct + '%';
+        statusEl.textContent = `⬆ Đang upload... ${pct}%`;
+      }
     });
-  }
 
-  function openInNewTab() {
-    const src = frame.getAttribute('src') || '/';
-    window.open(src, '_blank');
-  }
+    xhr.onload = function() {
+      btn.disabled = false;
+      if (xhr.status === 200) {
+        const data = JSON.parse(xhr.responseText);
+        onUploadSuccess(data);
+      } else {
+        let errMsg = 'Upload thất bại';
+        try { errMsg = JSON.parse(xhr.responseText).error || errMsg; } catch(_) {}
+        statusEl.textContent = '❌ ' + errMsg;
+        document.getElementById('phoneLoading').classList.remove('active');
+      }
+    };
+    xhr.onerror = function() {
+      btn.disabled = false;
+      statusEl.textContent = '❌ Lỗi kết nối — kiểm tra server';
+      document.getElementById('phoneLoading').classList.remove('active');
+    };
 
-  // ─── Live clock ──────────────────────────────────────────────────
-  function updateClock() {
-    const now = new Date();
-    const h = now.getHours().toString().padStart(2, '0');
-    const m = now.getMinutes().toString().padStart(2, '0');
-    document.getElementById('statusTime').textContent = `${h}:${m}`;
+    xhr.send(fd);
+  } catch (e) {
+    btn.disabled = false;
+    statusEl.textContent = '❌ ' + e.message;
+    document.getElementById('phoneLoading').classList.remove('active');
   }
-  updateClock();
-  setInterval(updateClock, 10000);
+}
 
-  // ─── URL input: Enter key ─────────────────────────────────────────
-  document.getElementById('urlInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') navigate();
+function onUploadSuccess(data) {
+  const progressFill = document.getElementById('progressFill');
+  const statusEl = document.getElementById('uploadStatus');
+  progressFill.style.width = '100%';
+
+  const viewUrl = data.url || (window.location.origin + '/view/' + data.id);
+  currentAssetUrl = viewUrl;
+
+  statusEl.textContent = '✅ Upload thành công! Đang tải preview...';
+
+  // Show in phone
+  document.getElementById('previewFrame').src = withNoCache(viewUrl);
+  document.getElementById('phoneLoading').classList.remove('active');
+  document.getElementById('phonePlaceholder').classList.add('hidden');
+  applyDevice(); // re-apply after iframe src change
+
+  // Generate QR
+  generateQR(viewUrl);
+
+  // Show results
+  const name = document.getElementById('inp-name').value;
+  const era  = document.getElementById('inp-era').value;
+  document.getElementById('charNameBadge').textContent = name || 'Model AR';
+  document.getElementById('charEraBadge').textContent = era || '';
+  document.getElementById('resultUrl').textContent = viewUrl;
+  document.getElementById('emptyResults').style.display = 'none';
+  const lr = document.getElementById('loadedResults');
+  lr.style.display = 'flex';
+  lr.style.flexDirection = 'column';
+  lr.style.alignItems = 'center';
+  lr.style.gap = '14px';
+  lr.style.width = '100%';
+
+  // Switch to results tab after short delay
+  setTimeout(() => {
+    const resultsTab = document.querySelector('.left-tabs .tab-btn:nth-child(2)');
+    switchTab('results', resultsTab);
+  }, 800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QR CODE
+// ═══════════════════════════════════════════════════════════════
+function generateQR(url) {
+  const container = document.getElementById('qrcode');
+  container.innerHTML = '';
+  if (typeof QRCode === 'undefined') {
+    // QRCode lib may still be loading — retry
+    setTimeout(() => generateQR(url), 500);
+    return;
+  }
+  qrInstance = new QRCode(container, {
+    text: url,
+    width: 160,
+    height: 160,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
   });
+}
 
-  // ─── Keyboard shortcuts ───────────────────────────────────────────
-  document.addEventListener('keydown', e => {
-    if (e.key === 'r' && !e.target.tagName.match(/INPUT|TEXTAREA/i)) reloadFrame();
-  });
+// ═══════════════════════════════════════════════════════════════
+// PHONE DEVICE / ZOOM / ORIENTATION
+// ═══════════════════════════════════════════════════════════════
+function applyDevice() {
+  const w = orientation === 'portrait' ? device.w : device.h;
+  const h = orientation === 'portrait' ? device.h : device.w;
+  const r = device.radius;
+  const z = zoom / 100;
 
-  // ─── Init ─────────────────────────────────────────────────────────
+  const shell  = document.getElementById('phoneShell');
+  const bezel  = document.getElementById('screenBezel');
+  const frame  = document.getElementById('previewFrame');
+  const island = document.getElementById('dynIsland');
+  const wrap   = document.getElementById('phoneWrap');
+
+  shell.style.borderRadius = r + 'px';
+  bezel.style.borderRadius = (r - 6) + 'px';
+  bezel.style.width  = w + 'px';
+  bezel.style.height = h + 'px';
+
+  frame.style.width  = w + 'px';
+  frame.style.height = (h - 56 - 30) + 'px';
+  frame.style.marginTop = '56px';
+
+  island.style.display = r >= 47 ? 'block' : 'none';
+
+  // Scale wrap
+  wrap.style.transform = `scale(${z})`;
+  wrap.style.transformOrigin = 'center center';
+
+  // stageEl minHeight removed — phone stage is fixed height via flex layout
+
+  document.getElementById('deviceInfoLabel').textContent = `${device.name} · ${w}×${h}`;
+}
+
+function setDevice(name, w, h, radius, btn) {
+  device = { name, w, h, radius };
+  document.querySelectorAll('.dv-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
   applyDevice();
+}
+
+function setZoom(v, btn) {
+  zoom = v;
+  document.querySelectorAll('.zoom-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyDevice();
+}
+
+function setOrientation(o, btn) {
+  orientation = o;
+  document.querySelectorAll('.orient-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyDevice();
+}
+
+function setShell(bg, border) {
+  const shell = document.getElementById('phoneShell');
+  shell.style.background = bg;
+  shell.style.boxShadow = `
+    0 0 0 1.5px ${border},
+    0 0 0 3px #111,
+    0 0 0 4.5px ${border},
+    0 50px 100px rgba(0,0,0,.8),
+    0 20px 40px rgba(0,0,0,.5),
+    inset 0 0 0 1px rgba(255,255,255,.06)
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+function navGo() {
+  const url = document.getElementById('navUrl').value.trim();
+  if (!url) return;
+  document.getElementById('previewFrame').src = url;
+  document.getElementById('phonePlaceholder').classList.add('hidden');
+}
+
+function navTo(url) {
+  document.getElementById('navUrl').value = url;
+  document.getElementById('previewFrame').src = withNoCache(url);
+  document.getElementById('phonePlaceholder').classList.add('hidden');
+}
+
+function promptAssetId() {
+  const id = prompt('Nhập Asset ID (vd: srUlVzH_):');
+  if (id) navTo('/view/' + id.trim());
+}
+
+function reloadFrame() {
+  const f = document.getElementById('previewFrame');
+  f.src = f.src;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function previewInPhone() {
+  if (currentAssetUrl) {
+    navTo(currentAssetUrl);
+  }
+}
+
+function openViewer() {
+  if (currentAssetUrl) window.open(currentAssetUrl, '_blank');
+}
+
+function openInNewTab() {
+  const src = document.getElementById('previewFrame').getAttribute('src') || '/';
+  window.open(src !== 'about:blank' ? src : '/', '_blank');
+}
+
+function copyResultLink() {
+  const txt = document.getElementById('resultUrl').textContent;
+  navigator.clipboard.writeText(txt).then(() => {
+    const b = event.target;
+    b.textContent = '✅ Copied!';
+    setTimeout(() => b.textContent = '📋 Copy', 2000);
+  });
+}
+
+function copyCurrentLink() {
+  const src = document.getElementById('previewFrame').getAttribute('src');
+  const url = src && src !== 'about:blank' ? window.location.origin + src : window.location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    const b = document.getElementById('btnCopyLink');
+    b.textContent = '✅ Copied!';
+    setTimeout(() => b.textContent = '📋 Copy link', 2000);
+  });
+}
+
+function refreshLanUrl() {
+  fetch('/api/assets')
+    .then(r => r.json())
+    .then(() => {
+      // Server is running, try to get LAN IP from current URL
+      const origin = window.location.origin;
+      document.getElementById('lanUrlDisplay').textContent = origin;
+    })
+    .catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIVE CLOCK
+// ═══════════════════════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2, '0');
+  const m = now.getMinutes().toString().padStart(2, '0');
+  document.getElementById('statusTime').textContent = `${h}:${m}`;
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+// ═══════════════════════════════════════════════════════════════
+// KEY SHORTCUTS
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'r' && !e.target.tagName.match(/INPUT|TEXTAREA/i)) reloadFrame();
+});
+document.getElementById('navUrl').addEventListener('keydown', e => {
+  if (e.key === 'Enter') navGo();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+// Support ?url= query param to pre-load an asset
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  const url = params.get('url');
+  if (url) {
+    document.getElementById('previewFrame').src = withNoCache(url);
+    document.getElementById('phonePlaceholder').classList.add('hidden');
+    currentAssetUrl = window.location.origin + url;
+    document.getElementById('navUrl').value = url;
+    // Also generate QR for this URL
+    generateQR(window.location.origin + url);
+    document.getElementById('resultUrl').textContent = window.location.origin + url;
+    document.getElementById('emptyResults').style.display = 'none';
+    const lr = document.getElementById('loadedResults');
+    lr.style.display = 'flex';
+    lr.style.flexDirection = 'column';
+    lr.style.alignItems = 'center';
+    lr.style.gap = '14px';
+    lr.style.width = '100%';
+  }
+
+  refreshLanUrl();
+  applyDevice();
+})();
 </script>
 </body>
 </html>

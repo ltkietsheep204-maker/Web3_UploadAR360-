@@ -1703,12 +1703,6 @@
     <div id="animList"></div>
   </div>
 
-  <!-- Animation Panel -->
-  <div id="animPanel">
-    <div class="anim-panel-title">⚙️ Hoạt Cảnh</div>
-    <div id="animList"></div>
-  </div>
-
   <!-- Scale Control -->
   <div id="scaleControl">
     <div class="scale-value" id="scaleValue">170cm</div>
@@ -1823,6 +1817,9 @@
   <!-- fflate MUST load before FBXLoader -->
   <script src="/lib/fflate.min.js"></script>
   <script src="/lib/FBXLoader.js"></script>
+  <script src="/lib/STLLoader.js"></script>
+  <script src="/lib/MTLLoader.js"></script>
+  <script src="/lib/OBJLoader.js"></script>
 
   <script>
     // ══════════════════════════════════════════════════════════════════════════════
@@ -1832,12 +1829,14 @@
     let model, mixer, skeletonHelper;
     let proceduralAnimator = null;
     let environmentDome = null;
+    let skyboxTexture = null;
     let assetData = null;
     let ground, grid;
     let arMode = false;
     let currentAnimAction = null;
     let availableClips = [];   // raw Three.js AnimationClip[] from loaded GLB
     let activeAnimBtn = null;  // currently highlighted animation button
+    const ENV_DOME_RADIUS = 60;
 
     // Real-world scale: 1 Three.js unit = 1 meter
     const REAL_WORLD_SCALE = true;
@@ -2189,6 +2188,34 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
+    // BOUNDS HELPERS - ignore non-renderable nodes that can blow up bounding boxes
+    // ══════════════════════════════════════════════════════════════════════════════
+    function getRenderableBoundingBox(root) {
+      const box = new THREE.Box3();
+      const tempBox = new THREE.Box3();
+      let hasMesh = false;
+
+      root.traverse(obj => {
+        if (!obj || !obj.isMesh || !obj.geometry || obj.visible === false) return;
+        if (!obj.geometry.boundingBox) obj.geometry.computeBoundingBox();
+        if (!obj.geometry.boundingBox) return;
+
+        tempBox.copy(obj.geometry.boundingBox);
+        tempBox.applyMatrix4(obj.matrixWorld);
+
+        if (!hasMesh) {
+          box.copy(tempBox);
+          hasMesh = true;
+        } else {
+          box.union(tempBox);
+        }
+      });
+
+      if (!hasMesh) return new THREE.Box3().setFromObject(root);
+      return box;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
     // AUTO-RESIZE: Scale any model to real-life human height
     // ══════════════════════════════════════════════════════════════════════════════
     function autoResizeToRealLife(loadedModel, targetHeightCM) {
@@ -2199,12 +2226,16 @@
       loadedModel.updateMatrixWorld(true);
 
       // Measure original bounding box
-      const box = new THREE.Box3().setFromObject(loadedModel);
+      const box = getRenderableBoundingBox(loadedModel);
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
 
-      const originalHeightUnits = size.y;
-      if (originalHeightUnits <= 0) {
+      const dominantAxisUnits = Math.max(size.x, size.y, size.z);
+      // Many uploaded assets are Z-up/X-up (or have tilted root transforms), so Y is
+      // not always the visual height. Prefer Y when it is reasonably close to dominant.
+      const useYAsHeight = size.y >= dominantAxisUnits * 0.6;
+      const originalHeightUnits = useYAsHeight ? size.y : dominantAxisUnits;
+      if (originalHeightUnits <= 0 || !isFinite(originalHeightUnits)) {
         console.warn('Model has zero height, cannot auto-resize');
         return { scaleFactor: 1, realHeightCM: 0 };
       }
@@ -2212,16 +2243,21 @@
       // Target: 1 unit = 1 meter in Three.js
       // So 170cm = 1.7 units
       const targetHeightUnits = targetHeightCM / 100;
-      const scaleFactor = targetHeightUnits / originalHeightUnits;
+      let scaleFactor = targetHeightUnits / originalHeightUnits;
+      // Guardrail for pathological metadata/transforms to avoid giant close-up models.
+      const minScale = 0.01;
+      const maxScale = 4.0;
+      const unclampedScale = scaleFactor;
+      scaleFactor = Math.min(maxScale, Math.max(minScale, scaleFactor));
 
-      console.log(`📐 Auto-resize: original=${originalHeightUnits.toFixed(3)} units, target=${targetHeightUnits.toFixed(3)} units (${targetHeightCM}cm), scale=${scaleFactor.toFixed(4)}`);
+      console.log(`📐 Auto-resize: bbox=(${size.x.toFixed(3)}, ${size.y.toFixed(3)}, ${size.z.toFixed(3)}), axis=${useYAsHeight ? 'Y' : 'dominant'}, original=${originalHeightUnits.toFixed(3)} units, target=${targetHeightUnits.toFixed(3)} units (${targetHeightCM}cm), scale=${scaleFactor.toFixed(4)}${unclampedScale !== scaleFactor ? ` (clamped from ${unclampedScale.toFixed(4)})` : ''}`);
 
       // Apply scale
       loadedModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
       loadedModel.updateMatrixWorld(true);
 
       // Recalculate after scaling
-      const scaledBox = new THREE.Box3().setFromObject(loadedModel);
+      const scaledBox = getRenderableBoundingBox(loadedModel);
       const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
 
       // Place feet on ground (Y=0)
@@ -2236,18 +2272,73 @@
 
       loadedModel.updateMatrixWorld(true);
 
+      // Final recenter pass: some rigs keep hidden/root offsets that can leave
+      // the visual body slightly off-center even after the first placement.
+      const recenterBox = getRenderableBoundingBox(loadedModel);
+      const recenterCenter = recenterBox.getCenter(new THREE.Vector3());
+      loadedModel.position.x -= recenterCenter.x;
+      loadedModel.position.z -= recenterCenter.z;
+      loadedModel.position.y += -recenterBox.min.y + adminYOffset;
+      loadedModel.updateMatrixWorld(true);
+
       // Verify
-      const finalBox = new THREE.Box3().setFromObject(loadedModel);
+      const finalBox = getRenderableBoundingBox(loadedModel);
       const finalHeight = finalBox.max.y - finalBox.min.y;
-      console.log(`✅ Final height: ${(finalHeight * 100).toFixed(1)}cm (target: ${targetHeightCM}cm). Feet at Y=${finalBox.min.y.toFixed(3)}`);
+      const finalCenter = finalBox.getCenter(new THREE.Vector3());
+      console.log(`✅ Final height: ${(finalHeight * 100).toFixed(1)}cm (target: ${targetHeightCM}cm). Feet at Y=${finalBox.min.y.toFixed(3)}, center=(${finalCenter.x.toFixed(3)}, ${finalCenter.y.toFixed(3)}, ${finalCenter.z.toFixed(3)})`);
 
       return { scaleFactor, realHeightCM: targetHeightCM };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // FIT CAMERA TO MODEL — works for any model size, portrait or landscape
+    // ══════════════════════════════════════════════════════════════════════════════
+    function fitCameraToModel() {
+      if (!model || !camera || !controls) return;
+
+      const box = getRenderableBoundingBox(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+
+      // Vertical FOV in radians
+      const vFovRad = camera.fov * (Math.PI / 180);
+      const aspect  = camera.aspect || (window.innerWidth / window.innerHeight);
+
+      // On portrait phone (aspect < 1) the vertical FOV constrains visibility.
+      // On landscape (aspect > 1) the horizontal (derived) FOV may be constraining.
+      // We use whichever demands the greater camera distance.
+      const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
+
+      // Distances needed so each axis fits:
+      const distForY = (size.y / 2) / Math.tan(vFovRad / 2);
+      const distForX = (size.x / 2) / Math.tan(hFovRad / 2);
+      const distForZ = (size.z / 2) / Math.tan(hFovRad / 2);
+      const distForSphere = sphere.radius / Math.sin(vFovRad / 2);
+
+      // Use the largest (most restrictive) distance, plus a comfortable 20% padding
+      const padding = 1.35;
+      const camDist = Math.max(distForY, distForX, distForZ, distForSphere) * padding;
+
+      // Position camera in front of model center
+      camera.position.set(center.x, center.y, center.z + camDist);
+      controls.target.set(center.x, center.y, center.z);
+      camera.near = Math.max(0.01, camDist * 0.01);
+      // Keep skybox dome inside camera frustum even after fitting small models.
+      camera.far  = Math.max(camDist * 10, ENV_DOME_RADIUS * 2 + 20);
+      camera.updateProjectionMatrix();
+      controls.minDistance = camDist * 0.2;
+      controls.maxDistance = camDist * 4;
+      controls.update();
+
+      console.log(`📷 fitCameraToModel: size=(${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)}), camDist=${camDist.toFixed(2)}`);
     }
 
     // Dynamic re-scale (for slider)
     function rescaleModel(newHeightCM) {
       if (!model) return;
       autoResizeToRealLife(model, newHeightCM);
+      fitCameraToModel(); // re-fit camera after every size change
       updateSizeIndicator(newHeightCM);
     }
 
@@ -2314,6 +2405,7 @@
         if (scene) scene.background = null;
         if (ground) { ground.material.opacity = 0.15; ground.material.transparent = true; }
         if (grid) grid.visible = false;
+        if (environmentDome) environmentDome.visible = false;
 
         console.log('📷 AR Camera active');
         return true;
@@ -2338,7 +2430,7 @@
 
         // Scene
         scene = new THREE.Scene();
-        scene.background = null;
+        scene.background = new THREE.Color(0x1a1a2e);
 
         // Camera - use shorter far plane on mobile to reduce depth buffer memory
         camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, IS_MOBILE ? 100 : 500);
@@ -2440,13 +2532,11 @@
         grid.visible = false;
         scene.add(grid);
 
-        // Environment dome - skip on iOS to save memory
-        if (!IS_IOS) {
-          const domeGeo = new THREE.SphereGeometry(100, IS_MOBILE ? 8 : 32, IS_MOBILE ? 4 : 16);
-          const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
-          environmentDome = new THREE.Mesh(domeGeo, domeMat);
-          scene.add(environmentDome);
-        }
+        // Environment dome - available on all devices (lower poly on iOS/mobile)
+        const domeGeo = new THREE.SphereGeometry(ENV_DOME_RADIUS, IS_IOS ? 8 : (IS_MOBILE ? 12 : 32), IS_IOS ? 4 : (IS_MOBILE ? 8 : 16));
+        const domeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, side: THREE.BackSide, transparent: true, opacity: 0 });
+        environmentDome = new THREE.Mesh(domeGeo, domeMat);
+        scene.add(environmentDome);
 
         clock = new THREE.Clock();
         setLoadingProgress(30);
@@ -2503,39 +2593,61 @@
         // Setup UI
         setupUI();
 
-        // AR camera - request on ALL devices upon initial user interaction
-        // Safari requires camera permission to happen on a direct UI interaction
-        // We initialize it here, but delay WebGL rendering until the model is ready.
-        setTimeout(() => {
-          initARCamera().then((ok) => {
-            if (ok) setLoadingProgress(50);
-          });
-        }, 300);
+        // AR camera auto-start only when there is no skybox.
+        // If a skybox exists, keep viewer in 3D mode so environment is visible.
+        if (!assetData?.envImage) {
+          setTimeout(() => {
+            initARCamera().then((ok) => {
+              if (ok) setLoadingProgress(50);
+            });
+          }, 300);
+        }
 
-        // Load environment images lazily (low priority) - skip on iOS to save memory
-        if (!IS_IOS) {
-          if (assetData?.groundImage) {
-            setTimeout(() => {
-              new THREE.TextureLoader().load(assetData.groundImage, tex => {
-                ground.material.map = tex;
-                ground.material.color.set(0xffffff);
-                ground.material.opacity = 0.8;
-                ground.material.needsUpdate = true;
-              });
-            }, 2000);
-          }
-          if (assetData?.envImage && environmentDome) {
-            setTimeout(() => {
-              new THREE.TextureLoader().load(assetData.envImage, tex => {
-                tex.mapping = THREE.EquirectangularReflectionMapping;
-                environmentDome.material.map = tex;
+        // Load environment images lazily (low priority)
+        if (assetData?.groundImage) {
+          setTimeout(() => {
+            new THREE.TextureLoader().load(assetData.groundImage, tex => {
+              ground.material.map = tex;
+              ground.material.color.set(0xffffff);
+              ground.material.opacity = 0.8;
+              ground.material.needsUpdate = true;
+            });
+          }, 2000);
+        }
+        if (assetData?.envImage) {
+          new THREE.TextureLoader().load(
+            assetData.envImage,
+            tex => {
+              tex.encoding = THREE.sRGBEncoding;
+              tex.generateMipmaps = !IS_IOS;
+              tex.minFilter = IS_IOS ? THREE.LinearFilter : THREE.LinearMipmapLinearFilter;
+              tex.magFilter = THREE.LinearFilter;
+
+              // Primary path: use scene background for guaranteed skybox visibility.
+              tex.mapping = THREE.EquirectangularReflectionMapping;
+              skyboxTexture = tex;
+              if (!arMode) {
+                scene.background = skyboxTexture;
+              }
+
+              // Keep dome as compatibility fallback for older/quirky drivers.
+              if (environmentDome) {
+                const domeTex = tex.clone();
+                domeTex.mapping = THREE.UVMapping;
+                domeTex.needsUpdate = true;
+                environmentDome.material.map = domeTex;
                 environmentDome.material.color.set(0xffffff);
-                environmentDome.material.opacity = 1;       // ← fix: was 0, dome was invisible
+                environmentDome.material.opacity = 1;
                 environmentDome.material.transparent = false;
                 environmentDome.material.needsUpdate = true;
-              });
-            }, 2000);
-          }
+                environmentDome.visible = !arMode;
+              }
+            },
+            undefined,
+            err => {
+              console.warn('Skybox load failed:', assetData.envImage, err);
+            }
+          );
         }
 
       } catch (initError) {
@@ -2721,10 +2833,12 @@
       const cleanPath = modelPath.split('?')[0].toLowerCase();
       const isFBX = cleanPath.endsWith('.fbx');
       const isGLB = cleanPath.endsWith('.glb') || cleanPath.endsWith('.gltf');
+      const isSTL = cleanPath.endsWith('.stl');
+      const isOBJ = cleanPath.endsWith('.obj');
       const fullUrl = modelPath;
       const previewUrl = assetData?.previewModel || null;
 
-      console.log('🔍 Model detection:', { modelPath, cleanPath, isFBX, isGLB, previewUrl });
+      console.log('🔍 Model detection:', { modelPath, cleanPath, isFBX, isGLB, isSTL, isOBJ, previewUrl });
 
       // ═══════════════════════════════════════════════════════════════
       // MEMORY FIX: Pause rendering during model load/parse
@@ -2763,6 +2877,16 @@
             console.error('Model load failed completely:', err2);
             hideLoading();
           });
+        } else if (isSTL) {
+          loadSTL(absUrl, onProgress, (err2) => {
+            console.error('Model load failed completely:', err2);
+            hideLoading();
+          });
+        } else if (isOBJ) {
+          loadOBJ(absUrl, assetData, onProgress, (err2) => {
+            console.error('Model load failed completely:', err2);
+            hideLoading();
+          });
         } else {
           createGLTFLoader().load(absUrl, gltf => {
             processLoadedModel(gltf.scene, gltf.animations || [], false);
@@ -2781,6 +2905,10 @@
         new THREE.FBXLoader().load(fullUrl, fbx => {
           processLoadedModel(fbx, fbx.animations || [], false);
         }, onProgress, onError);
+      } else if (isSTL) {
+        loadSTL(fullUrl, onProgress, onError);
+      } else if (isOBJ) {
+        loadOBJ(fullUrl, assetData, onProgress, onError);
       } else if (isGLB) {
         // ═══════════════════════════════════════════════════════════════
         // MOBILE: Load ONLY mobile model (< 100k verts) or preview model (11MB)
@@ -2846,6 +2974,80 @@
           processLoadedModel(gltf.scene, gltf.animations || [], false);
         }, onProgress, onError);
       }
+    }
+
+    function loadOBJ(url, asset, onProgress, onError) {
+      if (!THREE.OBJLoader) {
+        onError(new Error('OBJLoader is not available'));
+        return;
+      }
+
+      const objLoader = new THREE.OBJLoader();
+      const mtlUrl = asset?.objMtl || null;
+
+      const loadObjMesh = () => {
+        objLoader.load(url, obj => {
+          processLoadedModel(obj, [], false);
+        }, onProgress, onError);
+      };
+
+      if (!mtlUrl || !THREE.MTLLoader) {
+        loadObjMesh();
+        return;
+      }
+
+      const mtlLoader = new THREE.MTLLoader();
+      const mtlBaseUrl = mtlUrl.slice(0, mtlUrl.lastIndexOf('/') + 1);
+      mtlLoader.setResourcePath(mtlBaseUrl);
+      mtlLoader.load(mtlUrl, materials => {
+        materials.preload();
+        objLoader.setMaterials(materials);
+        loadObjMesh();
+      }, onProgress, () => {
+        console.warn('MTL load failed, loading OBJ without MTL:', mtlUrl);
+        loadObjMesh();
+      });
+    }
+
+    function loadSTL(url, onProgress, onError) {
+      if (!THREE.STLLoader) {
+        onError(new Error('STLLoader is not available'));
+        return;
+      }
+
+      const loader = new THREE.STLLoader();
+      loader.load(url, geometry => {
+        if (!geometry) {
+          onError(new Error('STL geometry is empty'));
+          return;
+        }
+
+        geometry.computeVertexNormals();
+        let material;
+        if (geometry.hasColors) {
+          const alpha = (typeof geometry.alpha === 'number') ? geometry.alpha : 1;
+          material = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.75,
+            metalness: 0.05,
+            side: THREE.DoubleSide,
+            transparent: alpha < 1,
+            opacity: alpha
+          });
+        } else {
+          material = new THREE.MeshStandardMaterial({
+            color: 0xb9b9b9,
+            roughness: 0.78,
+            metalness: 0.05,
+            side: THREE.DoubleSide
+          });
+        }
+
+        const mesh = new THREE.Mesh(geometry, material);
+        const group = new THREE.Group();
+        group.add(mesh);
+        processLoadedModel(group, [], false);
+      }, onProgress, onError);
     }
 
     // Create GLTF loader with Draco support (reuses singleton DRACOLoader)
@@ -2980,10 +3182,9 @@
         if (model && !isPreview) {
           console.log("✨ Progressive Swap: Replacing Preview Model with High-Res HD Model!");
 
-          // 1. Copy exact transform state from old model to new model
-          loadedModel.position.copy(model.position);
-          loadedModel.rotation.copy(model.rotation);
-          loadedModel.scale.copy(model.scale);
+          // 1. Recalculate center + real-world scale for HD model to avoid offset drift.
+          const targetHeightCM = assetData?.characterHeight || DEFAULT_HUMAN_HEIGHT_CM;
+          autoResizeToRealLife(loadedModel, targetHeightCM);
           loadedModel.updateMatrixWorld(true);
 
           // 2. Add new model
@@ -3003,6 +3204,9 @@
           startAnimations(loadedModel, animations);
 
           model = loadedModel;
+          fitCameraToModel();
+          // Some rigs/material updates settle one frame later; refit once more for stability.
+          setTimeout(() => fitCameraToModel(), 120);
           console.log("✨ Swap complete! HD textures loaded.");
           return;
         }
@@ -3209,16 +3413,9 @@
 
         setLoadingProgress(100);
 
-        // Adjust camera for the model FIRST (lightweight)
-        const finalBox = new THREE.Box3().setFromObject(loadedModel);
-        const fHeight = finalBox.max.y - finalBox.min.y;
-        const fCenter = new THREE.Vector3();
-        finalBox.getCenter(fCenter);
-
-        // Camera looks at model center, distance = 2.5x height for comfortable view
-        camera.position.set(0, fHeight * 0.45, fHeight * 2.5);
-        controls.target.set(0, fCenter.y, 0);
-        controls.update();
+        // Fit camera so the whole model is visible — works for any size / aspect ratio
+        fitCameraToModel();
+        setTimeout(() => fitCameraToModel(), 120);
 
         // MEMORY FIX: Stagger heavy operations instead of running all at once
         // Step 1: Hide loading immediately (let model render 1 frame first)
@@ -3324,6 +3521,7 @@
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      if (model) fitCameraToModel();
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
@@ -3341,9 +3539,10 @@
             video.srcObject = null;
           }
           arMode = false;
-          scene.background = new THREE.Color(0x1a1a2e);
+          scene.background = skyboxTexture || new THREE.Color(0x1a1a2e);
           if (ground) { ground.material.opacity = 0; ground.visible = false; }
           if (grid) grid.visible = false;
+          if (environmentDome) environmentDome.visible = !!environmentDome.material.map;
           btn.classList.remove('active');
           showToast('📷', 'Chế độ 3D');
         } else {

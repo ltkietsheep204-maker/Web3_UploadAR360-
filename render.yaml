@@ -1,10 +1,13 @@
 services:
   - type: web
     name: webar-app
-    runtime: node
     env: node
-    buildCommand: npm install && npm run optimize
+    plan: free
+    buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 20.11.0
+      - key: NODE_ENV
+        value: production
